@@ -1,0 +1,8 @@
+{
+  "name": "Remix Soulmate E-Commerce",
+  "description": "Premium botanical wellness e-commerce platform featuring customer storefront and admin back office.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

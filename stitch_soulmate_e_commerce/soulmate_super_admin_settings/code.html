@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      "colors": {
+        "tertiary": "#9e3675",
+        "on-secondary-fixed-variant": "#3b4a46",
+        "on-surface-variant": "#404945",
+        "primary-fixed": "#b2efd9",
+        "on-error-container": "#93000a",
+        "tertiary-fixed": "#ffd8e8",
+        "secondary-container": "#d6e6e0",
+        "on-tertiary-fixed-variant": "#811c5c",
+        "on-primary-container": "#2d6857",
+        "outline-variant": "#bfc9c3",
+        "on-tertiary-container": "#9e3675",
+        "inverse-primary": "#96d3bd",
+        "on-primary-fixed-variant": "#0f5040",
+        "on-secondary": "#ffffff",
+        "on-primary": "#ffffff",
+        "secondary": "#53615d",
+        "primary-fixed-dim": "#96d3bd",
+        "primary-container": "#a8e5cf",
+        "on-background": "#1c1b1b",
+        "surface-container": "#f0eded",
+        "inverse-surface": "#313030",
+        "surface-bright": "#fcf9f8",
+        "on-error": "#ffffff",
+        "tertiary-container": "#ffcae2",
+        "surface-container-low": "#f6f3f2",
+        "on-tertiary-fixed": "#3c0028",
+        "error": "#ba1a1a",
+        "secondary-fixed-dim": "#bacac4",
+        "surface-variant": "#e5e2e1",
+        "error-container": "#ffdad6",
+        "surface-tint": "#2d6857",
+        "surface-container-high": "#eae7e7",
+        "primary": "#2d6857",
+        "on-tertiary": "#ffffff",
+        "on-secondary-container": "#596763",
+        "on-secondary-fixed": "#101e1b",
+        "on-primary-fixed": "#002118",
+        "background": "#fcf9f8",
+        "on-surface": "#1c1b1b",
+        "surface-dim": "#dcd9d9",
+        "inverse-on-surface": "#f3f0ef",
+        "outline": "#707975",
+        "surface-container-highest": "#e5e2e1",
+        "surface": "#fcf9f8",
+        "secondary-fixed": "#d6e6e0",
+        "tertiary-fixed-dim": "#ffafd6",
+        "surface-container-lowest": "#ffffff"
+      },
+      "borderRadius": {
+        "DEFAULT": "0.25rem",
+        "lg": "0.5rem",
+        "xl": "0.75rem",
+        "full": "9999px"
+      },
+      "spacing": {
+        "margin-md": "1.5rem",
+        "gutter": "1rem",
+        "space-md": "1rem",
+        "space-xl": "2.5rem",
+        "space-sm": "0.5rem",
+        "space-lg": "1.5rem",
+        "gutter-sm": "0.75rem",
+        "space-xs": "0.25rem",
+        "margin": "1rem"
+      },
+      "fontFamily": {
+        "body-sm": ["Inter"],
+        "label-md": ["Inter"],
+        "body-lg": ["Inter"],
+        "label-lg": ["Inter"],
+        "headline-sm": ["Plus Jakarta Sans"],
+        "headline-xl": ["Plus Jakarta Sans"],
+        "label-sm": ["Inter"],
+        "body-md": ["Inter"],
+        "headline-md": ["Plus Jakarta Sans"],
+        "headline-lg": ["Plus Jakarta Sans"]
+      },
+      "fontSize": {
+        "body-sm": ["13px", {"lineHeight": "20px", "fontWeight": "400"}],
+        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+        "body-lg": ["16px", {"lineHeight": "26px", "fontWeight": "400"}],
+        "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+        "headline-sm": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+        "headline-xl": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+        "label-sm": ["11px", {"lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "600"}],
+        "body-md": ["14px", {"lineHeight": "22px", "fontWeight": "400"}],
+        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+        "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}]
+      }
+    }
+  }
+}</script></head><body class="bg-background font-body-md text-on-surface"><aside class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between"><div class="p-space-lg flex flex-col gap-space-md"><div class="flex items-center"><a href="/admin/dashboard" data-path="dashboard" class="flex items-center"><img alt="SOULMATE" class="h-8 w-auto object-contain" src="/logo-soulmate.png"/></a></div><div class="flex items-center justify-between px-space-sm py-space-xs bg-surface-container-low rounded-lg"><div class="flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span><span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Store: Live TH-BKK</span></div><span class="material-symbols-outlined text-outline text-[16px]">store</span></div><nav class="flex flex-col gap-space-xs mt-space-sm" data-active-classes="bg-primary-container text-on-primary-container font-semibold rounded-full"><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span>Dashboard</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="products" href="#"><span class="material-symbols-outlined text-[20px]">inventory_2</span><span>Products</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="orders" href="#"><span class="material-symbols-outlined text-[20px]">shopping_bag</span><span>Orders</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="customers" href="#"><span class="material-symbols-outlined text-[20px]">group</span><span>Customers</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="banners" href="#"><span class="material-symbols-outlined text-[20px]">photo_library</span><span>Banners</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="coupons" href="#"><span class="material-symbols-outlined text-[20px]">sell</span><span>Coupons</span></a><a aria-current="page" class="flex items-center justify-between px-space-md py-space-sm transition-colors bg-primary-container text-on-primary-container font-semibold rounded-full" data-path="settings" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">settings</span><span>Settings</span></div><span class="material-symbols-outlined text-[16px] text-on-primary-container">admin_panel_settings</span></a></nav></div><div class="p-space-lg flex flex-col gap-space-md"><div class="p-space-sm bg-surface-container-low rounded-xl flex items-center justify-between"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-primary-fixed flex items-center justify-center"><span class="material-symbols-outlined text-on-primary-fixed-variant text-[18px]">verified_user</span></div><div><p class="font-label-sm text-label-sm text-on-surface-variant font-medium">Role Access</p><p class="font-label-lg text-label-lg font-bold text-on-surface">Super Admin</p></div></div><span class="material-symbols-outlined text-outline text-[18px]">lock</span></div><a class="flex items-center gap-space-xs text-error font-label-md text-label-md px-space-sm py-space-xs hover:bg-error-container hover:text-on-error-container rounded-lg transition-colors" data-path="logout" href="#"><span class="material-symbols-outlined text-[18px]">logout</span><span>Log Out</span></a></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 px-space-lg flex items-center justify-between"><div class="flex items-center gap-space-md flex-1 max-w-lg"><div class="relative w-full"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span><input class="w-full h-10 pl-10 pr-space-md rounded-full bg-surface-container-low text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary" placeholder="ค้นหาการตั้งค่า, ข้อมูลร้านค้า..." type="text"/></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-full bg-secondary-container text-on-secondary-container"><span class="w-2 h-2 rounded-full bg-primary"></span><span class="font-label-sm text-label-sm font-medium">Cloud Firestore Connected</span></div><div class="hidden xl:flex items-center px-space-sm py-space-xs rounded-full bg-surface-container text-secondary font-label-sm text-label-sm font-medium">v2.4 Production</div><button class="relative p-space-xs rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-tertiary"></span></button><div class="flex items-center gap-space-sm pl-space-sm"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden md:flex flex-col text-left"><span class="font-label-md text-label-md font-semibold text-on-surface">Dr. Nicha S.</span><span class="font-label-sm text-label-sm text-secondary">(Super Admin)</span></div></div></div></header><main class="w-full pt-16 px-space-lg min-h-screen bg-background"><div class="flex flex-col w-full pb-24">
+<!-- Unsaved Changes Floating Banner (Interactive State) -->
+<div class="w-full bg-secondary-container text-on-secondary-container px-space-lg py-space-sm rounded-xl mb-space-lg shadow-sm flex flex-wrap items-center justify-between gap-space-md transition-all duration-300" id="unsavedBanner">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[18px]">history_toggle_off</span>
+</div>
+<div>
+<p class="font-label-lg text-label-lg font-semibold text-on-secondary-fixed">คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก</p>
+<p class="font-body-sm text-body-sm text-on-secondary-fixed-variant">การเปลี่ยนแปลงล่าสุดอาจสูญหายหากออกจากหน้านี้โดยไม่บันทึกลง Cloud Firestore</p>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<button class="px-space-md py-space-xs rounded-full bg-surface text-secondary hover:bg-surface-container font-label-md text-label-md transition-colors" onclick="discardChanges()" type="button">
+        ออกโดยไม่บันทึก
+      </button>
+<button class="px-space-md py-space-xs rounded-full bg-primary text-on-primary hover:opacity-90 font-label-md text-label-md flex items-center gap-space-xs transition-opacity shadow-sm" onclick="triggerSaveFlow()" type="button">
+<span class="material-symbols-outlined text-[16px]">save</span>
+<span>กลับไปบันทึก</span>
+</button>
+</div>
+</div>
+<!-- Header Section & Breadcrumb -->
+<header class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md mb-space-lg">
+<div class="flex flex-col gap-space-xs">
+<!-- Breadcrumb -->
+<nav class="flex items-center gap-space-xs text-secondary font-label-sm text-label-sm">
+<span class="hover:text-primary transition-colors cursor-pointer">หน้าหลัก</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-on-surface font-semibold">ตั้งค่าระบบ</span>
+</nav>
+<!-- Title & Badges -->
+<div class="flex flex-wrap items-center gap-space-sm mt-space-xs">
+<h1 class="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight">ตั้งค่าระบบ (Settings)</h1>
+<div class="flex items-center gap-space-xs px-space-sm py-0.5 rounded-full bg-tertiary-container text-on-tertiary-container font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[14px]">lock</span>
+<span>Super Admin Restricted</span>
+</div>
+<div class="flex items-center gap-space-xs px-space-sm py-0.5 rounded-full bg-surface-container-low text-secondary font-label-sm text-label-sm font-medium">
+<span class="material-symbols-outlined text-[14px] text-primary">database</span>
+<span>Cloud Firestore: settings/store</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant max-w-2xl mt-space-xs">
+        กำหนดค่าการทำงานหลักของร้านค้า SOULMATE สำหรับผู้ดูแลระบบระดับสูงสุด (Super Admin Only)
+      </p>
+</div>
+<!-- Action Toolbar -->
+<div class="flex items-center gap-space-sm self-start lg:self-center">
+<button class="h-10 px-space-lg rounded-full bg-surface-container-low text-secondary hover:bg-surface-container hover:text-on-surface font-label-lg text-label-lg transition-colors flex items-center gap-space-xs" onclick="discardChanges()" type="button">
+<span class="material-symbols-outlined text-[18px]">undo</span>
+<span>ยกเลิกการเปลี่ยนแปลง</span>
+</button>
+<button class="h-10 px-space-xl rounded-full bg-tertiary text-on-tertiary hover:opacity-95 font-label-lg text-label-lg transition-all shadow-sm flex items-center gap-space-xs group" id="saveBtnTop" onclick="triggerSaveFlow()" type="button">
+<span class="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">check_circle</span>
+<span>บันทึกการตั้งค่า</span>
+<span class="text-tertiary-fixed text-label-sm ml-space-xs bg-tertiary-container/30 px-1.5 py-0.5 rounded">Ctrl+S</span>
+</button>
+</div>
+</header>
+<!-- Role Security Notice Banner -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-[0_1px_4px_rgba(0,0,0,0.03)] mb-space-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-md">
+<div class="flex items-start gap-space-md">
+<div class="w-10 h-10 rounded-xl bg-secondary-container flex-shrink-0 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]">admin_panel_settings</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-lg text-label-lg font-bold text-on-surface">🔒 หน้านี้จำกัดสิทธิ์เฉพาะ Super Admin เท่านั้น</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+          ผู้ดูแลระบบทั่วไป (Role: Admin) จะถูกซ่อนเมนูนี้ออกจากแถบ Sidebar และปฏิเสธการเข้าถึง URL นี้โดยอัตโนมัติตามนโยบายความปลอดภัยของระบบ
+        </p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs self-end sm:self-center px-space-sm py-1 rounded-lg bg-surface-container-low text-secondary font-label-sm text-label-sm whitespace-nowrap">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>Security Policy: Enforced</span>
+</div>
+</div>
+<!-- Settings Grid Layout -->
+<form class="grid grid-cols-1 lg:grid-cols-2 gap-space-lg items-start" id="settingsForm" onsubmit="event.preventDefault(); triggerSaveFlow();">
+<!-- COLUMN 1: Store & Operational Base -->
+<div class="flex flex-col gap-space-lg">
+<!-- 1. ข้อมูลร้านค้า (Store Information) -->
+<section class="bg-surface-container-lowest rounded-xl p-space-lg shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">storefront</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">1. ข้อมูลร้านค้า</h2>
+<p class="font-label-sm text-label-sm text-secondary">ข้อมูลพื้นฐานของธุรกิจ SOULMATE สำหรับใช้ติดต่อและแสดงในใบสั่งซื้อ</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px]">badge</span>
+</div>
+<div class="flex flex-col gap-space-md mt-space-xs">
+<!-- Store Name -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface flex items-center justify-between">
+<span>ชื่อร้านค้า (Store Name) <span class="text-tertiary">*</span></span>
+<span class="font-label-sm text-label-sm text-secondary font-normal">แบรนด์หลัก</span>
+</label>
+<div class="relative">
+<input class="w-full h-11 px-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container transition-colors" name="storeName" required="" type="text" value="SOULMATE"/>
+</div>
+<p class="font-label-sm text-label-sm text-secondary">ชื่อแบรนด์หลักที่แสดงในระบบและหน้าร้านค้า สามารถแก้ไขได้</p>
+</div>
+<!-- Contact Email -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface">อีเมลติดต่อ (Contact Email)</label>
+<input class="w-full h-11 px-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container transition-colors" name="contactEmail" placeholder="ระบุอีเมลติดต่ออย่างเป็นทางการ เช่น contact@soulmate.health" type="email" value=""/>
+</div>
+<!-- Contact Phone -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface">เบอร์โทรศัพท์ (Contact Phone)</label>
+<input class="w-full h-11 px-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container transition-colors" name="contactPhone" placeholder="ระบุเบอร์โทรศัพท์ เช่น 02-XXX-XXXX" type="tel" value=""/>
+</div>
+<!-- LINE Official / Channels -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface">LINE Official / ช่องทางติดต่อ</label>
+<div class="relative">
+<input class="w-full h-11 px-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container transition-colors" name="lineOfficial" placeholder="ระบุ LINE ID หรือ URL ติดต่อ เช่น @soulmate" type="text" value=""/>
+</div>
+</div>
+<!-- Store Address -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface">ที่อยู่ร้านค้า / ที่อยู่จดทะเบียนธุรกิจ</label>
+<textarea class="w-full p-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container transition-colors resize-none" name="storeAddress" placeholder="ระบุที่อยู่จัดส่งคืนสินค้าหรือที่อยู่จดทะเบียนธุรกิจ..." rows="3"></textarea>
+</div>
+</div>
+</section>
+<!-- 2. การจัดส่ง (Shipping Settings) -->
+<section class="bg-surface-container-lowest rounded-xl p-space-lg shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">local_shipping</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">2. การจัดส่งสินค้า</h2>
+<p class="font-label-sm text-label-sm text-secondary">กำหนดค่ารูปแบบและธรรมเนียมการจัดส่ง</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" name="shippingEnabled" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-surface after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-primary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex flex-col gap-space-md mt-space-xs">
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface">ชื่อวิธีจัดส่ง (Shipping Method Name)</label>
+<input class="w-full h-11 px-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-colors" name="shippingMethodName" type="text" value="จัดส่งมาตรฐาน (Standard Delivery)"/>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+<!-- Standard Shipping Fee -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface">ค่าจัดส่งมาตรฐาน</label>
+<div class="relative flex items-center">
+<span class="absolute left-3 font-label-md text-label-md text-secondary">฿</span>
+<input class="w-full h-11 pl-8 pr-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-colors" min="0" name="standardShippingFee" type="number" value="0"/>
+</div>
+<p class="font-label-sm text-label-sm text-secondary">คิดค่าจัดส่งเริ่มต้นหากไม่เข้าเงื่อนไขส่งฟรี</p>
+</div>
+<!-- Free Shipping Threshold -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface">ส่งฟรีเมื่อยอดสั่งซื้อถึง</label>
+<div class="relative flex items-center">
+<span class="absolute left-3 font-label-md text-label-md text-secondary">฿</span>
+<input class="w-full h-11 pl-8 pr-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container transition-colors" min="0" name="freeShippingThreshold" placeholder="เว้นว่างหากไม่มีส่งฟรี" type="number" value=""/>
+</div>
+<p class="font-label-sm text-label-sm text-secondary">ยอดสินค้าถึงจำนวนนี้ ค่าจัดส่งจะเป็น ฿0 ทันที</p>
+</div>
+</div>
+<!-- Single Rate Callout Notice -->
+<div class="p-space-sm rounded-lg bg-secondary-container/40 flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-[18px] text-primary mt-0.5">tips_and_updates</span>
+<span class="font-body-sm text-body-sm text-on-secondary-fixed-variant leading-relaxed">
+<strong>ข้อสังเกต:</strong> Version 1 คิดค่าจัดส่งอัตราเดียวทั่วประเทศ (ไม่มีคิดตามน้ำหนักหรือแยกรายจังหวัด)
+            </span>
+</div>
+</div>
+</section>
+<!-- 3. การตั้งค่าคำสั่งซื้อ (Order Settings) -->
+<section class="bg-surface-container-lowest rounded-xl p-space-lg shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">3. การตั้งค่าคำสั่งซื้อ</h2>
+<p class="font-label-sm text-label-sm text-secondary">โครงสร้างและวงจรสถานะคำสั่งซื้อ</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px]">tune</span>
+</div>
+<div class="flex flex-col gap-space-md mt-space-xs">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+<!-- Order Prefix -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface">คำนำหน้าเลขคำสั่งซื้อ</label>
+<input class="w-full h-11 px-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-colors font-mono" name="orderPrefix" type="text" value="SM-"/>
+<p class="font-label-sm text-label-sm text-secondary">เช่น SM-20250001</p>
+</div>
+<!-- Default Order Status -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface">สถานะเริ่มต้นของคำสั่งซื้อใหม่</label>
+<div class="h-11 px-space-md rounded-lg bg-surface-container text-secondary font-body-md text-body-md flex items-center justify-between cursor-not-allowed select-none">
+<span>รอยืนยันคำสั่งซื้อ (Default Status)</span>
+<span class="material-symbols-outlined text-[18px]">lock</span>
+</div>
+<p class="font-label-sm text-label-sm text-secondary">กำหนดตามเวิร์กโฟลว์ความปลอดภัย</p>
+</div>
+</div>
+<!-- Checkbox Toggles -->
+<div class="flex flex-col gap-space-sm pt-space-xs">
+<label class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">remove_shopping_cart</span>
+<div>
+<p class="font-label-md text-label-md font-semibold text-on-surface">ล้างตะกร้าสินค้าอัตโนมัติ (Auto-clear Cart)</p>
+<p class="font-label-sm text-label-sm text-secondary">ล้างรายการสินค้าในตะกร้าทันทีเมื่อลูกค้าสั่งซื้อและยืนยันสำเร็จ</p>
+</div>
+</div>
+<input checked="" class="w-4 h-4 accent-primary rounded cursor-pointer" name="autoClearCart" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">task_alt</span>
+<div>
+<p class="font-label-md text-label-md font-semibold text-on-surface">แสดงหน้ายืนยันคำสั่งซื้อสำเร็จ (Order Success Page)</p>
+<p class="font-label-sm text-label-sm text-secondary">นำทางไปยังหน้ารายละเอียดออเดอร์พร้อมสรุปและช่องทางติดตามพัสดุ</p>
+</div>
+</div>
+<input checked="" class="w-4 h-4 accent-primary rounded cursor-pointer" name="showSuccessPage" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">payments</span>
+<div>
+<p class="font-label-md text-label-md font-semibold text-on-surface">อนุญาตให้เลือกเก็บเงินปลายทางในหน้า Checkout</p>
+<p class="font-label-sm text-label-sm text-secondary">แสดงตัวเลือกเก็บเงินปลายทางหากเปิดใช้งานในโมดูลวิธีชำระเงิน</p>
+</div>
+</div>
+<input checked="" class="w-4 h-4 accent-primary rounded cursor-pointer" name="allowCodAtCheckout" type="checkbox"/>
+</label>
+</div>
+</div>
+</section>
+</div>
+<!-- COLUMN 2: Payment, Storefront & Technical Security -->
+<div class="flex flex-col gap-space-lg">
+<!-- 4. วิธีชำระเงิน (Payment Settings) -->
+<section class="bg-surface-container-lowest rounded-xl p-space-lg shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-tertiary-container text-on-tertiary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">account_balance_wallet</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">4. วิธีชำระเงิน</h2>
+<p class="font-label-sm text-label-sm text-secondary">เปิด/ปิดช่องทางการชำระเงินที่ลูกค้าสามารถเลือกได้ในหน้า Checkout</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px]">credit_score</span>
+</div>
+<div class="flex flex-col gap-space-md mt-space-xs">
+<!-- Item 1: COD -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-xs transition-all">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[22px]">local_atm</span>
+<span class="font-label-lg text-label-lg font-bold text-on-surface">เก็บเงินปลายทาง (Cash on Delivery - COD)</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" name="paymentCod" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-surface after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-primary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant pl-8">
+              ลูกค้าชำระเงินกับพนักงานขนส่งเมื่อได้รับพัสดุ สถานะคำสั่งซื้อจะเริ่มต้นที่ “รอชำระเงิน” เสมอ
+            </p>
+</div>
+<!-- Item 2: PromptPay / QR Payment -->
+<div class="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-xs transition-all">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[22px]">qr_code_2</span>
+<span class="font-label-lg text-label-lg font-bold text-on-surface">PromptPay / QR Payment</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" name="paymentPromptPay" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-surface after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-primary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center gap-space-xs pl-8 mt-1">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-fixed-variant font-label-sm text-label-sm font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">security</span>
+<span>Secure Server-Side Config</span>
+</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant pl-8 mt-1">
+              เชื่อมต่อบัญชีพร้อมเพย์สำหรับสแกนจ่ายแบบ Real-time (ไม่มีการเก็บ Secret Key ใน Firestore ฝั่ง Client)
+            </p>
+</div>
+<!-- Item 3: Credit/Debit Card -->
+<div class="p-space-md rounded-xl bg-surface-container-low/70 flex flex-col gap-space-xs transition-all opacity-85">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-[22px]">credit_card</span>
+<span class="font-label-lg text-label-lg font-bold text-on-surface">บัตรเครดิต / บัตรเดบิต (Credit / Debit Card)</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" name="paymentCreditCard" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-surface after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-primary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center gap-space-xs pl-8 mt-1">
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-secondary font-label-sm text-label-sm">
+                รอเชื่อมต่อ Payment Gateway ในอนาคต
+              </span>
+</div>
+<p class="font-body-sm text-body-sm text-secondary pl-8 mt-1">
+              รองรับ VISA, Mastercard, JCB ผ่านช่องทาง Payment Gateway ที่ได้รับอนุญาต
+            </p>
+</div>
+</div>
+</section>
+<!-- 5. หน้าร้านค้า (Storefront Settings) -->
+<section class="bg-surface-container-lowest rounded-xl p-space-lg shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">web</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">5. การแสดงผลหน้าร้านค้า</h2>
+<p class="font-label-sm text-label-sm text-secondary">ควบคุมการแสดงผลส่วนต่างๆ บนหน้าร้านฝั่งผู้ใช้งาน (Mobile &amp; Desktop)</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px]">view_quilt</span>
+</div>
+<div class="flex flex-col gap-space-md mt-space-xs">
+<label class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">view_carousel</span>
+<div>
+<p class="font-label-md text-label-md font-semibold text-on-surface">แสดง Banner หลักบนหน้า Home</p>
+<p class="font-label-sm text-label-sm text-secondary">จัดการรูปภาพแบนเนอร์ได้ที่เมนู /admin/banners</p>
+</div>
+</div>
+<input checked="" class="w-4 h-4 accent-primary rounded cursor-pointer" name="showHomeBanner" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">category</span>
+<div>
+<p class="font-label-md text-label-md font-semibold text-on-surface">แสดงหมวดหมู่และรายการสินค้าหน้า Home</p>
+<p class="font-label-sm text-label-sm text-secondary">นำเสนอแคตตาล็อกสินค้าแนะนำและกลุ่มผลิตภัณฑ์เพื่อสุขภาพ</p>
+</div>
+</div>
+<input checked="" class="w-4 h-4 accent-primary rounded cursor-pointer" name="showHomeCategories" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">campaign</span>
+<div>
+<p class="font-label-md text-label-md font-semibold text-on-surface">เปิดใช้งาน Announcement Bar แถบบนสุดของเว็บไซต์</p>
+<p class="font-label-sm text-label-sm text-secondary">แถบข้อความโปรโมชันหรือประกาศสำคัญด้านบนสุดของหน้าเว็บ</p>
+</div>
+</div>
+<input checked="" class="w-4 h-4 accent-primary rounded cursor-pointer" name="showAnnouncementBar" type="checkbox"/>
+</label>
+<div class="flex flex-col gap-space-xs mt-space-xs">
+<label class="font-label-md text-label-md font-semibold text-on-surface">ข้อความ Announcement Bar (Announcement Message)</label>
+<input class="w-full h-11 px-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container transition-colors" name="announcementText" placeholder="ระบุข้อความประกาศ เช่น ส่งฟรีทุกออเดอร์ หรือต้อนรับสมาชิกใหม่..." type="text" value=""/>
+<p class="font-label-sm text-label-sm text-secondary">จะแสดงที่แถบบนสุดของหน้าร้าน หากเว้นว่างจะไม่แสดงแถบประกาศ</p>
+</div>
+</div>
+</section>
+<!-- 6. การตั้งค่าระบบพื้นฐาน & ข้อมูลทางเทคนิค (System Meta & Security) -->
+<section class="bg-surface-container-lowest rounded-xl p-space-lg shadow-[0_1px_4px_rgba(0,0,0,0.03)] flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">dns</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">6. การตั้งค่าระบบและความปลอดภัย</h2>
+<p class="font-label-sm text-label-sm text-secondary">สถานะโครงสร้างพื้นฐานระดับคลาวด์และนโยบายความเป็นส่วนตัว</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px]">encrypted</span>
+</div>
+<div class="flex flex-col gap-space-xs divide-y divide-surface-container">
+<div class="py-space-xs flex items-center justify-between text-body-sm">
+<span class="text-secondary">ที่จัดเก็บการตั้งค่า:</span>
+<span class="font-mono text-on-surface font-medium bg-surface-container-low px-2 py-0.5 rounded">settings/store</span>
+</div>
+<div class="py-space-xs flex items-center justify-between text-body-sm">
+<span class="text-secondary">สิทธิ์การเข้าถึง:</span>
+<span class="text-on-surface font-medium">Super Admin (Read/Write) | Admin (No Access)</span>
+</div>
+<div class="py-space-xs flex items-center justify-between text-body-sm">
+<span class="text-secondary">ความปลอดภัยข้อมูลลับ:</span>
+<span class="text-primary font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">verified</span>
+              Zero Secrets in Client
+            </span>
+</div>
+<div class="py-space-xs flex items-center justify-between text-body-sm">
+<span class="text-secondary">อัปเดตล่าสุด:</span>
+<span class="text-secondary flex items-center gap-1 font-label-sm">
+<span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+              กำลังเชื่อมต่อฐานข้อมูลตามเวลาจริง
+            </span>
+</div>
+</div>
+<!-- Technical Secret Note Box -->
+<div class="p-space-sm rounded-lg bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm leading-relaxed">
+<div class="flex items-center gap-1 font-semibold text-on-surface mb-0.5">
+<span class="material-symbols-outlined text-[15px] text-primary">shield</span>
+<span>Cloud Architecture Security Note</span>
+</div>
+          API Keys และ Service Credentials ถูกจัดเก็บอย่างปลอดภัยบน Cloud Functions / Google Secret Manager เท่านั้น ไม่มีการจัดเก็บในเอกสาร Firestore ฝั่ง Client
+        </div>
+<!-- Fallback Simulation Box -->
+<div class="p-space-sm rounded-lg bg-surface-container text-secondary flex items-center justify-between gap-space-sm mt-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[16px] text-outline">info</span>
+<span class="font-label-sm text-label-sm">กรณีโหลดไม่สำเร็จ ระบบจะแสดงข้อความพร้อมปุ่มกด</span>
+</div>
+<button class="px-space-sm py-1 rounded bg-surface-container-lowest text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm transition-colors flex items-center gap-1" onclick="simulateRetry()" type="button">
+<span class="material-symbols-outlined text-[14px]">refresh</span>
+<span>ลองอีกครั้ง</span>
+</button>
+</div>
+</section>
+</div>
+</form>
+<!-- Sticky Desktop/Mobile Save Action Bar -->
+<aside class="fixed bottom-0 left-0 lg:left-72 right-0 bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_-2px_10px_rgba(0,0,0,0.05)] p-space-md z-30 flex items-center justify-between">
+<div class="flex items-center gap-space-sm text-secondary font-label-sm text-label-sm">
+<span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+<span class="hidden sm:inline" id="saveStatusNote">พร้อมอัปเดตข้อมูลไปยัง Firestore</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<button class="px-space-lg py-space-sm rounded-full bg-surface-container-low text-secondary hover:bg-surface-container hover:text-on-surface font-label-lg text-label-lg transition-colors" onclick="discardChanges()" type="button">
+        ยกเลิก
+      </button>
+<button class="px-space-xl py-space-sm rounded-full bg-tertiary text-on-tertiary hover:opacity-95 font-label-lg text-label-lg transition-all shadow-sm flex items-center gap-space-xs" id="saveBtnBottom" onclick="triggerSaveFlow()" type="button">
+<span class="material-symbols-outlined text-[18px]" id="saveIconBottom">check_circle</span>
+<span id="saveTextBottom">บันทึกการตั้งค่า</span>
+</button>
+</div>
+</aside>
+<!-- Toast Notification Container -->
+<div class="fixed top-20 right-6 z-50 transform translate-y-4 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-space-sm px-space-md py-space-sm rounded-xl bg-on-background text-inverse-on-surface shadow-xl" id="toastSuccess">
+<div class="w-6 h-6 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">done</span>
+</div>
+<div class="flex flex-col">
+<p class="font-label-md text-label-md font-semibold">บันทึกการตั้งค่าเรียบร้อยแล้ว</p>
+<p class="font-label-sm text-label-sm text-secondary">Cloud Firestore settings/store ซิงค์สำเร็จ</p>
+</div>
+</div>
+<script>
+    let isSaving = false;
+
+    function triggerSaveFlow() {
+      if (isSaving) return;
+      isSaving = true;
+
+      const saveBtnTop = document.getElementById('saveBtnTop');
+      const saveBtnBottom = document.getElementById('saveBtnBottom');
+      const saveTextBottom = document.getElementById('saveTextBottom');
+      const saveIconBottom = document.getElementById('saveIconBottom');
+      const statusNote = document.getElementById('saveStatusNote');
+      const banner = document.getElementById('unsavedBanner');
+
+      if (saveBtnTop) saveBtnTop.classList.add('opacity-75', 'pointer-events-none');
+      if (saveBtnBottom) saveBtnBottom.classList.add('opacity-75', 'pointer-events-none');
+      if (saveTextBottom) saveTextBottom.innerText = 'กำลังบันทึก...';
+      if (saveIconBottom) {
+        saveIconBottom.innerText = 'sync';
+        saveIconBottom.classList.add('animate-spin');
+      }
+      if (statusNote) statusNote.innerText = 'กำลังส่งข้อมูลไปยัง settings/store...';
+
+      setTimeout(() => {
+        isSaving = false;
+        if (saveBtnTop) saveBtnTop.classList.remove('opacity-75', 'pointer-events-none');
+        if (saveBtnBottom) saveBtnBottom.classList.remove('opacity-75', 'pointer-events-none');
+        if (saveTextBottom) saveTextBottom.innerText = 'บันทึกการตั้งค่า';
+        if (saveIconBottom) {
+          saveIconBottom.innerText = 'check_circle';
+          saveIconBottom.classList.remove('animate-spin');
+        }
+        if (statusNote) statusNote.innerText = 'อัปเดตข้อมูลล่าสุดเมื่อสักครู่';
+
+        if (banner) {
+          banner.classList.add('opacity-0', '-translate-y-2');
+          setTimeout(() => banner.style.display = 'none', 300);
+        }
+
+        showToast();
+      }, 750);
+    }
+
+    function discardChanges() {
+      const banner = document.getElementById('unsavedBanner');
+      if (banner) {
+        banner.classList.add('opacity-0', '-translate-y-2');
+        setTimeout(() => banner.style.display = 'none', 300);
+      }
+      const form = document.getElementById('settingsForm');
+      if (form) form.reset();
+      const statusNote = document.getElementById('saveStatusNote');
+      if (statusNote) statusNote.innerText = 'ยกเลิกการเปลี่ยนแปลงทั้งหมดแล้ว';
+    }
+
+    function showToast() {
+      const toast = document.getElementById('toastSuccess');
+      if (!toast) return;
+      toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 3500);
+    }
+
+    function simulateRetry() {
+      const statusNote = document.getElementById('saveStatusNote');
+      if (statusNote) {
+        statusNote.innerText = 'กำลังตรวจสอบการเชื่อมต่อ Firestore...';
+        setTimeout(() => {
+          statusNote.innerText = 'การเชื่อมต่อสถานะปกติ (Connected)';
+        }, 500);
+      }
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        triggerSaveFlow();
+      }
+    });
+  </script>
+</div></main></div></body></html>

@@ -1,0 +1,602 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-primary":"#ffffff","on-tertiary-fixed":"#3c0028","outline-variant":"#bfc9c3","on-tertiary-container":"#9e3675","tertiary-container":"#ffcae2","surface-container":"#f0eded","secondary-fixed-dim":"#bacac4","on-error-container":"#93000a","tertiary":"#9e3675","tertiary-fixed":"#ffd8e8","on-primary-fixed":"#002118","error":"#ba1a1a","primary-container":"#a8e5cf","surface-container-lowest":"#ffffff","surface-bright":"#fcf9f8","on-primary-fixed-variant":"#0f5040","surface-variant":"#e5e2e1","secondary-fixed":"#d6e6e0","background":"#fcf9f8","tertiary-fixed-dim":"#ffafd6","on-primary-container":"#2d6857","on-tertiary":"#ffffff","on-error":"#ffffff","outline":"#707975","on-secondary":"#ffffff","on-secondary-fixed-variant":"#3b4a46","surface-dim":"#dcd9d9","on-secondary-fixed":"#101e1b","on-secondary-container":"#596763","surface-container-low":"#f6f3f2","on-surface-variant":"#404945","on-surface":"#1c1b1b","inverse-surface":"#313030","surface-container-high":"#eae7e7","surface-container-highest":"#e5e2e1","on-tertiary-fixed-variant":"#811c5c","surface":"#fcf9f8","primary-fixed":"#b2efd9","primary-fixed-dim":"#96d3bd","secondary-container":"#d6e6e0","surface-tint":"#2d6857","on-background":"#1c1b1b","primary":"#2d6857","secondary":"#53615d","inverse-on-surface":"#f3f0ef","inverse-primary":"#96d3bd","error-container":"#ffdad6"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-md":"1rem","space-xs":"0.25rem","gutter-sm":"0.75rem","space-lg":"1.5rem","gutter":"1rem","margin-md":"1.5rem","space-xl":"2.5rem","margin":"1rem","space-sm":"0.5rem"},"fontFamily":{"body-sm":["Inter"],"headline-md":["Plus Jakarta Sans"],"body-lg":["Inter"],"headline-xl":["Plus Jakarta Sans"],"label-sm":["Inter"],"headline-lg":["Plus Jakarta Sans"],"label-lg":["Inter"],"headline-sm":["Plus Jakarta Sans"],"label-md":["Inter"],"body-md":["Inter"]},"fontSize":{"body-sm":["13px",{"lineHeight":"20px","fontWeight":"400"}],"headline-md":["20px",{"lineHeight":"28px","fontWeight":"600"}],"body-lg":["16px",{"lineHeight":"26px","fontWeight":"400"}],"headline-xl":["32px",{"lineHeight":"40px","letterSpacing":"-0.02em","fontWeight":"700"}],"label-sm":["11px",{"lineHeight":"14px","letterSpacing":"0.02em","fontWeight":"600"}],"headline-lg":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"label-lg":["14px",{"lineHeight":"20px","letterSpacing":"0.01em","fontWeight":"600"}],"headline-sm":["18px",{"lineHeight":"24px","fontWeight":"600"}],"label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.01em","fontWeight":"500"}],"body-md":["14px",{"lineHeight":"22px","fontWeight":"400"}]}}}}</script></head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased"><aside class="fixed top-0 left-0 bottom-0 z-50 w-[260px] bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] flex flex-col justify-between -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out"><div class="flex flex-col flex-1 min-h-0"><div class="h-16 px-space-md flex items-center justify-between"><a data-route="/admin/dashboard" data-path="admin-dashboard" href="/admin/dashboard" class="flex items-center"><img alt="SOULMATE" class="h-8 w-auto object-contain" src="/logo-soulmate.png"/></a><button class="lg:hidden flex items-center justify-center text-on-surface-variant hover:text-on-surface p-space-xs" type="button"><span class="material-symbols-outlined text-[20px]">close</span></button></div><div class="px-space-md py-space-xs"><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Management</span></div><nav class="flex-1 overflow-y-auto px-space-sm space-y-space-xs" data-active-classes="bg-primary-container text-on-primary-container font-semibold rounded-xl"><a data-route="/admin/dashboard" class="flex items-center gap-space-sm px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label-lg text-label-lg" data-path="admin-dashboard" href="/admin/dashboard"><span class="material-symbols-outlined text-[20px]">dashboard</span><span class="">Dashboard</span></a><a data-route="/admin/products" aria-current="page" class="flex items-center gap-space-sm px-space-md py-space-sm transition-colors bg-primary-container text-on-primary-container font-semibold rounded-xl" data-path="admin-products" href="/admin/products"><span class="material-symbols-outlined text-[20px]">inventory_2</span><span class="">Products</span></a><a data-route="/admin/orders" class="flex items-center gap-space-sm px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label-lg text-label-lg" data-path="admin-orders" href="/admin/orders"><span class="material-symbols-outlined text-[20px]">shopping_bag</span><span class="">Orders</span></a><a data-route="/admin/customers" class="flex items-center gap-space-sm px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label-lg text-label-lg" data-path="admin-customers" href="/admin/customers"><span class="material-symbols-outlined text-[20px]">group</span><span class="">Customers</span></a><a data-route="/admin/banners" class="flex items-center gap-space-sm px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label-lg text-label-lg" data-path="admin-banners" href="/admin/banners"><span class="material-symbols-outlined text-[20px]">view_carousel</span><span class="">Banners</span></a><a data-route="/admin/coupons" class="flex items-center gap-space-sm px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label-lg text-label-lg" data-path="admin-coupons" href="/admin/coupons"><span class="material-symbols-outlined text-[20px]">loyalty</span><span class="">Coupons</span></a><a data-route="/admin/settings" class="flex items-center gap-space-sm px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label-lg text-label-lg" data-path="admin-settings" href="/admin/settings"><span class="material-symbols-outlined text-[20px]">settings</span><span class="">Settings</span></a></nav></div><div class="p-space-md space-y-space-sm"><div class="p-space-sm rounded-xl bg-surface-container-low flex items-center justify-between"><div class="flex flex-col"><span class="font-label-sm text-label-sm text-on-surface-variant">Privilege</span><span class="font-label-md text-label-md text-tertiary font-semibold">Super Admin</span></div><div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div></div><a class="flex items-center justify-center gap-space-xs w-full py-space-sm rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" data-path="admin-login" href="#"><span class="material-symbols-outlined text-[18px] text-error">logout</span><span class="text-error font-medium">Log out</span></a></div></aside><div class="w-full lg:pl-[260px]"><header class="fixed top-0 left-0 lg:left-[260px] right-0 h-16 z-40 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 w-full px-space-md lg:px-space-lg flex items-center justify-between"><div class="flex items-center gap-space-sm"><button class="lg:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-surface-container-low text-on-surface hover:bg-surface-container transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">menu</span></button><div class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-full bg-primary-container/40"><span class="w-2 h-2 rounded-full bg-primary"></span><span class="font-label-sm text-label-sm text-on-primary-container font-medium">Cloud Sync Active</span></div></div><div class="flex items-center gap-space-sm lg:gap-space-md"><div class="hidden sm:flex items-center gap-space-xs"><button class="w-9 h-9 rounded-xl flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">search</span></button><button class="relative w-9 h-9 rounded-xl flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-tertiary"></span></button></div><div class="h-6 w-[1px] bg-surface-container-highest hidden sm:block"></div><span class="hidden md:inline-flex px-space-sm py-space-xs rounded-lg bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold uppercase">Admin</span><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-surface"><div class="flex flex-col w-full">
+<div class="p-margin sm:p-margin-md lg:p-space-xl max-w-7xl mx-auto w-full space-y-space-lg">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-md">
+<div class="space-y-space-xs">
+<a class="inline-flex items-center gap-space-xs font-label-md text-label-md text-secondary hover:text-primary transition-colors group" data-path="admin-products" href="#">
+<span class="material-symbols-outlined text-[18px] group-hover:-translate-x-1 transition-transform">arrow_back</span>
+<span class="">กลับไปหน้ารายการสินค้า</span>
+</a>
+<div class="flex items-baseline gap-space-sm pt-space-xs">
+<h1 class="font-headline-xl text-headline-xl text-on-surface tracking-tight">เพิ่มสินค้า</h1>
+<span class="font-label-sm text-label-sm uppercase px-space-xs py-0.5 rounded-full bg-primary-container text-on-primary-container font-semibold tracking-wider">New Item</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<a class="px-space-md py-space-sm rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-label-lg text-label-lg transition-colors text-center" data-path="admin-products" href="#">
+          ยกเลิก
+        </a>
+<button id="btnSaveDraft" class="px-space-md py-space-sm rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-label-lg text-label-lg transition-colors flex items-center gap-space-xs shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">save</span>
+<span class="">บันทึกแบบร่าง</span>
+</button>
+<button id="btnPublishProduct" class="px-space-lg py-space-sm rounded-xl bg-tertiary hover:opacity-95 active:scale-[0.98] text-on-tertiary font-label-lg text-label-lg shadow-sm transition-all flex items-center gap-space-xs" type="button">
+<span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+<span class="">เผยแพร่สินค้า</span>
+</button>
+</div>
+</div>
+<form class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start" id="productForm" onsubmit="event.preventDefault();">
+<div class="lg:col-span-8 space-y-space-lg"><div class="rounded-xl bg-surface-container-lowest p-space-md sm:p-space-lg shadow-sm space-y-space-md"><div class="flex items-center justify-between"><div class="flex items-center gap-space-sm"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span><h2 class="font-headline-sm text-headline-sm text-on-surface">รูปสินค้า (Product Images)</h2></div><span class="font-label-sm text-label-sm text-secondary">แนะนำ 1:1 Square (1080 × 1080px)</span></div><input
+  type="file"
+  id="productImageFileInput"
+  accept="image/jpeg,image/png,image/webp"
+  multiple
+  class="hidden"
+  style="display:none;"
+/>
+<label
+  for="productImageFileInput"
+  id="productImageDropzone"
+  role="button"
+  tabindex="0"
+  class="p-space-lg rounded-xl bg-surface-container-low flex flex-col items-center justify-center text-center group cursor-pointer hover:bg-surface-container transition-colors border-2 border-dashed border-outline-variant"
+>
+  <div class="w-14 h-14 rounded-full bg-primary-container flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+    <span class="material-symbols-outlined text-[28px]">add_photo_alternate</span>
+  </div>
+
+  <p class="font-headline-sm text-headline-sm text-on-surface mt-space-sm">
+    อัปโหลดรูปสินค้า
+  </p>
+
+  <p class="font-body-sm text-body-sm text-secondary mt-space-xs">
+    ลากไฟล์มาวาง หรือคลิกเพื่อเลือกรูป
+    (รองรับ PNG, JPG, WEBP สูงสุด 5MB, ได้สูงสุด 8 ภาพ)
+  </p>
+
+  <span
+    id="btnChooseImage"
+    class="mt-space-md px-space-md py-space-xs rounded-full bg-surface-container-lowest shadow-sm text-on-surface font-label-md text-label-md flex items-center gap-space-xs cursor-pointer hover:bg-surface-container transition-colors"
+  >
+    <span class="material-symbols-outlined text-tertiary text-[18px]">
+      cloud_upload
+    </span>
+    <span>เลือกไฟล์จากเครื่อง</span>
+  </span>
+</label><div class="flex items-center gap-space-xs text-secondary font-body-sm text-body-sm bg-surface-container-low p-space-sm rounded-lg"><span class="material-symbols-outlined text-primary text-[18px]">info</span><span class="">ภาพแรกหรือภาพที่มีป้าย <strong>[รูปหลัก]</strong> จะแสดงผลบนการ์ดสินค้าหน้าร้านและหน้าแรก</span></div><div><span class="font-label-md text-label-md text-on-surface font-semibold block mb-space-sm">ตัวอย่างช่องแสดงผลภาพ (Image Previews)</span><div id="productImagePreviewsGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-space-md"><div class="aspect-square rounded-xl bg-surface-container-low flex flex-col items-center justify-center p-space-sm relative text-center group"><span class="absolute top-2 left-2 px-space-xs py-0.5 rounded bg-primary text-on-primary font-label-sm text-label-sm font-semibold">รูปหลัก</span><div class="absolute top-2 right-2 flex items-center gap-0.5 opacity-80 group-hover:opacity-100"><button type="button" class="w-6 h-6 rounded bg-surface-container-lowest shadow-sm flex items-center justify-center text-on-surface hover:text-error transition-colors" title="ลบรูปภาพ"><span class="material-symbols-outlined text-[14px]">close</span></button></div><span class="material-symbols-outlined text-outline text-[32px]">image</span><span class="font-label-sm text-label-sm text-outline mt-1">ยังไม่มีรูปภาพ</span></div><div class="aspect-square rounded-xl bg-surface-container-low flex flex-col items-center justify-center p-space-sm relative text-center group"><div class="absolute top-2 right-2 flex items-center gap-0.5 opacity-80 group-hover:opacity-100"><button type="button" class="w-6 h-6 rounded bg-surface-container-lowest shadow-sm flex items-center justify-center text-on-surface hover:text-primary transition-colors" title="ตั้งเป็นรูปหลัก"><span class="material-symbols-outlined text-[14px]">star</span></button><button type="button" class="w-6 h-6 rounded bg-surface-container-lowest shadow-sm flex items-center justify-center text-on-surface hover:text-error transition-colors" title="ลบรูปภาพ"><span class="material-symbols-outlined text-[14px]">close</span></button></div><span class="material-symbols-outlined text-outline text-[28px]">image</span><span class="font-label-sm text-label-sm text-outline mt-1">สล็อตภาพที่ 2</span></div><div class="aspect-square rounded-xl bg-surface-container-low flex flex-col items-center justify-center p-space-sm relative text-center group"><div class="absolute top-2 right-2 flex items-center gap-0.5 opacity-80 group-hover:opacity-100"><button type="button" class="w-6 h-6 rounded bg-surface-container-lowest shadow-sm flex items-center justify-center text-on-surface hover:text-primary transition-colors" title="ตั้งเป็นรูปหลัก"><span class="material-symbols-outlined text-[14px]">star</span></button><button type="button" class="w-6 h-6 rounded bg-surface-container-lowest shadow-sm flex items-center justify-center text-on-surface hover:text-error transition-colors" title="ลบรูปภาพ"><span class="material-symbols-outlined text-[14px]">close</span></button></div><span class="material-symbols-outlined text-outline text-[28px]">image</span><span class="font-label-sm text-label-sm text-outline mt-1">สล็อตภาพที่ 3</span></div><div class="aspect-square rounded-xl bg-surface-container-low flex flex-col items-center justify-center p-space-sm relative text-center group"><div class="absolute top-2 right-2 flex items-center gap-0.5 opacity-80 group-hover:opacity-100"><button type="button" class="w-6 h-6 rounded bg-surface-container-lowest shadow-sm flex items-center justify-center text-on-surface hover:text-primary transition-colors" title="ตั้งเป็นรูปหลัก"><span class="material-symbols-outlined text-[14px]">star</span></button><button type="button" class="w-6 h-6 rounded bg-surface-container-lowest shadow-sm flex items-center justify-center text-on-surface hover:text-error transition-colors" title="ลบรูปภาพ"><span class="material-symbols-outlined text-[14px]">close</span></button></div><span class="material-symbols-outlined text-outline text-[28px]">image</span><span class="font-label-sm text-label-sm text-outline mt-1">สล็อตภาพที่ 4</span></div></div></div></div><div class="rounded-xl bg-surface-container-lowest p-space-md sm:p-space-lg shadow-sm space-y-space-md"><div class="flex items-center justify-between pb-space-xs border-b-0"><div class="flex items-center gap-space-sm"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span><h2 class="font-headline-sm text-headline-sm text-on-surface">ข้อมูลสินค้า (Basic Info)</h2></div><span class="font-label-sm text-label-sm text-secondary">จำเป็นสำหรับระบุตัวตนสินค้า</span></div><div class="space-y-space-sm"><label class="block font-label-md text-label-md text-on-surface font-semibold" for="prodName">ชื่อสินค้า <span class="text-error">*</span></label><input class="w-full h-12 px-space-md rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40 transition-shadow" id="prodName" placeholder="ระบุชื่อสินค้า เช่น SOULMATE Botanical Glow Serum" type="text"></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md"><div class="space-y-space-xs"><div class="flex items-center justify-between"><label class="block font-label-md text-label-md text-on-surface font-semibold" for="prodSlug">Slug (URL)</label><button class="font-label-sm text-label-sm text-primary flex items-center gap-0.5 hover:underline" id="toggleSlugManual" type="button"><span class="material-symbols-outlined text-[14px]">edit</span><span class="">แก้ไขด้วยตนเอง</span></button></div><div class="relative flex items-center"><span class="absolute left-space-md font-body-sm text-body-sm text-outline select-none">/shop/</span><input class="w-full h-12 pl-16 pr-space-md rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40 transition-shadow" id="prodSlug" placeholder="soulmate-botanical-glow-serum" type="text"></div><p class="font-label-sm text-label-sm text-secondary flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-primary">auto_mode</span>สร้างอัตโนมัติจากชื่อสินค้าเมื่อว่างไว้</p></div><div class="space-y-space-xs"><label class="block font-label-md text-label-md text-on-surface font-semibold" for="prodSku">SKU (Stock Keeping Unit)</label><input class="w-full h-12 px-space-md rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40 transition-shadow uppercase" id="prodSku" placeholder="SM-BOT-001" type="text"><p class="font-label-sm text-label-sm text-secondary">รหัสอ้างอิงภายในร้านค้า</p></div></div><div class="space-y-space-xs"><label class="block font-label-md text-label-md text-on-surface font-semibold" for="prodShortDesc">คำอธิบายสินค้าโดยย่อ (Short Description)</label><textarea class="w-full p-space-md rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40 transition-shadow resize-none" id="prodShortDesc" placeholder="คำอธิบายสรุปสั้นๆ สำหรับแสดงบนการ์ดสินค้า และผลการค้นหา SEO..." rows="3"></textarea><div class="flex justify-between items-center text-secondary font-label-sm text-label-sm"><span class="">กระชับ ชัดเจน ไม่เกิน 160 ตัวอักษร</span><span id="charCount" class="">0/160</span></div></div></div><div class="rounded-xl bg-surface-container-lowest p-space-md sm:p-space-lg shadow-sm space-y-space-md"><div class="flex items-center gap-space-sm"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span><h2 class="font-headline-sm text-headline-sm text-on-surface">ราคา (Pricing)</h2></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md"><div class="space-y-space-xs"><label class="block font-label-md text-label-md text-on-surface font-semibold" for="regularPrice">ราคาปกติ (Regular Price) <span class="text-error">*</span></label><div class="relative flex items-center"><span class="absolute left-space-md font-headline-sm text-headline-sm text-secondary font-semibold">฿</span><input class="w-full h-12 pl-10 pr-space-md rounded-xl bg-surface-container-low text-on-surface font-headline-sm text-headline-sm focus:outline-none focus:ring-2 focus:ring-tertiary/40 transition-shadow" id="regularPrice" min="0" placeholder="0.00" step="0.01" type="number"></div><p class="font-label-sm text-label-sm text-secondary">ราคาขายตั้งต้นของสินค้า</p></div><div class="space-y-space-xs"><label class="block font-label-md text-label-md text-on-surface font-semibold" for="salePrice">ราคาพิเศษ / โปรโมชั่น (Sale Price)</label><div class="relative flex items-center"><span class="absolute left-space-md font-headline-sm text-headline-sm text-tertiary font-semibold">฿</span><input class="w-full h-12 pl-10 pr-space-md rounded-xl bg-surface-container-low text-tertiary font-headline-sm text-headline-sm focus:outline-none focus:ring-2 focus:ring-tertiary/40 transition-shadow" id="salePrice" min="0" placeholder="0.00" step="0.01" type="number"></div><p class="font-label-sm text-label-sm text-secondary">เว้นว่างไว้หากไม่มีราคาพิเศษ</p></div></div></div><div class="rounded-xl bg-surface-container-lowest p-space-md sm:p-space-lg shadow-sm space-y-space-md"><div class="flex items-center gap-space-sm"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span><h2 class="font-headline-sm text-headline-sm text-on-surface">สต็อกสินค้า (Inventory)</h2></div><div class="max-w-md space-y-space-xs"><label class="block font-label-md text-label-md text-on-surface font-semibold" for="stockQty">จำนวนในสต็อก (Stock Quantity) <span class="text-error">*</span></label><div class="relative flex items-center"><span class="material-symbols-outlined absolute left-space-md text-secondary text-[20px]">warehouse</span><input class="w-full h-12 pl-12 pr-space-md rounded-xl bg-surface-container-low text-on-surface font-headline-sm text-headline-sm focus:outline-none focus:ring-2 focus:ring-tertiary/40 transition-shadow" id="stockQty" min="0" placeholder="0" type="number"></div><p class="font-label-sm text-label-sm text-secondary">เมื่อสต็อก = 0 ระบบหน้าร้านจะปรับเป็นสถานะ "สินค้าหมด" อัตโนมัติ (หากเปิดใช้งานตัวเลือกสินค้า สต็อกรวมจะถูกคำนวณจากตัวเลือกทั้งหมดโดยอัตโนมัติ)</p></div></div><div class="rounded-xl bg-surface-container-lowest p-space-md sm:p-space-lg shadow-sm space-y-space-md" id="productVariantsSection"><div class="flex items-center justify-between"><div class="flex items-center gap-space-sm"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span><div><h2 class="font-headline-sm text-headline-sm text-on-surface">ตัวเลือกสินค้า (Product Variants)</h2><p class="font-body-sm text-body-sm text-secondary">เช่น รสชาติ, ขนาดขวด, แพ็กเกจ</p></div></div><label class="relative inline-flex items-center cursor-pointer"><input class="sr-only peer" id="variantToggle" type="checkbox"><div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-on-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-primary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary"></div></label></div><div class="hidden pt-space-sm space-y-space-md" id="variantConfigPanel"><div class="flex items-center justify-between pb-2 border-b border-surface-container-high/60"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[20px]">tune</span><h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">จัดการตัวเลือกสินค้า</h3></div><span class="font-label-sm text-label-sm text-secondary">กำหนดกลุ่มและค่าตัวเลือกสินค้าด้านล่าง</span></div><div class="space-y-space-md" id="optionGroupsContainer"></div><div><button id="btnAddOptionGroup" type="button" class="px-space-md py-2.5 rounded-xl border border-dashed border-primary/40 text-primary bg-primary-container/10 hover:bg-primary-container/30 font-label-md text-label-md font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"><span class="material-symbols-outlined text-[18px]">add</span><span>+ เพิ่มตัวเลือกสินค้า</span></button></div><div class="pt-space-md border-t border-surface-container-high/60 space-y-space-md" id="variantCombinationsSection"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs"><div class="flex items-center gap-2"><h3 class="font-headline-sm text-headline-sm text-on-surface">รายการตัวเลือกสินค้า (Generated Variants)</h3><span id="variantCountBadge" class="px-2.5 py-0.5 rounded-full bg-tertiary/10 text-tertiary font-label-sm text-label-sm font-bold">0 ตัวเลือก</span></div><p class="font-label-sm text-label-sm text-secondary">ระบบคำนวณและสร้างชุดตัวเลือกอัตโนมัติจากกลุ่มและค่าด้านบน</p></div><div class="p-space-md rounded-2xl bg-surface-container-low border border-surface-container-high space-y-space-sm" id="variantBulkBar"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-[18px]">tune</span><span class="font-label-md text-label-md text-on-surface font-semibold">อัปเดตข้อมูลพร้อมกันทุกตัวเลือก (Bulk Update)</span></div><div class="grid grid-cols-1 sm:grid-cols-4 gap-space-sm items-end"><div><label class="block font-label-sm text-label-sm text-secondary mb-1">ราคา (Bulk Price)</label><div class="relative flex items-center"><span class="absolute left-2.5 text-xs text-secondary font-bold">฿</span><input id="bulkPriceInput" type="number" min="0" step="0.01" placeholder="0.00" class="w-full h-10 pl-7 pr-space-sm rounded-xl bg-surface-container-lowest text-on-surface text-sm border border-outline/20 focus:outline-none focus:ring-2 focus:ring-tertiary/40"></div></div><div><label class="block font-label-sm text-label-sm text-secondary mb-1">คลัง (Bulk Stock)</label><input id="bulkStockInput" type="number" min="0" step="1" placeholder="0" class="w-full h-10 px-space-sm rounded-xl bg-surface-container-lowest text-on-surface text-sm border border-outline/20 focus:outline-none focus:ring-2 focus:ring-tertiary/40"></div><div><label class="block font-label-sm text-label-sm text-secondary mb-1">รหัส SKU เริ่มต้น</label><input id="bulkSkuPrefixInput" type="text" placeholder="เช่น SM-PROD" class="w-full h-10 px-space-sm rounded-xl bg-surface-container-lowest text-on-surface text-xs uppercase font-mono border border-outline/20 focus:outline-none focus:ring-2 focus:ring-tertiary/40"></div><div><button id="btnApplyBulkUpdate" type="button" class="w-full h-10 px-space-sm rounded-xl bg-primary text-on-primary font-label-md text-label-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity cursor-pointer"><span class="material-symbols-outlined text-[16px]">done_all</span><span>อัปเดตตัวเลือกสินค้าทั้งหมด</span></button></div></div></div><div id="variantValidationAlert" class="hidden p-space-md rounded-xl bg-error-container/30 border border-error/40 text-error space-y-1"><div class="flex items-center gap-2 font-semibold font-label-md text-label-md"><span class="material-symbols-outlined text-[18px]">error</span><span>กรุณาตรวจสอบข้อมูลตัวเลือกสินค้า:</span></div><ul id="variantValidationList" class="font-body-sm text-body-sm pl-6 space-y-0.5 list-none"></ul></div><div id="variantTableContainer"></div></div></div><p class="font-body-sm text-body-sm text-secondary">เมื่อเปิดใช้งาน คุณจะสามารถกำหนดกลุ่มตัวเลือก ค่าตัวเลือก ราคา สต็อก และ SKU เฉพาะของแต่ละตัวเลือกแยกต่างหาก</p></div><div class="rounded-xl bg-surface-container-lowest p-space-md sm:p-space-lg shadow-sm space-y-space-md"><div class="flex items-center gap-space-sm"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span><h2 class="font-headline-sm text-headline-sm text-on-surface">รายละเอียดและข้อมูลเชิงลึก (Product Content)</h2></div><div class="flex flex-wrap gap-space-xs p-1 bg-surface-container-low rounded-xl" id="contentTabHeader"><button class="tab-btn px-space-md py-space-xs rounded-lg font-label-md text-label-md transition-colors bg-surface-container-lowest text-on-surface shadow-sm font-semibold" data-target="desc" onclick="switchTab('desc')" type="button">รายละเอียดเต็ม</button><button class="tab-btn px-space-md py-space-xs rounded-lg font-label-md text-label-md transition-colors text-secondary hover:text-on-surface" data-target="highlights" onclick="switchTab('highlights')" type="button">จุดเด่น (Highlights)</button><button class="tab-btn px-space-md py-space-xs rounded-lg font-label-md text-label-md transition-colors text-secondary hover:text-on-surface" data-target="ingredients" onclick="switchTab('ingredients')" type="button">ส่วนประกอบสำคัญ</button><button class="tab-btn px-space-md py-space-xs rounded-lg font-label-md text-label-md transition-colors text-secondary hover:text-on-surface" data-target="directions" onclick="switchTab('directions')" type="button">วิธีใช้งาน / รับประทาน</button><button class="tab-btn px-space-md py-space-xs rounded-lg font-label-md text-label-md transition-colors text-secondary hover:text-on-surface" data-target="fda" onclick="switchTab('fda')" type="button">เลข อย. / ข้อมูลจำเพาะ</button></div><div class="tab-panel space-y-space-sm" id="tab-desc"><div class="flex items-center gap-space-xs p-space-xs bg-surface-container-low rounded-lg text-secondary"><button class="p-1 rounded hover:bg-surface-container text-on-surface" type="button"><span class="material-symbols-outlined text-[18px]">format_bold</span></button><button class="p-1 rounded hover:bg-surface-container text-on-surface" type="button"><span class="material-symbols-outlined text-[18px]">format_italic</span></button><button class="p-1 rounded hover:bg-surface-container text-on-surface" type="button"><span class="material-symbols-outlined text-[18px]">format_list_bulleted</span></button><button class="p-1 rounded hover:bg-surface-container text-on-surface" type="button"><span class="material-symbols-outlined text-[18px]">link</span></button><span class="w-[1px] h-4 bg-outline-variant mx-1"></span><span class="font-label-sm text-label-sm">Rich Text Mode</span></div><textarea id="prodDescription" name="description" class="w-full p-space-md rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40" placeholder="ระบุเรื่องราวความเป็นมาของผลิตภัณฑ์ ประโยชน์เชิงลึก และความประทับใจ..." rows="6"></textarea></div><div class="tab-panel hidden space-y-space-sm" id="tab-highlights"><label class="block font-label-md text-label-md text-on-surface font-semibold">จุดเด่นสำคัญ (Key Highlights)</label><textarea id="prodHighlights" name="highlights" class="w-full p-space-md rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40" placeholder="• สกัดจากพฤกษศาสตร์ธรรมชาติ 100%
+• อุดมด้วยสารต้านอนุมูลอิสระระดับพรีเมียม
+• ปราศจากพาราเบน แอลกอฮอล์ และน้ำหอมสังเคราะห์" rows="5"></textarea></div><div class="tab-panel hidden space-y-space-sm" id="tab-ingredients"><label class="block font-label-md text-label-md text-on-surface font-semibold">ส่วนประกอบสำคัญ (Active Ingredients)</label><textarea id="prodIngredients" name="ingredients" class="w-full p-space-md rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40" placeholder="ระบุรายชื่อสารสำคัญ พร้อมความเข้มข้น เช่น Niacinamide 5%, Centella Asiatica Extract 10%..." rows="5"></textarea></div><div class="tab-panel hidden space-y-space-sm" id="tab-directions"><label class="block font-label-md text-label-md text-on-surface font-semibold">วิธีรับประทาน / วิธีใช้งาน (Directions for Use)</label><textarea id="prodUsage" name="usageInstructions" class="w-full p-space-md rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40" placeholder="หยดเซรั่ม 2-3 หยดลงบนฝ่ามือ ลูบไล้ให้ทั่วใบหน้าและลำคอเป็นประจำทุกเช้า-เย็น ก่อนทามอยส์เจอไรเซอร์..." rows="5"></textarea></div><div class="tab-panel hidden space-y-space-md" id="tab-fda"><div class="space-y-space-xs"><label class="block font-label-md text-label-md text-on-surface font-semibold" for="fdaRegistrationNumber">เลขที่จดแจ้ง อย. (FDA Registration Number)</label><input class="w-full h-12 px-space-md rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40" id="fdaRegistrationNumber" name="fdaRegistrationNumber" placeholder="เช่น 10-1-6600012345" type="text"></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md"><div class="space-y-space-xs"><label class="block font-label-md text-label-md text-on-surface font-semibold" for="mfgCountry">ประเทศผู้ผลิต (Country of Origin)</label><input class="w-full h-12 px-space-md rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40" id="mfgCountry" name="countryOfOrigin" placeholder="เช่น ญี่ปุ่น (Japan) หรือ ไทย" type="text"></div><div class="space-y-space-xs"><label class="block font-label-md text-label-md text-on-surface font-semibold" for="shelfLife">อายุการเก็บรักษา (Shelf Life)</label><input class="w-full h-12 px-space-md rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40" id="shelfLife" name="shelfLife" placeholder="เช่น 24 เดือน นับจากวันผลิต" type="text"></div></div></div></div>
+
+<!-- 7. การจัดส่ง (Shipping) -->
+<div class="rounded-xl bg-surface-container-lowest p-space-md sm:p-space-lg shadow-sm space-y-space-md" id="productShippingSection">
+  <div class="flex items-center justify-between pb-space-xs border-b border-surface-container-high/40">
+    <div class="flex items-center gap-space-sm">
+      <div class="w-9 h-9 rounded-xl bg-primary-container flex items-center justify-center text-primary">
+        <span class="material-symbols-outlined text-[20px]">local_shipping</span>
+      </div>
+      <div>
+        <h2 class="font-headline-sm text-headline-sm text-on-surface">การจัดส่ง</h2>
+        <p class="font-body-sm text-body-sm text-secondary">กำหนดน้ำหนัก ขนาดพัสดุ ค่าจัดส่ง และการเก็บเงินปลายทาง</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Package Weight -->
+  <div class="space-y-space-xs">
+    <label class="block font-label-md text-label-md text-on-surface font-semibold" for="shippingWeight">
+      น้ำหนักพัสดุ <span class="text-error">*</span>
+    </label>
+    <div class="flex items-center gap-2">
+      <div class="relative flex-1">
+        <input
+          class="w-full h-11 px-space-md rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40"
+          id="shippingWeight"
+          name="shippingWeight"
+          placeholder="0"
+          type="number"
+          min="0"
+          step="any"
+        />
+      </div>
+      <div class="w-36">
+        <select
+          class="w-full h-11 px-space-md rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40 cursor-pointer"
+          id="shippingWeightUnit"
+          name="shippingWeightUnit"
+        >
+          <option value="g" selected>กรัม (g)</option>
+          <option value="kg">กิโลกรัม (kg)</option>
+        </select>
+      </div>
+    </div>
+    <p class="font-body-sm text-body-sm text-secondary">จำเป็นสำหรับการคำนวณค่าจัดส่ง (ต้องมากกว่า 0 เมื่อเผยแพร่สินค้า)</p>
+  </div>
+
+  <!-- Package Dimensions -->
+  <div class="space-y-space-xs pt-2">
+    <div class="flex items-center justify-between">
+      <label class="block font-label-md text-label-md text-on-surface font-semibold">
+        ขนาดของพัสดุ <span class="text-xs text-secondary font-normal">(ไม่บังคับ)</span>
+      </label>
+      <span class="font-label-sm text-label-sm text-secondary">หน่วย: เซนติเมตร (cm)</span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-space-md">
+      <div class="space-y-1">
+        <label class="block text-xs text-secondary font-medium" for="shippingHeight">ความสูง (ซม.)</label>
+        <div class="relative">
+          <input
+            class="w-full h-11 px-space-md pr-12 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40"
+            id="shippingHeight"
+            name="shippingHeight"
+            placeholder="0"
+            type="number"
+            min="0"
+            step="any"
+          />
+          <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-secondary pointer-events-none">ซม.</span>
+        </div>
+      </div>
+      <div class="space-y-1">
+        <label class="block text-xs text-secondary font-medium" for="shippingWidth">ความกว้าง (ซม.)</label>
+        <div class="relative">
+          <input
+            class="w-full h-11 px-space-md pr-12 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40"
+            id="shippingWidth"
+            name="shippingWidth"
+            placeholder="0"
+            type="number"
+            min="0"
+            step="any"
+          />
+          <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-secondary pointer-events-none">ซม.</span>
+        </div>
+      </div>
+      <div class="space-y-1">
+        <label class="block text-xs text-secondary font-medium" for="shippingLength">ความยาว (ซม.)</label>
+        <div class="relative">
+          <input
+            class="w-full h-11 px-space-md pr-12 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary/40"
+            id="shippingLength"
+            name="shippingLength"
+            placeholder="0"
+            type="number"
+            min="0"
+            step="any"
+          />
+          <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-secondary pointer-events-none">ซม.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COD Toggle -->
+  <div class="pt-3 border-t border-surface-container-high/40">
+    <div class="flex items-center justify-between">
+      <div class="space-y-0.5">
+        <div class="flex items-center gap-2">
+          <span class="font-label-md text-label-md text-on-surface font-semibold">การเก็บเงินปลายทาง</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-surface-container-high text-secondary font-medium">COD</span>
+        </div>
+        <p class="font-body-sm text-body-sm text-secondary">เปิดเพื่ออนุญาตให้ลูกค้าชำระเงินแบบเก็บเงินปลายทาง (COD)</p>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input class="sr-only peer" id="codToggle" type="checkbox" />
+        <div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-on-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-primary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary"></div>
+      </label>
+    </div>
+  </div>
+</div>
+</div>
+<div class="lg:col-span-4 space-y-space-lg sticky top-20">
+<div class="rounded-xl bg-primary-container/25 p-space-md flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[22px] mt-0.5">verified</span>
+<div class="space-y-1">
+<h4 class="font-label-lg text-label-lg text-on-surface font-semibold">ระบบตรวจสอบอัตโนมัติ</h4>
+<p class="font-body-sm text-body-sm text-secondary">
+              สินค้าทั้งหมดที่เผยแพร่จะถูกทำดัชนีสำหรับค้นหาและเชื่อมโยงกับระบบคลังสินค้ากลางอัตโนมัติภายใน 1 นาที
+            </p>
+</div>
+</div>
+</div>
+</form>
+</div>
+</div>
+<script>
+  function switchTab(tabKey) {
+    const tabs = ['desc', 'highlights', 'ingredients', 'directions', 'fda'];
+    tabs.forEach(key => {
+      const panel = document.getElementById('tab-' + key);
+      if (panel) {
+        if (key === tabKey) {
+          panel.classList.remove('hidden');
+        } else {
+          panel.classList.add('hidden');
+        }
+      }
+    });
+
+    const buttons = document.querySelectorAll('#contentTabHeader .tab-btn');
+    buttons.forEach(btn => {
+      if (btn.getAttribute('data-target') === tabKey) {
+        btn.classList.add('bg-surface-container-lowest', 'text-on-surface', 'shadow-sm', 'font-semibold');
+        btn.classList.remove('text-secondary');
+      } else {
+        btn.classList.remove('bg-surface-container-lowest', 'text-on-surface', 'shadow-sm', 'font-semibold');
+        btn.classList.add('text-secondary');
+      }
+    });
+  }
+
+  const nameInput = document.getElementById('prodName');
+  const slugInput = document.getElementById('prodSlug');
+  let isSlugManual = false;
+
+  if (nameInput && slugInput) {
+    nameInput.addEventListener('input', function(e) {
+      if (!isSlugManual) {
+        const val = e.target.value.toLowerCase().trim()
+          .replace(/[^\w\s-]/g, '')
+          .replace(/[\s_-]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        slugInput.value = val;
+      }
+    });
+  }
+
+  const toggleSlugBtn = document.getElementById('toggleSlugManual');
+  if (toggleSlugBtn && slugInput) {
+    toggleSlugBtn.addEventListener('click', function() {
+      isSlugManual = true;
+      slugInput.focus();
+    });
+  }
+
+  const shortDesc = document.getElementById('prodShortDesc');
+  const charCount = document.getElementById('charCount');
+  if (shortDesc && charCount) {
+    shortDesc.addEventListener('input', function(e) {
+      charCount.textContent = e.target.value.length + '/160';
+    });
+  }
+
+  // ==================================================
+  // PRODUCT IMAGE PICKER — FIXED
+  // ==================================================
+  (function setupProductImagePicker() {
+    const input = document.getElementById('productImageFileInput');
+    const dropzone = document.getElementById('productImageDropzone');
+    const previewsGrid = document.getElementById('productImagePreviewsGrid');
+
+    if (!input || !dropzone || !previewsGrid) {
+      console.warn('[SOULMATE Product Images] Picker elements not found.');
+      return;
+    }
+
+    const MAX_IMAGES = 8;
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+    let selectedProductImages = [];
+    let primaryProductImageIndex = 0;
+    let previewObjectUrls = [];
+
+    function fileKey(file) {
+      return [
+        file.name,
+        file.size,
+        file.lastModified,
+        file.type
+      ].join('::');
+    }
+
+    function validateFile(file) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        return 'รองรับเฉพาะไฟล์ JPG, PNG และ WEBP เท่านั้น';
+      }
+
+      if (file.size <= 0) {
+        return `ไฟล์ ${file.name} ไม่มีข้อมูล กรุณาเลือกไฟล์รูปภาพจริง`;
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        return `ไฟล์ ${file.name} มีขนาดเกิน 5MB`;
+      }
+
+      return null;
+    }
+
+    function clearPreviewObjectUrls() {
+      previewObjectUrls.forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (_) {}
+      });
+      previewObjectUrls = [];
+    }
+
+    function syncNativeInputFiles() {
+      try {
+        const transfer = new DataTransfer();
+        selectedProductImages.forEach(file => transfer.items.add(file));
+        input.files = transfer.files;
+      } catch (error) {
+        console.warn(
+          '[SOULMATE Product Images] Could not sync input.files:',
+          error
+        );
+      }
+    }
+
+    function emitSelectedFiles() {
+      window.soulmateSelectedProductImages = selectedProductImages.slice();
+
+      window.dispatchEvent(
+        new CustomEvent('soulmate-product-images-selected', {
+          detail: {
+            files: selectedProductImages.slice(),
+            primaryIndex: primaryProductImageIndex
+          }
+        })
+      );
+
+      if (window.parent && window.parent !== window) {
+        try {
+          window.parent.postMessage(
+            {
+              type: 'SOULMATE_PRODUCT_IMAGES_SELECTED',
+              files: selectedProductImages.slice(),
+              primaryIndex: primaryProductImageIndex
+            },
+            '*'
+          );
+        } catch (error) {
+          console.warn(
+            '[SOULMATE Product Images] postMessage failed:',
+            error
+          );
+        }
+      }
+
+      console.log(
+        '[SOULMATE Product Images] Ready:',
+        selectedProductImages
+      );
+    }
+
+    function renderPreviews() {
+      clearPreviewObjectUrls();
+
+      if (selectedProductImages.length === 0) {
+        previewsGrid.innerHTML = `
+          <div class="aspect-square rounded-xl bg-surface-container-low flex flex-col items-center justify-center p-space-sm relative text-center group">
+            <span class="absolute top-2 left-2 px-space-xs py-0.5 rounded bg-primary text-on-primary font-label-sm text-label-sm font-semibold">
+              รูปหลัก
+            </span>
+            <span class="material-symbols-outlined text-outline text-[32px]">
+              image
+            </span>
+            <span class="font-label-sm text-label-sm text-outline mt-1">
+              ยังไม่มีรูปภาพ
+            </span>
+          </div>
+          <div class="aspect-square rounded-xl bg-surface-container-low flex flex-col items-center justify-center p-space-sm relative text-center">
+            <span class="material-symbols-outlined text-outline text-[28px]">image</span>
+            <span class="font-label-sm text-label-sm text-outline mt-1">สล็อตภาพที่ 2</span>
+          </div>
+          <div class="aspect-square rounded-xl bg-surface-container-low flex flex-col items-center justify-center p-space-sm relative text-center">
+            <span class="material-symbols-outlined text-outline text-[28px]">image</span>
+            <span class="font-label-sm text-label-sm text-outline mt-1">สล็อตภาพที่ 3</span>
+          </div>
+          <div class="aspect-square rounded-xl bg-surface-container-low flex flex-col items-center justify-center p-space-sm relative text-center">
+            <span class="material-symbols-outlined text-outline text-[28px]">image</span>
+            <span class="font-label-sm text-label-sm text-outline mt-1">สล็อตภาพที่ 4</span>
+          </div>
+        `;
+        return;
+      }
+
+      previewsGrid.innerHTML = '';
+
+      selectedProductImages.forEach((file, index) => {
+        const objectUrl = URL.createObjectURL(file);
+        previewObjectUrls.push(objectUrl);
+
+        const card = document.createElement('div');
+        card.className =
+          'aspect-square rounded-xl bg-surface-container-low overflow-hidden relative group';
+
+        const isPrimary = index === primaryProductImageIndex;
+
+        card.innerHTML = `
+          <img
+            src="${objectUrl}"
+            alt="${file.name.replace(/"/g, '&quot;')}"
+            class="w-full h-full object-cover"
+          />
+
+          ${
+            isPrimary
+              ? `
+                <span class="absolute top-2 left-2 px-space-xs py-0.5 rounded bg-primary text-on-primary font-label-sm text-label-sm font-semibold shadow-sm">
+                  รูปหลัก
+                </span>
+              `
+              : ''
+          }
+
+          <div class="absolute top-2 right-2 flex items-center gap-1">
+            ${
+              !isPrimary
+                ? `
+                  <button
+                    type="button"
+                    data-action="primary"
+                    data-index="${index}"
+                    class="w-7 h-7 rounded bg-surface-container-lowest/95 shadow-sm flex items-center justify-center text-on-surface hover:text-primary"
+                    title="ตั้งเป็นรูปหลัก"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">star</span>
+                  </button>
+                `
+                : ''
+            }
+
+            <button
+              type="button"
+              data-action="remove"
+              data-index="${index}"
+              class="w-7 h-7 rounded bg-surface-container-lowest/95 shadow-sm flex items-center justify-center text-on-surface hover:text-error"
+              title="ลบรูปภาพ"
+            >
+              <span class="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
+        `;
+
+        previewsGrid.appendChild(card);
+      });
+
+      previewsGrid
+        .querySelectorAll('[data-action="primary"]')
+        .forEach(button => {
+          button.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            primaryProductImageIndex = Number(
+              this.getAttribute('data-index')
+            );
+
+            renderPreviews();
+            emitSelectedFiles();
+          });
+        });
+
+      previewsGrid
+        .querySelectorAll('[data-action="remove"]')
+        .forEach(button => {
+          button.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const index = Number(
+              this.getAttribute('data-index')
+            );
+
+            selectedProductImages.splice(index, 1);
+
+            if (selectedProductImages.length === 0) {
+              primaryProductImageIndex = 0;
+            } else if (index < primaryProductImageIndex) {
+              primaryProductImageIndex -= 1;
+            } else if (
+              primaryProductImageIndex >= selectedProductImages.length
+            ) {
+              primaryProductImageIndex = 0;
+            }
+
+            syncNativeInputFiles();
+            renderPreviews();
+            emitSelectedFiles();
+          });
+        });
+    }
+
+    function addFiles(files) {
+      const incoming = Array.from(files || []);
+
+      if (incoming.length === 0) {
+        return;
+      }
+
+      for (const file of incoming) {
+        const errorMessage = validateFile(file);
+
+        if (errorMessage) {
+          alert(errorMessage);
+          return;
+        }
+      }
+
+      const existingKeys = new Set(
+        selectedProductImages.map(fileKey)
+      );
+
+      const uniqueIncoming = incoming.filter(file => {
+        const key = fileKey(file);
+
+        if (existingKeys.has(key)) {
+          return false;
+        }
+
+        existingKeys.add(key);
+        return true;
+      });
+
+      if (
+        selectedProductImages.length + uniqueIncoming.length >
+        MAX_IMAGES
+      ) {
+        alert(`สามารถอัปโหลดรูปสินค้าได้สูงสุด ${MAX_IMAGES} ภาพ`);
+        return;
+      }
+
+      selectedProductImages = [
+        ...selectedProductImages,
+        ...uniqueIncoming
+      ];
+
+      syncNativeInputFiles();
+      renderPreviews();
+      emitSelectedFiles();
+    }
+
+    // การใช้ <label for="productImageFileInput"> ทำให้
+    // คลิกที่ Dropzone หรือ "เลือกไฟล์จากเครื่อง" เปิด native picker
+    // ได้โดยไม่ต้องพึ่ง JavaScript .click()
+
+    dropzone.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        input.click();
+      }
+    });
+
+    input.addEventListener('change', function() {
+      addFiles(input.files);
+
+      // อนุญาตให้เลือกไฟล์ชื่อเดิมซ้ำในครั้งถัดไป
+      // โดยไฟล์จริงยังเก็บอยู่ใน selectedProductImages
+      try {
+        const transfer = new DataTransfer();
+        selectedProductImages.forEach(file => transfer.items.add(file));
+        input.files = transfer.files;
+      } catch (_) {}
+    });
+
+    dropzone.addEventListener('dragover', function(event) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      dropzone.classList.add('ring-2', 'ring-primary/40');
+    });
+
+    dropzone.addEventListener('dragleave', function() {
+      dropzone.classList.remove('ring-2', 'ring-primary/40');
+    });
+
+    dropzone.addEventListener('drop', function(event) {
+      event.preventDefault();
+      dropzone.classList.remove('ring-2', 'ring-primary/40');
+
+      if (event.dataTransfer?.files?.length) {
+        addFiles(event.dataTransfer.files);
+      }
+    });
+
+    renderPreviews();
+  })();
+
+</script></main></div>
+
+</body></html>

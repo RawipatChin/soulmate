@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary-fixed": "#b2efd9", "on-primary-container": "#2d6857", "inverse-on-surface": "#f3f0ef", "error-container": "#ffdad6", "surface-bright": "#fcf9f8", "surface-variant": "#e5e2e1", "tertiary": "#9e3675", "on-primary-fixed-variant": "#0f5040", "on-primary-fixed": "#002118", "surface-tint": "#2d6857", "secondary-container": "#d6e6e0", "tertiary-container": "#ffcae2", "secondary": "#53615d", "surface": "#fcf9f8", "on-primary": "#ffffff", "on-error": "#ffffff", "surface-container": "#f0eded", "on-secondary": "#ffffff", "on-tertiary-fixed-variant": "#811c5c", "on-secondary-fixed-variant": "#3b4a46", "inverse-primary": "#96d3bd", "on-surface": "#1c1b1b", "primary": "#2d6857", "inverse-surface": "#313030", "outline-variant": "#bfc9c3", "surface-container-high": "#eae7e7", "error": "#ba1a1a", "primary-container": "#a8e5cf", "on-error-container": "#93000a", "on-surface-variant": "#404945", "surface-container-low": "#f6f3f2", "outline": "#707975", "on-secondary-fixed": "#101e1b", "on-tertiary-container": "#9e3675", "background": "#fcf9f8", "on-tertiary-fixed": "#3c0028", "tertiary-fixed": "#ffd8e8", "surface-dim": "#dcd9d9", "primary-fixed-dim": "#96d3bd", "on-background": "#1c1b1b", "on-tertiary": "#ffffff", "secondary-fixed-dim": "#bacac4", "surface-container-lowest": "#ffffff", "on-secondary-container": "#596763", "secondary-fixed": "#d6e6e0", "surface-container-highest": "#e5e2e1", "tertiary-fixed-dim": "#ffafd6" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-sm": "0.5rem", "space-md": "1rem", "space-xs": "0.25rem", "margin-md": "1.5rem", "space-lg": "1.5rem", "space-xl": "2.5rem", "margin": "1rem", "gutter-sm": "0.75rem", "gutter": "1rem" }, "fontFamily": { "headline-xl": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "body-md": ["Inter"], "headline-sm": ["Plus Jakarta Sans"], "label-md": ["Inter"], "label-lg": ["Inter"], "body-lg": ["Inter"], "label-sm": ["Inter"], "headline-lg": ["Plus Jakarta Sans"] }, "fontSize": { "headline-xl": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}], "body-sm": ["13px", {"lineHeight": "20px", "fontWeight": "400"}], "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}], "body-md": ["14px", {"lineHeight": "22px", "fontWeight": "400"}], "headline-sm": ["18px", {"lineHeight": "24px", "fontWeight": "600"}], "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "500"}], "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}], "body-lg": ["16px", {"lineHeight": "26px", "fontWeight": "400"}], "label-sm": ["11px", {"lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "600"}], "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}] } } } }</script></head><body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen selection:bg-primary-container"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 px-margin flex items-center justify-between"><button aria-label="Go back" class="min-w-[44px] min-h-[44px] -ml-space-xs flex items-center justify-center text-on-surface hover:text-primary transition-colors" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[24px]">arrow_back_ios_new</span></button><a class="flex items-center" data-path="home" href="/"><img alt="SOULMATE" class="h-8 w-auto object-contain" src="/logo-soulmate.png"/><span class="sr-only">- Create Account</span></a><div class="flex items-center gap-space-xs"><button aria-label="Help and support" class="min-w-[44px] min-h-[44px] flex items-center justify-center text-secondary hover:text-tertiary transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">help_outline</span></button><a href="/products" data-path="products" aria-label="ค้นหาสินค้า" class="w-9 h-9 flex items-center justify-center rounded-full text-on-surface hover:text-primary transition-colors" id="header-search-icon-btn"><span class="material-symbols-outlined text-[22px]">search</span></a><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex flex-col relative w-full pt-14 bg-surface pb-safe flex-1"><div class="flex flex-col w-full pb-10">
+<!-- Interactive State / Scenario Preview Switcher -->
+
+<!-- Decorative Botanical Visual Accent (Brand Cohesion) -->
+<div class="px-margin mb-space-sm">
+<div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-container/40 via-surface-container-low to-tertiary-container/30 p-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary-fixed text-on-primary-fixed-variant">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">spa</span>
+</span>
+<span class="font-label-md text-label-md font-semibold tracking-wide text-primary">สมาชิก SOULMATE CLUB</span>
+</div>
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest text-secondary text-label-sm font-label-sm shadow-sm">
+<span class="material-symbols-outlined text-[14px] text-primary" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<span>ความปลอดภัย 256-bit</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Heading Section -->
+<div class="px-margin mb-space-md">
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-1">สมัครสมาชิก</h1>
+<p class="font-body-md text-body-md text-secondary">
+      สร้างบัญชีเพื่อสะสมสิทธิประโยชน์และสั่งซื้อสินค้าได้สะดวกรวดเร็ว
+    </p>
+</div>
+<!-- Member Profile & Auto Checkout Synchronize Notice -->
+<div class="px-margin mb-space-md">
+<div class="flex items-start gap-3 p-space-sm rounded-xl bg-surface-container-low text-on-surface">
+<div class="flex-shrink-0 mt-0.5 w-6 h-6 rounded-full bg-primary-container/70 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]">sync_saved_locally</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+        ข้อมูลนี้จะถูกบันทึกในโปรไฟล์สมาชิก และนำไปใช้กรอกข้อมูลสั่งซื้อ (Checkout) โดยอัตโนมัติ
+      </p>
+</div>
+</div>
+<!-- Global Form Alert Banner (Hidden by default, triggered on error state) -->
+<div class="hidden px-margin mb-space-md" id="globalFormAlert">
+<div class="flex items-start gap-2.5 p-3 rounded-xl bg-error-container text-on-error-container animate-fade-in">
+<span class="material-symbols-outlined text-[20px] text-error flex-shrink-0 mt-0.5">error</span>
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg font-semibold text-error" id="errorSummaryTitle">ไม่สามารถดำเนินการได้</span>
+<span class="font-body-sm text-body-sm text-on-error-container" id="errorSummaryMessage">กรุณาตรวจสอบข้อมูลที่ระบุด้านล่างให้ครบถ้วน</span>
+</div>
+</div>
+</div>
+<!-- Registration Form Container -->
+<form class="flex flex-col px-margin gap-space-md" id="registerForm" novalidate="" onsubmit="handleFormSubmit(event)">
+<!-- First Name & Last Name Split Row -->
+<div class="grid grid-cols-2 gap-gutter-sm">
+<!-- First Name -->
+<div class="flex flex-col gap-1">
+<label class="font-label-lg text-label-lg text-on-surface" for="firstNameInput">
+          ชื่อ <span class="text-tertiary">*</span>
+</label>
+<div class="relative">
+<input autocomplete="given-name" class="w-full h-12 px-3.5 rounded-xl bg-surface-container-lowest text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-low shadow-sm transition-all" id="firstNameInput" name="firstName" placeholder="ระบุชื่อจริง" type="text"/>
+</div>
+<p class="hidden font-label-sm text-label-sm text-error mt-0.5 pl-1" id="firstNameError">กรุณาระบุชื่อจริง</p>
+</div>
+<!-- Last Name -->
+<div class="flex flex-col gap-1">
+<label class="font-label-lg text-label-lg text-on-surface" for="lastNameInput">
+          นามสกุล <span class="text-tertiary">*</span>
+</label>
+<div class="relative">
+<input autocomplete="family-name" class="w-full h-12 px-3.5 rounded-xl bg-surface-container-lowest text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-low shadow-sm transition-all" id="lastNameInput" name="lastName" placeholder="ระบุนามสกุล" type="text"/>
+</div>
+<p class="hidden font-label-sm text-label-sm text-error mt-0.5 pl-1" id="lastNameError">กรุณาระบุนามสกุล</p>
+</div>
+</div>
+<!-- Phone Number Field -->
+<div class="flex flex-col gap-1">
+<label class="font-label-lg text-label-lg text-on-surface" for="phoneInput">
+        เบอร์โทรศัพท์ <span class="text-tertiary">*</span>
+</label>
+<div class="relative flex items-center">
+<span class="absolute left-3.5 text-secondary flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-[20px]">phone_iphone</span>
+</span>
+<input autocomplete="tel" class="w-full h-12 pl-11 pr-3.5 rounded-xl bg-surface-container-lowest text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-low shadow-sm transition-all" id="phoneInput" inputmode="numeric" name="phone" placeholder="08X-XXX-XXXX" type="tel"/>
+</div>
+<p class="hidden font-label-sm text-label-sm text-error mt-0.5 pl-1" id="phoneError">กรุณากรอกเบอร์โทรศัพท์ 10 หลัก</p>
+</div>
+<!-- Email Field -->
+<div class="flex flex-col gap-1">
+<label class="font-label-lg text-label-lg text-on-surface" for="emailInput">
+        อีเมล <span class="text-tertiary">*</span>
+</label>
+<div class="relative flex items-center">
+<span class="absolute left-3.5 text-secondary flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-[20px]">mail</span>
+</span>
+<input autocomplete="email" class="w-full h-12 pl-11 pr-3.5 rounded-xl bg-surface-container-lowest text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-low shadow-sm transition-all" id="emailInput" name="email" placeholder="name@example.com" type="email"/>
+</div>
+<p class="hidden font-label-sm text-label-sm text-error mt-0.5 pl-1" id="emailError">รูปแบบอีเมลไม่ถูกต้อง</p>
+</div>
+<!-- Password Field -->
+<div class="flex flex-col gap-1">
+<label class="font-label-lg text-label-lg text-on-surface" for="passwordInput">
+        รหัสผ่าน <span class="text-tertiary">*</span>
+</label>
+<div class="relative flex items-center">
+<span class="absolute left-3.5 text-secondary flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+</span>
+<input autocomplete="new-password" class="w-full h-12 pl-11 pr-12 rounded-xl bg-surface-container-lowest text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-low shadow-sm transition-all" id="passwordInput" name="password" placeholder="อย่างน้อย 8 ตัวอักษร" type="password"/>
+<button aria-label="แสดงหรือซ่อนรหัสผ่าน" class="absolute right-1 w-10 h-10 flex items-center justify-center text-secondary hover:text-on-surface focus:outline-none" onclick="togglePasswordVisibility('passwordInput', 'passwordToggleIcon')" type="button">
+<span class="material-symbols-outlined text-[20px]" id="passwordToggleIcon">visibility</span>
+</button>
+</div>
+<p class="hidden font-label-sm text-label-sm text-error mt-0.5 pl-1" id="passwordError">รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร</p>
+</div>
+<!-- Confirm Password Field -->
+<div class="flex flex-col gap-1">
+<label class="font-label-lg text-label-lg text-on-surface" for="confirmPasswordInput">
+        ยืนยันรหัสผ่าน <span class="text-tertiary">*</span>
+</label>
+<div class="relative flex items-center">
+<span class="absolute left-3.5 text-secondary flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-[20px]">lock_reset</span>
+</span>
+<input autocomplete="new-password" class="w-full h-12 pl-11 pr-12 rounded-xl bg-surface-container-lowest text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:bg-surface-container-low shadow-sm transition-all" id="confirmPasswordInput" name="confirmPassword" placeholder="กรอกรหัสผ่านอีกครั้ง" type="password"/>
+<button aria-label="แสดงหรือซ่อนรหัสผ่านที่ยืนยัน" class="absolute right-1 w-10 h-10 flex items-center justify-center text-secondary hover:text-on-surface focus:outline-none" onclick="togglePasswordVisibility('confirmPasswordInput', 'confirmPasswordToggleIcon')" type="button">
+<span class="material-symbols-outlined text-[20px]" id="confirmPasswordToggleIcon">visibility</span>
+</button>
+</div>
+<p class="hidden font-label-sm text-label-sm text-error mt-0.5 pl-1" id="confirmPasswordError">รหัสผ่านไม่ตรงกัน</p>
+</div>
+<!-- Scope Reassurance Note (No address required here) -->
+<div class="flex items-center gap-2 pt-1 text-secondary">
+<span class="material-symbols-outlined text-[18px] text-primary">local_shipping</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">ระบุที่อยู่จัดส่งในขั้นตอนชำระเงินเมื่อพร้อมสั่งซื้อ</span>
+</div>
+<!-- Submit Button & Action Bar -->
+<div class="pt-space-sm flex flex-col gap-space-sm">
+<button class="w-full h-12 rounded-full bg-tertiary text-on-tertiary font-label-lg text-label-lg font-semibold flex items-center justify-center gap-2 shadow-md hover:opacity-95 active:scale-[0.99] transition-all cursor-pointer" id="submitRegisterBtn" type="submit">
+<span class="hidden animate-spin material-symbols-outlined text-[20px]" id="btnSpinner">progress_activity</span>
+<span id="btnLabel">สมัครสมาชิก</span>
+</button>
+<!-- Terms and Privacy -->
+<p class="font-label-sm text-label-sm text-secondary text-center px-4 leading-normal">
+        การสมัครสมาชิกถือว่าคุณยอมรับข้อกำหนดและนโยบายความเป็นส่วนตัวของ SOULMATE
+      </p>
+</div>
+</form>
+<!-- Login Redirection Row -->
+<div class="mt-space-lg px-margin flex flex-col items-center justify-center gap-2">
+<div class="w-full h-px bg-surface-container"></div>
+<div class="flex items-center justify-center gap-1.5 pt-space-xs">
+<span class="font-body-md text-body-md text-secondary">มีบัญชีอยู่แล้ว?</span>
+<a class="font-label-lg text-label-lg font-semibold text-tertiary hover:underline px-1 py-1 rounded-lg" href="/login">
+        เข้าสู่ระบบ
+      </a>
+</div>
+</div>
+<!-- Trust & Value Badges Grid -->
+<div class="mt-space-lg px-margin">
+<div class="grid grid-cols-3 gap-2 py-3 rounded-2xl bg-surface-container-low text-center">
+<div class="flex flex-col items-center gap-1 px-1">
+<span class="material-symbols-outlined text-[20px] text-primary" style="font-variation-settings: 'FILL' 1;">award_star</span>
+<span class="font-label-sm text-label-sm text-on-surface font-medium">ของแท้ 100%</span>
+</div>
+<div class="flex flex-col items-center gap-1 px-1">
+<span class="material-symbols-outlined text-[20px] text-primary" style="font-variation-settings: 'FILL' 1;">redeem</span>
+<span class="font-label-sm text-label-sm text-on-surface font-medium">สะสมคะแนน</span>
+</div>
+<div class="flex flex-col items-center gap-1 px-1">
+<span class="material-symbols-outlined text-[20px] text-primary" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+<span class="font-label-sm text-label-sm text-on-surface font-medium">จัดส่งรวดเร็ว</span>
+</div>
+</div>
+</div>
+</div>
+<script>
+  function togglePasswordVisibility(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (!input || !icon) return;
+
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.textContent = 'visibility_off';
+    } else {
+      input.type = 'password';
+      icon.textContent = 'visibility';
+    }
+  }
+
+  function clearAllErrors() {
+    const errorIds = ['firstNameError', 'lastNameError', 'phoneError', 'emailError', 'passwordError', 'confirmPasswordError'];
+    errorIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+    const banner = document.getElementById('globalFormAlert');
+    if (banner) banner.classList.add('hidden');
+  }
+
+  function setDemoState(state) {
+    const defaultBtn = document.getElementById('btnStateDefault');
+    const loadingBtn = document.getElementById('btnStateLoading');
+    const errorBtn = document.getElementById('btnStateError');
+    const submitBtn = document.getElementById('submitRegisterBtn');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const btnLabel = document.getElementById('btnLabel');
+
+    // Reset button pill styling
+    [defaultBtn, loadingBtn, errorBtn].forEach(btn => {
+      if (btn) {
+        btn.classList.remove('bg-surface-container-lowest', 'text-on-surface', 'shadow-sm');
+        btn.classList.add('text-secondary');
+      }
+    });
+
+    if (state === 'default') {
+      defaultBtn.classList.add('bg-surface-container-lowest', 'text-on-surface', 'shadow-sm');
+      defaultBtn.classList.remove('text-secondary');
+      clearAllErrors();
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+      btnSpinner.classList.add('hidden');
+      btnLabel.textContent = 'สมัครสมาชิก';
+    } else if (state === 'loading') {
+      loadingBtn.classList.add('bg-surface-container-lowest', 'text-on-surface', 'shadow-sm');
+      loadingBtn.classList.remove('text-secondary');
+      clearAllErrors();
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
+      btnSpinner.classList.remove('hidden');
+      btnLabel.textContent = 'กำลังประมวลผล...';
+    } else if (state === 'error') {
+      errorBtn.classList.add('bg-surface-container-lowest', 'text-on-surface', 'shadow-sm');
+      errorBtn.classList.remove('text-secondary');
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+      btnSpinner.classList.add('hidden');
+      btnLabel.textContent = 'สมัครสมาชิก';
+
+      // Trigger standard error feedback
+      const banner = document.getElementById('globalFormAlert');
+      const emailErr = document.getElementById('emailError');
+      const passMatchErr = document.getElementById('confirmPasswordError');
+
+      if (banner) banner.classList.remove('hidden');
+      if (emailErr) {
+        emailErr.textContent = 'รูปแบบอีเมลไม่ถูกต้อง';
+        emailErr.classList.remove('hidden');
+      }
+      if (passMatchErr) {
+        passMatchErr.textContent = 'รหัสผ่านไม่ตรงกัน';
+        passMatchErr.classList.remove('hidden');
+      }
+    }
+  }
+
+  function handleFormSubmit(e) {
+    e.preventDefault();
+    clearAllErrors();
+
+    const firstName = document.getElementById('firstNameInput').value.trim();
+    const lastName = document.getElementById('lastNameInput').value.trim();
+    const phone = document.getElementById('phoneInput').value.trim();
+    const email = document.getElementById('emailInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    const confirmPassword = document.getElementById('confirmPasswordInput').value;
+
+    let hasError = false;
+
+    if (!firstName) {
+      document.getElementById('firstNameError').classList.remove('hidden');
+      hasError = true;
+    }
+    if (!lastName) {
+      document.getElementById('lastNameError').classList.remove('hidden');
+      hasError = true;
+    }
+
+    const phoneRegex = /^[0-9]{9,10}$/;
+    const cleanPhone = phone.replace(/[-\s]/g, '');
+    if (!phone || !phoneRegex.test(cleanPhone)) {
+      document.getElementById('phoneError').classList.remove('hidden');
+      hasError = true;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      document.getElementById('emailError').classList.remove('hidden');
+      hasError = true;
+    }
+
+    if (!password || password.length < 8) {
+      document.getElementById('passwordError').classList.remove('hidden');
+      hasError = true;
+    }
+
+    if (password !== confirmPassword) {
+      document.getElementById('confirmPasswordError').classList.remove('hidden');
+      hasError = true;
+    }
+
+    if (hasError) {
+      const banner = document.getElementById('globalFormAlert');
+      if (banner) banner.classList.remove('hidden');
+      return;
+    }
+
+    if (window.handleRegisterSubmit) {
+      window.handleRegisterSubmit(e, { firstName, lastName, phone, email, password, confirmPassword });
+      return;
+    }
+
+    // Default fallback
+    setDemoState('loading');
+  }
+</script></main></body></html>

@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'juk_nak@kkumail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'])
+      );
+    }
+
+    // Users collection: profiles for customers and administrators
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      // A customer may edit their profile, but cannot grant themselves admin access.
+      allow create: if isAdmin() || (isOwner(userId) && request.resource.data.role == 'customer');
+      allow update: if isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
+
+      // Cart subcollection
+      match /cart/{cartItemId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Products collection: e-commerce products
+    match /products/{productId} {
+      // Visitors can read published products. Admins can also read drafts.
+      // Public list queries must include where('status', '==', 'active').
+      allow read: if resource.data.status == 'active' || isAdmin();
+      // Products can be created, edited, and deleted by administrators
+      allow write: if isAdmin();
+    }
+
+    // Admins collection: managed administrative accounts
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Default fallback: deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

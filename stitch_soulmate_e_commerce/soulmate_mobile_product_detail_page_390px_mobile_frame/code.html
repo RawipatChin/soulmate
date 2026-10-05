@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+
+<html lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>SOULMATE - รายละเอียดสินค้า</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Prompt:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              mint: '#A8E5CF',
+              mintDark: '#2D6857',
+              mintLight: '#E8F8F2',
+              pink: '#CA5A9A',
+              pinkDark: '#9E3675',
+              pinkLight: '#FDF2F7',
+              bg: '#FCF9F8',
+              surface: '#FFFFFF',
+              dark: '#1C1B1B',
+              muted: '#707975',
+              border: '#EAE7E7',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '"Prompt"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      font-family: 'Plus Jakarta Sans', 'Prompt', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      background-color: #FCF9F8;
+      width: 100%;
+      max-width: 390px;
+      margin: 0 auto;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-brand-bg text-brand-dark min-h-screen relative pb-28 selection:bg-brand-mint selection:text-brand-dark">
+
+<!-- 1. MOBILE HEADER -->
+<header class="sticky top-[29px] z-40 bg-white/95 backdrop-blur-md border-b border-brand-border px-4 py-3 flex items-center justify-between transition-all">
+<!-- Left: Back Arrow -->
+<button aria-label="ย้อนกลับ" class="w-9 h-9 -ml-1 rounded-full flex items-center justify-center text-stone-800 hover:bg-stone-100 active:scale-95 transition-all" onclick="handleBackNavigation()">
+<span class="material-symbols-outlined text-[22px]">arrow_back</span>
+</button>
+<!-- Center: SOULMATE Brand Mark / Clean Title -->
+<a class="flex items-center justify-center" data-path="home" href="/">
+<img alt="SOULMATE" class="h-7 w-auto object-contain" src="/logo-soulmate.png">
+</a>
+<!-- Right: Cart Icon with '0' badge -->
+<a aria-label="ตะกร้าสินค้า" class="relative w-9 h-9 -mr-1 rounded-full flex items-center justify-center text-stone-800 hover:bg-stone-100 active:scale-95 transition-all" href="/cart" onclick="event.preventDefault(); window.location.href='/cart';">
+<span class="material-symbols-outlined text-[22px]">shopping_bag</span>
+<span class="absolute top-0 right-0 bg-brand-pink text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-xs" id="header-cart-badge">0</span>
+</a>
+</header>
+<!-- MAIN PRODUCT VIEW -->
+<main class="w-full flex flex-col transition-opacity duration-200" id="view-detail">
+<!-- 2. LARGE PRODUCT IMAGE AREA (1:1 square aspect ratio) -->
+<div class="relative bg-white border-b border-brand-border overflow-hidden">
+<div class="w-full aspect-square relative flex items-center justify-center bg-gradient-to-b from-brand-mintLight/50 via-white to-brand-mintLight/20">
+<!-- Image Slide Display -->
+<div class="w-full h-full flex items-center justify-center p-6 transition-transform duration-300" id="product-slide-wrapper">
+<div class="w-56 h-56 rounded-3xl bg-brand-mint/20 border-2 border-brand-mint/40 flex flex-col items-center justify-center p-6 text-center shadow-inner relative group" id="gallery-image-node">
+<span class="material-symbols-outlined text-5xl text-brand-mintDark mb-2 transition-transform group-hover:scale-105">spa</span>
+<span class="text-xs font-semibold text-brand-mintDark tracking-wide" id="gallery-image-tag">ภาพสินค้าตัวอย่าง 1/3</span>
+<span class="text-[10px] text-stone-400 mt-1 font-mono">(รูปภาพจัดการโดย Super Admin)</span>
+</div>
+</div>
+<!-- Stock Status Tag -->
+<div class="absolute top-3 left-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+            สต็อกพร้อมส่ง
+          </span>
+</div>
+<!-- Swipe Dots -->
+<div class="absolute bottom-3 left-0 right-0 flex justify-center items-center gap-1.5">
+<button aria-label="ภาพที่ 1" class="w-5 h-1.5 rounded-full bg-brand-dark transition-all" id="dot-0" onclick="setSlide(0)"></button>
+<button aria-label="ภาพที่ 2" class="w-1.5 h-1.5 rounded-full bg-stone-300 transition-all" id="dot-1" onclick="setSlide(1)"></button>
+<button aria-label="ภาพที่ 3" class="w-1.5 h-1.5 rounded-full bg-stone-300 transition-all" id="dot-2" onclick="setSlide(2)"></button>
+</div>
+<!-- Prev / Next Controls -->
+<button aria-label="รูปก่อนหน้า" class="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 shadow text-stone-700 flex items-center justify-center active:scale-95 transition-transform" onclick="prevSlide()">
+<span class="material-symbols-outlined text-lg leading-none">chevron_left</span>
+</button>
+<button aria-label="รูปถัดไป" class="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 shadow text-stone-700 flex items-center justify-center active:scale-95 transition-transform" onclick="nextSlide()">
+<span class="material-symbols-outlined text-lg leading-none">chevron_right</span>
+</button>
+</div>
+<!-- Thumbnail Strip Indicators -->
+<div class="px-4 py-2.5 flex items-center gap-2 overflow-x-auto hide-scrollbar bg-stone-50/70 border-t border-brand-border/60">
+<button class="w-12 h-12 rounded-xl border-2 border-brand-mint bg-white p-1 flex-shrink-0 flex items-center justify-center transition-all" id="thumb-0" onclick="setSlide(0)">
+<div class="w-full h-full rounded-lg bg-brand-mint/20 flex items-center justify-center text-[10px] text-brand-mintDark font-bold">1</div>
+</button>
+<button class="w-12 h-12 rounded-xl border border-stone-200 bg-white p-1 flex-shrink-0 flex items-center justify-center hover:border-stone-300 transition-all" id="thumb-1" onclick="setSlide(1)">
+<div class="w-full h-full rounded-lg bg-pink-50 flex items-center justify-center text-[10px] text-brand-pink font-bold">2</div>
+</button>
+<button class="w-12 h-12 rounded-xl border border-stone-200 bg-white p-1 flex-shrink-0 flex items-center justify-center hover:border-stone-300 transition-all" id="thumb-2" onclick="setSlide(2)">
+<div class="w-full h-full rounded-lg bg-stone-100 flex items-center justify-center text-[10px] text-stone-600 font-bold">3</div>
+</button>
+<span class="text-[11px] text-stone-400 pl-1 font-sans">รูปภาพเพิ่มเติม</span>
+</div>
+</div>
+<!-- 3. PRODUCT INFORMATION -->
+<section class="p-4 bg-white border-b border-brand-border space-y-2.5">
+<div class="flex items-center justify-between text-xs text-stone-500">
+<span class="font-semibold tracking-wider text-brand-mintDark uppercase text-[11px]">SOULMATE HEALTH &amp; BEAUTY</span>
+<span class="text-[10px] bg-stone-100 px-2 py-0.5 rounded text-stone-600">รหัส: P-PREVIEW</span>
+</div>
+<!-- Product Name -->
+<h1 class="text-xl font-bold text-stone-900 leading-snug tracking-tight">
+        ชื่อสินค้าตัวอย่าง (Product Name)
+      </h1>
+<!-- Price Display: SOULMATE Pink (#CA5A9A) -->
+<div class="flex items-baseline gap-2 pt-1">
+<span class="text-3xl font-extrabold text-[#CA5A9A] tracking-tight">
+          ฿0
+        </span>
+<span class="text-xs text-stone-400 line-through">
+          ฿0
+        </span>
+<span class="text-[10px] text-[#CA5A9A] bg-pink-50 px-2 py-0.5 rounded-full font-semibold">
+          ราคาตัวอย่าง
+        </span>
+</div>
+<!-- Zero Data Rule Note -->
+<p class="text-[11px] text-stone-400 leading-normal pt-0.5">
+        * ราคาสินค้าจริงและข้อมูลทั้งหมดถูกจัดการผ่านระบบหลังบ้านโดย Super Admin
+      </p>
+</section>
+<!-- 4 & 5. PRODUCT OPTIONS & QUANTITY -->
+<section class="p-4 bg-white border-b border-brand-border space-y-4">
+<!-- Section Title must be strictly "เลือกสินค้า" (No 'จำเป็น', 'Required', or '*') -->
+<div class="flex items-center justify-between">
+<h2 class="text-sm font-bold text-stone-900 tracking-tight">เลือกสินค้า</h2>
+<span class="text-xs font-medium text-brand-mintDark" id="selected-summary-label">สูตรมาตรฐาน</span>
+</div>
+<!-- Variant Selector -->
+<div class="space-y-2">
+<label class="text-xs font-semibold text-stone-700 block">สูตร / ตัวเลือก</label>
+<div aria-label="เลือกสูตร" class="grid grid-cols-2 gap-2" role="radiogroup">
+<button class="px-3 py-2.5 rounded-xl border-2 border-brand-mint bg-brand-mintLight/40 text-stone-900 text-xs font-semibold flex items-center justify-between transition-all" id="variant-btn-0" onclick="selectVariant(0, 'สูตรมาตรฐาน')" type="button">
+<span>สูตรมาตรฐาน</span>
+<span class="material-symbols-outlined text-base text-brand-mintDark">check_circle</span>
+</button>
+<button class="px-3 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-medium flex items-center justify-between hover:border-stone-300 transition-all" id="variant-btn-1" onclick="selectVariant(1, 'สูตรเข้มข้น')" type="button">
+<span>สูตรเข้มข้น</span>
+<span class="w-3.5 h-3.5 rounded-full border border-stone-300"></span>
+</button>
+</div>
+</div>
+<!-- Package Selector -->
+<div class="space-y-2">
+<label class="text-xs font-semibold text-stone-700 block">ขนาดบรรจุ / แพ็กเกจ</label>
+<div class="flex flex-wrap gap-2">
+<button class="px-3 py-1.5 rounded-lg border-2 border-brand-mint bg-brand-mintLight/30 text-stone-900 text-xs font-semibold transition-all" id="pkg-btn-0" onclick="selectPackage(0, '1 ชิ้น')" type="button">
+            1 ชิ้น
+          </button>
+<button class="px-3 py-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 text-xs font-medium hover:border-stone-300 transition-all" id="pkg-btn-1" onclick="selectPackage(1, 'กล่องประหยัด (2 ชิ้น)')" type="button">
+            กล่องประหยัด (2 ชิ้น)
+          </button>
+<button class="px-3 py-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 text-xs font-medium hover:border-stone-300 transition-all" id="pkg-btn-2" onclick="selectPackage(2, 'ชุดสุดคุ้ม 3 ชิ้น')" type="button">
+            ชุดสุดคุ้ม 3 ชิ้น
+          </button>
+</div>
+</div>
+<!-- 5. QUANTITY STEPPER -->
+<div class="pt-3 flex items-center justify-between border-t border-dashed border-stone-100">
+<div>
+<span class="text-xs font-semibold text-stone-800 block">จำนวน</span>
+<span class="text-[10px] text-stone-400">สั่งซื้อขั้นต่ำ 1 ชิ้น</span>
+</div>
+<div class="flex items-center border border-stone-200 rounded-xl bg-stone-50 p-0.5 shadow-2xs">
+<button aria-label="ลดจำนวน" class="w-8 h-8 rounded-lg bg-white text-stone-800 flex items-center justify-center font-bold text-sm shadow-xs active:scale-95 transition-all" onclick="changeQuantity(-1)">
+            −
+          </button>
+<span class="w-10 text-center font-semibold text-stone-900 text-sm" id="qty-display">
+            1
+          </span>
+<button aria-label="เพิ่มจำนวน" class="w-8 h-8 rounded-lg bg-white text-stone-800 flex items-center justify-center font-bold text-sm shadow-xs active:scale-95 transition-all" onclick="changeQuantity(1)">
+            +
+          </button>
+</div>
+</div>
+</section>
+<!-- 6. PRODUCT INFORMATION ACCORDIONS -->
+<section class="mt-2 bg-white border-y border-brand-border p-4 space-y-3">
+<h2 class="text-xs font-bold text-stone-900 uppercase tracking-wider mb-1">ข้อมูลสินค้า</h2>
+<!-- Accordion 1: รายละเอียดสินค้า -->
+<div class="border border-stone-200 rounded-xl overflow-hidden">
+<button class="w-full px-3.5 py-3 bg-white flex items-center justify-between text-xs font-semibold text-stone-800 hover:bg-stone-50 transition-colors" onclick="toggleAccordion('acc-description')">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base text-brand-mintDark">description</span>
+            รายละเอียดสินค้า
+          </span>
+<span class="material-symbols-outlined text-base text-stone-400 transition-transform duration-200" id="arrow-acc-description">expand_more</span>
+</button>
+<div class="px-3.5 py-3 bg-stone-50/80 border-t border-stone-100 text-xs text-stone-600 leading-relaxed space-y-1.5" id="acc-description">
+<p class="font-medium text-stone-800">"รายละเอียดสินค้าจะถูกเพิ่มภายหลังโดย Super Admin"</p>
+<p class="text-[11px] text-stone-500">
+            ระบบรองรับการแสดงผลสรรพคุณ ส่วนผสมหลัก จุดเด่น และวิธีใช้งานจริงจากฐานข้อมูล โดยไม่แสดงข้อมูลสุขภาพปลอมตาม Zero Data Rule
+          </p>
+</div>
+</div>
+<!-- Accordion 2: ส่วนประกอบ -->
+<div class="border border-stone-200 rounded-xl overflow-hidden">
+<button class="w-full px-3.5 py-3 bg-white flex items-center justify-between text-xs font-semibold text-stone-800 hover:bg-stone-50 transition-colors" onclick="toggleAccordion('acc-ingredients')">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base text-brand-mintDark">science</span>
+            ส่วนประกอบ
+          </span>
+<span class="material-symbols-outlined text-base text-stone-400 transition-transform duration-200" id="arrow-acc-ingredients">expand_more</span>
+</button>
+<div class="hidden px-3.5 py-3 bg-stone-50/80 border-t border-stone-100 text-[11px] text-stone-500 leading-relaxed" id="acc-ingredients">
+          รายการสารสกัดและส่วนประกอบธรรมชาติที่ได้รับมาตรฐาน จะถูกระบุโดยละเอียดหลังจาก Super Admin ทำการเผยแพร่ข้อมูลสินค้า
+        </div>
+</div>
+<!-- Accordion 3: วิธีรับประทาน -->
+<div class="border border-stone-200 rounded-xl overflow-hidden">
+<button class="w-full px-3.5 py-3 bg-white flex items-center justify-between text-xs font-semibold text-stone-800 hover:bg-stone-50 transition-colors" onclick="toggleAccordion('acc-usage')">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base text-brand-mintDark">menu_book</span>
+            วิธีรับประทาน
+          </span>
+<span class="material-symbols-outlined text-base text-stone-400 transition-transform duration-200" id="arrow-acc-usage">expand_more</span>
+</button>
+<div class="hidden px-3.5 py-3 bg-stone-50/80 border-t border-stone-100 text-[11px] text-stone-500 leading-relaxed" id="acc-usage">
+          คำแนะนำในการรับประทานหรือวิธีใช้งานตามเอกสารกำกับจริงจากผู้ผลิต
+        </div>
+</div>
+<!-- Accordion 4: ข้อมูลเพิ่มเติม -->
+<div class="border border-stone-200 rounded-xl overflow-hidden">
+<button class="w-full px-3.5 py-3 bg-white flex items-center justify-between text-xs font-semibold text-stone-800 hover:bg-stone-50 transition-colors" onclick="toggleAccordion('acc-shipping')">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base text-brand-mintDark">local_shipping</span>
+            ข้อมูลเพิ่มเติม
+          </span>
+<span class="material-symbols-outlined text-base text-stone-400 transition-transform duration-200" id="arrow-acc-shipping">expand_more</span>
+</button>
+<div class="hidden px-3.5 py-3 bg-stone-50/80 border-t border-stone-100 text-[11px] text-stone-500 leading-relaxed space-y-1" id="acc-shipping">
+<p>• จัดส่งพัสดุด่วนทั่วประเทศตามมาตรฐานการขนส่ง</p>
+<p>• สินค้าของแท้ 100% จากแบรนด์ SOULMATE</p>
+<p>• เงื่อนไขการรับประกันและเปลี่ยนสินค้าเป็นไปตามนโยบายบริษัท</p>
+</div>
+</div>
+</section>
+<!-- Super Admin CMS Notification -->
+<div class="p-3.5 mx-4 my-3 rounded-xl bg-brand-mintLight/60 border border-brand-mint/50 text-[11px] text-stone-700 flex items-start gap-2.5">
+<span class="material-symbols-outlined text-base text-brand-mintDark mt-0.5">info</span>
+<div>
+<span class="font-semibold text-stone-800">สถาปัตยกรรมพร้อมเชื่อมต่อ CMS:</span>
+<p class="text-stone-500 mt-0.5 leading-normal">โครงสร้างหน้านี้รองรับการแสดงผลอัตโนมัติเมื่อ Super Admin อัปเดตข้อมูล ไม่มีการเขียนข้อมูลทางการแพทย์หรือราคาตายตัว</p>
+</div>
+</div>
+</main>
+<!-- LOADING STATE -->
+<section class="hidden w-full p-4 space-y-4 animate-pulse" id="view-loading">
+<div class="w-full aspect-square rounded-2xl bg-stone-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-stone-300">image</span>
+</div>
+<div class="space-y-3 bg-white p-4 rounded-2xl border border-stone-100">
+<div class="h-3.5 bg-stone-200 rounded w-1/3"></div>
+<div class="h-6 bg-stone-200 rounded w-3/4"></div>
+<div class="h-7 bg-stone-200 rounded w-1/4"></div>
+</div>
+<div class="space-y-3 bg-white p-4 rounded-2xl border border-stone-100">
+<div class="h-4 bg-stone-200 rounded w-1/4"></div>
+<div class="grid grid-cols-2 gap-2">
+<div class="h-10 bg-stone-200 rounded-xl"></div>
+<div class="h-10 bg-stone-200 rounded-xl"></div>
+</div>
+</div>
+<p class="text-center text-xs text-stone-400 pt-2 font-medium">กำลังโหลดข้อมูลสินค้า...</p>
+</section>
+<!-- NOT FOUND (404) STATE -->
+<section class="hidden w-full flex flex-col items-center justify-center p-6 text-center min-h-[60vh]" id="view-notfound">
+<div class="w-16 h-16 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center mb-3 text-stone-400">
+<span class="material-symbols-outlined text-3xl">sentiment_dissatisfied</span>
+</div>
+<h2 class="text-base font-bold text-stone-800 mb-1">ไม่พบสินค้า</h2>
+<p class="text-xs text-stone-500 max-w-xs mb-5 leading-relaxed">
+      สินค้านี้อาจถูกลบ ย้าย หรือยังไม่พร้อมจำหน่ายโดยผู้ดูแลระบบ
+    </p>
+<a class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-brand-mint text-stone-900 font-semibold text-xs shadow-xs hover:bg-brand-mintDark hover:text-white transition-all" href="/products" onclick="event.preventDefault(); switchState('detail');">
+      กลับไปหน้ารวมสินค้า
+    </a>
+</section>
+<!-- ERROR (500) STATE -->
+<section class="hidden w-full flex flex-col items-center justify-center p-6 text-center min-h-[60vh]" id="view-error">
+<div class="w-16 h-16 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center mb-3 text-rose-500">
+<span class="material-symbols-outlined text-3xl">error_outline</span>
+</div>
+<h2 class="text-base font-bold text-stone-800 mb-1">ไม่สามารถโหลดข้อมูลสินค้าได้</h2>
+<p class="text-xs text-stone-500 max-w-xs mb-5 leading-relaxed">
+      เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง
+    </p>
+<button class="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-stone-900 text-white font-semibold text-xs shadow-xs active:scale-95 transition-all" onclick="reloadProductData()">
+<span class="material-symbols-outlined text-sm">refresh</span>
+      ลองอีกครั้ง
+    </button>
+</section>
+<!-- 7. STICKY MOBILE PURCHASE BAR (Fixed at bottom, 390px max-width, Pink CTA) -->
+<div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[390px] bg-white/95 backdrop-blur-md border-t border-brand-border px-4 py-3 z-40 flex items-center justify-between shadow-lg" id="sticky-purchase-bar">
+<!-- Left: Price "฿0" -->
+<div class="flex flex-col">
+<span class="text-[10px] text-stone-400 font-medium">ราคารวม (ตัวอย่าง)</span>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-extrabold text-[#CA5A9A]">฿0</span>
+<span class="text-[11px] text-stone-400 font-normal">x <span id="bar-qty">1</span></span>
+</div>
+</div>
+<!-- Right: Large CTA button "เพิ่มลงตะกร้า" in SOULMATE Pink (#CA5A9A) -->
+<button class="flex-1 max-w-[210px] ml-4 bg-[#CA5A9A] text-white hover:bg-[#A83B7A] active:scale-95 font-bold text-sm py-3 px-4 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all" id="btn-add-to-cart" onclick="handleAddToCart()">
+<span class="material-symbols-outlined text-lg leading-none">shopping_bag</span>
+<span>เพิ่มลงตะกร้า</span>
+</button>
+</div>
+<!-- TOAST NOTIFICATION -->
+<div class="fixed top-14 left-1/2 -translate-x-1/2 w-[340px] max-w-[90%] bg-stone-900 text-white text-xs px-4 py-3 rounded-xl shadow-xl z-50 transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2.5" id="toast">
+<span class="material-symbols-outlined text-brand-mint text-base" id="toast-icon">check_circle</span>
+<span class="flex-1 font-medium" id="toast-text">เพิ่มสินค้าลงตะกร้าเรียบร้อยแล้ว</span>
+</div>
+<script>
+    // State Variables
+    let cartCount = 0;
+    let quantity = 1;
+    let currentSlide = 0;
+    let selectedVariant = 0; // null if unselected for validation test
+    let selectedPackage = 0;
+
+    const slides = [
+      { tag: 'ภาพสินค้าตัวอย่าง 1/3', icon: 'spa', bg: 'bg-brand-mint/20', border: 'border-brand-mint/40', textCol: 'text-brand-mintDark' },
+      { tag: 'ภาพสินค้าตัวอย่าง 2/3 (มุมข้าง)', icon: 'bubble_chart', bg: 'bg-pink-100/60', border: 'border-pink-300/50', textCol: 'text-brand-pinkDark' },
+      { tag: 'ภาพสินค้าตัวอย่าง 3/3 (แพ็กเกจจิ้ง)', icon: 'inventory_2', bg: 'bg-stone-200/60', border: 'border-stone-300/60', textCol: 'text-stone-800' }
+    ];
+
+    function setSlide(index) {
+      currentSlide = index;
+      const node = document.getElementById('gallery-image-node');
+      const tag = document.getElementById('gallery-image-tag');
+      const icon = node.querySelector('.material-symbols-outlined');
+      const item = slides[index];
+
+      node.className = `w-56 h-56 rounded-3xl ${item.bg} border-2 ${item.border} flex flex-col items-center justify-center p-6 text-center shadow-inner relative group transition-all duration-300`;
+      tag.textContent = item.tag;
+      tag.className = `text-xs font-semibold ${item.textCol} tracking-wide`;
+      icon.textContent = item.icon;
+      icon.className = `material-symbols-outlined text-5xl ${item.textCol} mb-2 transition-transform group-hover:scale-105`;
+
+      for (let i = 0; i < 3; i++) {
+        const dot = document.getElementById('dot-' + i);
+        const thumb = document.getElementById('thumb-' + i);
+        if (i === index) {
+          dot.className = 'w-5 h-1.5 rounded-full bg-brand-dark transition-all';
+          thumb.className = 'w-12 h-12 rounded-xl border-2 border-brand-mint bg-white p-1 flex-shrink-0 flex items-center justify-center transition-all';
+        } else {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-stone-300 transition-all';
+          thumb.className = 'w-12 h-12 rounded-xl border border-stone-200 bg-white p-1 flex-shrink-0 flex items-center justify-center hover:border-stone-300 transition-all';
+        }
+      }
+    }
+
+    function prevSlide() {
+      setSlide((currentSlide - 1 + slides.length) % slides.length);
+    }
+
+    function nextSlide() {
+      setSlide((currentSlide + 1) % slides.length);
+    }
+
+    function changeQuantity(delta) {
+      const newQty = quantity + delta;
+      if (newQty >= 1) {
+        quantity = newQty;
+        document.getElementById('qty-display').textContent = quantity;
+        document.getElementById('bar-qty').textContent = quantity;
+      }
+    }
+
+    function selectVariant(idx, label) {
+      selectedVariant = idx;
+      updateOptionSummary();
+
+      const b0 = document.getElementById('variant-btn-0');
+      const b1 = document.getElementById('variant-btn-1');
+
+      if (idx === 0) {
+        b0.className = 'px-3 py-2.5 rounded-xl border-2 border-brand-mint bg-brand-mintLight/40 text-stone-900 text-xs font-semibold flex items-center justify-between transition-all';
+        b0.querySelector('span:last-child').outerHTML = '<span class="material-symbols-outlined text-base text-brand-mintDark">check_circle</span>';
+
+        b1.className = 'px-3 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-medium flex items-center justify-between hover:border-stone-300 transition-all';
+        b1.querySelector('span:last-child').outerHTML = '<span class="w-3.5 h-3.5 rounded-full border border-stone-300"></span>';
+      } else {
+        b1.className = 'px-3 py-2.5 rounded-xl border-2 border-brand-mint bg-brand-mintLight/40 text-stone-900 text-xs font-semibold flex items-center justify-between transition-all';
+        b1.querySelector('span:last-child').outerHTML = '<span class="material-symbols-outlined text-base text-brand-mintDark">check_circle</span>';
+
+        b0.className = 'px-3 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-600 text-xs font-medium flex items-center justify-between hover:border-stone-300 transition-all';
+        b0.querySelector('span:last-child').outerHTML = '<span class="w-3.5 h-3.5 rounded-full border border-stone-300"></span>';
+      }
+    }
+
+    function selectPackage(idx, label) {
+      selectedPackage = idx;
+      updateOptionSummary();
+      for (let i = 0; i < 3; i++) {
+        const btn = document.getElementById('pkg-btn-' + i);
+        if (i === idx) {
+          btn.className = 'px-3 py-1.5 rounded-lg border-2 border-brand-mint bg-brand-mintLight/30 text-stone-900 text-xs font-semibold transition-all';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 text-xs font-medium hover:border-stone-300 transition-all';
+        }
+      }
+    }
+
+    function updateOptionSummary() {
+      const vName = selectedVariant === 0 ? 'สูตรมาตรฐาน' : 'สูตรเข้มข้น';
+      document.getElementById('selected-summary-label').textContent = vName;
+    }
+
+    function toggleAccordion(id) {
+      const content = document.getElementById(id);
+      const arrow = document.getElementById('arrow-' + id);
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        arrow.style.transform = 'rotate(180deg)';
+      } else {
+        content.classList.add('hidden');
+        arrow.style.transform = 'rotate(0deg)';
+      }
+    }
+
+    function handleBackNavigation() {
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.href = '/products';
+      }
+    }
+
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      const toastIcon = document.getElementById('toast-icon');
+
+      toastText.textContent = message;
+      if (isError) {
+        toastIcon.textContent = 'warning';
+        toastIcon.className = 'material-symbols-outlined text-rose-400 text-base';
+      } else {
+        toastIcon.textContent = 'check_circle';
+        toastIcon.className = 'material-symbols-outlined text-brand-mint text-base';
+      }
+
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+
+    function handleAddToCart() {
+      // Validation alert placeholder: if not selected, toast "กรุณาเลือกตัวเลือกสินค้า"
+      if (selectedVariant === null || selectedPackage === null) {
+        showToast('กรุณาเลือกตัวเลือกสินค้า', true);
+        return;
+      }
+
+      cartCount += quantity;
+      document.getElementById('header-cart-badge').textContent = cartCount;
+      showToast(`เพิ่มสินค้าลงในตะกร้าเรียบร้อยแล้ว (${cartCount} ชิ้น)`);
+    }
+
+    function switchState(state) {
+      const views = ['detail', 'loading', 'notfound', 'error'];
+      views.forEach(v => {
+        const viewEl = document.getElementById('view-' + v);
+        const tabEl = document.getElementById('tab-' + v);
+        if (v === state) {
+          viewEl.classList.remove('hidden');
+          tabEl.className = 'px-2 py-0.5 rounded bg-brand-mint text-stone-900 font-semibold text-[10px] transition-all';
+        } else {
+          viewEl.classList.add('hidden');
+          tabEl.className = 'px-2 py-0.5 rounded bg-stone-800 text-stone-300 font-normal text-[10px] hover:bg-stone-700 transition-all';
+        }
+      });
+
+      const stickyBar = document.getElementById('sticky-purchase-bar');
+      if (state === 'detail') {
+        stickyBar.classList.remove('hidden');
+      } else {
+        stickyBar.classList.add('hidden');
+      }
+    }
+
+    function reloadProductData() {
+      switchState('loading');
+      setTimeout(() => {
+        switchState('detail');
+      }, 900);
+    }
+  </script>
+</body></html>

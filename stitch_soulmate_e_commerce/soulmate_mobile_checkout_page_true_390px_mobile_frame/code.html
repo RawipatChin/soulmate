@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+
+<html lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>SOULMATE - ชำระเงิน (Checkout)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Noto+Sans+Thai:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              mint: '#A8E5CF',
+              mintDark: '#2E7D62',
+              mintLight: '#F0FAF5',
+              pink: '#CA5A9A',
+              pinkHover: '#B54988',
+              pinkLight: '#FDF2F8',
+              black: '#111827',
+              grayDark: '#374151',
+              grayMuted: '#6B7280',
+              grayLight: '#F9FAFB',
+              border: '#E5E7EB'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '"Noto Sans Thai"', 'sans-serif'],
+            thai: ['"Noto Sans Thai"', '"Plus Jakarta Sans"', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans Thai', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .material-symbols-outlined.fill {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-brand-black min-h-screen antialiased selection:bg-brand-mint selection:text-brand-black flex flex-col">
+<!-- TOP DEV/STATE CONTROLLER BAR -->
+
+<!-- 1. CHECKOUT HEADER -->
+<header class="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-100 z-40 px-4 py-3.5 flex items-center justify-between">
+<div class="flex items-center">
+<!-- Back Arrow Button -> returns to cart fallback /cart -->
+<button aria-label="กลับไปหน้าตะกร้า" class="w-9 h-9 rounded-full flex items-center justify-center -ml-1 text-gray-700 hover:text-brand-black active:scale-95 transition-all" onclick="handleBackToCart()" type="button">
+<span class="material-symbols-outlined text-[22px]">arrow_back</span>
+</button>
+</div>
+<div class="flex-1 text-center">
+<h1 class="text-base font-bold text-gray-900 tracking-tight">ชำระเงิน</h1>
+</div>
+<div class="w-9 flex justify-end items-center">
+<span class="text-xs text-gray-500 p-1.5 rounded-full bg-gray-50 flex items-center justify-center" title="ระบบความปลอดภัย SSL 256-bit">
+<span class="material-symbols-outlined text-[16px] text-gray-500">lock</span>
+</span>
+</div>
+</header>
+<!-- MAIN SCROLLABLE MOBILE CONTENT (Full mobile width naturally with px-4) -->
+<main class="flex-1 w-full pb-28">
+<!-- ==============================================
+         STATE 1: NORMAL CHECKOUT VIEW
+         ============================================== -->
+<div class="space-y-4 px-4 pt-3.5" id="viewNormal">
+<!-- Banner Alert: Zero Data Rule & Secure Connection -->
+<div class="bg-brand-mintLight/90 border border-brand-mint/50 rounded-2xl p-3 flex items-start gap-2.5 shadow-sm">
+<span class="material-symbols-outlined text-brand-mintDark text-[18px] mt-0.5 flex-shrink-0">verified_user</span>
+<div class="text-xs text-gray-700 leading-relaxed">
+<p class="font-semibold text-brand-mintDark mb-0.5">ระบบชำระเงินปลอดภัย (Step 5.1)</p>
+<p class="text-gray-600">กรอกข้อมูลผู้รับและที่อยู่จัดส่ง ยอดเงินและส่วนลดจะคำนวณตามจริงจากตะกร้าสินค้า</p>
+</div>
+</div>
+<!-- FORM CONTAINER -->
+<form class="space-y-4" id="checkoutForm" onsubmit="event.preventDefault(); handlePlaceOrder();">
+<!-- SECTION 1: ข้อมูลผู้สั่งซื้อ (Customer Information) -->
+<section class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+<div class="flex items-center justify-between mb-3">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-brand-mintLight text-brand-mintDark font-bold text-xs flex items-center justify-center">1</span>
+<h2 class="text-sm font-bold text-gray-900 tracking-tight">ข้อมูลผู้สั่งซื้อ</h2>
+</div>
+<!-- Member Profile Note & Autofill toggle -->
+<button class="flex items-center gap-1 text-[11px] font-medium text-brand-mintDark bg-brand-mintLight/80 border border-brand-mint/40 px-2 py-0.5 rounded-full hover:bg-brand-mint/30 transition-all" id="btnMemberPrefill" onclick="toggleMemberPrefill()" type="button">
+<span class="material-symbols-outlined text-[13px]">badge</span>
+<span id="memberPrefillLabel">ใช้ข้อมูลสมาชิก</span>
+</button>
+</div>
+<div class="space-y-3">
+<div class="grid grid-cols-2 gap-2.5">
+<div>
+<label class="block text-[11px] font-medium text-gray-600 mb-1" for="custFirstName">ชื่อ <span class="text-red-500">*</span></label>
+<input class="w-full px-3 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-mint/60 focus:border-brand-mint transition-all placeholder:text-gray-400" id="custFirstName" placeholder="ระบุชื่อจริง" type="text"/>
+</div>
+<div>
+<label class="block text-[11px] font-medium text-gray-600 mb-1" for="custLastName">นามสกุล <span class="text-red-500">*</span></label>
+<input class="w-full px-3 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-mint/60 focus:border-brand-mint transition-all placeholder:text-gray-400" id="custLastName" placeholder="ระบุนามสกุล" type="text"/>
+</div>
+</div>
+<div>
+<label class="block text-[11px] font-medium text-gray-600 mb-1" for="custPhone">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[16px]">call</span>
+<input class="w-full pl-9 pr-3 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-mint/60 focus:border-brand-mint transition-all placeholder:text-gray-400" id="custPhone" placeholder="08X-XXX-XXXX" type="tel"/>
+</div>
+</div>
+<div>
+<label class="block text-[11px] font-medium text-gray-600 mb-1" for="custEmail">อีเมล (สำหรับรับใบเสร็จและเลขแทร็กกิ้ง)</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[16px]">mail</span>
+<input class="w-full pl-9 pr-3 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-mint/60 focus:border-brand-mint transition-all placeholder:text-gray-400" id="custEmail" placeholder="example@domain.com" type="email"/>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: ที่อยู่จัดส่ง (Shipping Address) -->
+<section class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+<div class="flex items-center justify-between mb-3">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-brand-mintLight text-brand-mintDark font-bold text-xs flex items-center justify-center">2</span>
+<h2 class="text-sm font-bold text-gray-900 tracking-tight">ที่อยู่จัดส่ง</h2>
+</div>
+<span class="text-[10px] text-gray-400 font-medium">จัดส่งภายในประเทศ</span>
+</div>
+<div class="space-y-2.5">
+<div>
+<label class="block text-[11px] font-medium text-gray-600 mb-1" for="shipAddress">บ้านเลขที่ / ถนน / อาคาร / หมู่บ้าน <span class="text-red-500">*</span></label>
+<textarea class="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-mint/60 focus:border-brand-mint transition-all placeholder:text-gray-400 resize-none" id="shipAddress" placeholder="ระบุเลขที่บ้าน หมู่ ซอย ถนน และรายละเอียดเพิ่มเติม" rows="2"></textarea>
+</div>
+<div class="grid grid-cols-2 gap-2.5">
+<div>
+<label class="block text-[11px] font-medium text-gray-600 mb-1" for="shipSubdistrict">ตำบล / แขวง <span class="text-red-500">*</span></label>
+<input class="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-mint/60 focus:border-brand-mint transition-all placeholder:text-gray-400" id="shipSubdistrict" placeholder="ระบุตำบล/แขวง" type="text"/>
+</div>
+<div>
+<label class="block text-[11px] font-medium text-gray-600 mb-1" for="shipDistrict">อำเภอ / เขต <span class="text-red-500">*</span></label>
+<input class="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-mint/60 focus:border-brand-mint transition-all placeholder:text-gray-400" id="shipDistrict" placeholder="ระบุอำเภอ/เขต" type="text"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2.5">
+<div>
+<label class="block text-[11px] font-medium text-gray-600 mb-1" for="shipProvince">จังหวัด <span class="text-red-500">*</span></label>
+<div class="relative">
+<select class="w-full pl-3 pr-8 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-mint/60 focus:border-brand-mint transition-all appearance-none cursor-pointer text-gray-900" id="shipProvince" name="shipProvince" required="">
+<option value="">เลือกจังหวัด</option>
+<option value="กรุงเทพมหานคร">กรุงเทพมหานคร</option>
+<option value="กระบี่">กระบี่</option>
+<option value="กาญจนบุรี">กาญจนบุรี</option>
+<option value="กาฬสินธุ์">กาฬสินธุ์</option>
+<option value="กำแพงเพชร">กำแพงเพชร</option>
+<option value="ขอนแก่น">ขอนแก่น</option>
+<option value="จันทบุรี">จันทบุรี</option>
+<option value="ฉะเชิงเทรา">ฉะเชิงเทรา</option>
+<option value="ชลบุรี">ชลบุรี</option>
+<option value="ชัยนาท">ชัยนาท</option>
+<option value="ชัยภูมิ">ชัยภูมิ</option>
+<option value="ชุมพร">ชุมพร</option>
+<option value="เชียงราย">เชียงราย</option>
+<option value="เชียงใหม่">เชียงใหม่</option>
+<option value="ตรัง">ตรัง</option>
+<option value="ตราด">ตราด</option>
+<option value="ตาก">ตาก</option>
+<option value="นครนายก">นครนายก</option>
+<option value="นครปฐม">นครปฐม</option>
+<option value="นครพนม">นครพนม</option>
+<option value="นครราชสีมา">นครราชสีมา</option>
+<option value="นครศรีธรรมราช">นครศรีธรรมราช</option>
+<option value="นครสวรรค์">นครสวรรค์</option>
+<option value="นนทบุรี">นนทบุรี</option>
+<option value="นราธิวาส">นราธิวาส</option>
+<option value="น่าน">น่าน</option>
+<option value="บึงกาฬ">บึงกาฬ</option>
+<option value="บุรีรัมย์">บุรีรัมย์</option>
+<option value="ปทุมธานี">ปทุมธานี</option>
+<option value="ประจวบคีรีขันธ์">ประจวบคีรีขันธ์</option>
+<option value="ปราจีนบุรี">ปราจีนบุรี</option>
+<option value="ปัตตานี">ปัตตานี</option>
+<option value="พระนครศรีอยุธยา">พระนครศรีอยุธยา</option>
+<option value="พะเยา">พะเยา</option>
+<option value="พังงา">พังงา</option>
+<option value="พัทลุง">พัทลุง</option>
+<option value="พิจิตร">พิจิตร</option>
+<option value="พิษณุโลก">พิษณุโลก</option>
+<option value="เพชรบุรี">เพชรบุรี</option>
+<option value="เพชรบูรณ์">เพชรบูรณ์</option>
+<option value="แพร่">แพร่</option>
+<option value="ภูเก็ต">ภูเก็ต</option>
+<option value="มหาสารคาม">มหาสารคาม</option>
+<option value="มุกดาหาร">มุกดาหาร</option>
+<option value="แม่ฮ่องสอน">แม่ฮ่องสอน</option>
+<option value="ยโสธร">ยโสธร</option>
+<option value="ยะลา">ยะลา</option>
+<option value="ร้อยเอ็ด">ร้อยเอ็ด</option>
+<option value="ระนอง">ระนอง</option>
+<option value="ระยอง">ระยอง</option>
+<option value="ราชบุรี">ราชบุรี</option>
+<option value="ลพบุรี">ลพบุรี</option>
+<option value="ลำปาง">ลำปาง</option>
+<option value="ลำพูน">ลำพูน</option>
+<option value="เลย">เลย</option>
+<option value="ศรีสะเกษ">ศรีสะเกษ</option>
+<option value="สกลนคร">สกลนคร</option>
+<option value="สงขลา">สงขลา</option>
+<option value="สตูล">สตูล</option>
+<option value="สมุทรปราการ">สมุทรปราการ</option>
+<option value="สมุทรสงคราม">สมุทรสงคราม</option>
+<option value="สมุทรสาคร">สมุทรสาคร</option>
+<option value="สระแก้ว">สระแก้ว</option>
+<option value="สระบุรี">สระบุรี</option>
+<option value="สิงห์บุรี">สิงห์บุรี</option>
+<option value="สุโขทัย">สุโขทัย</option>
+<option value="สุพรรณบุรี">สุพรรณบุรี</option>
+<option value="สุราษฎร์ธานี">สุราษฎร์ธานี</option>
+<option value="สุรินทร์">สุรินทร์</option>
+<option value="หนองคาย">หนองคาย</option>
+<option value="หนองบัวลำภู">หนองบัวลำภู</option>
+<option value="อ่างทอง">อ่างทอง</option>
+<option value="อำนาจเจริญ">อำนาจเจริญ</option>
+<option value="อุดรธานี">อุดรธานี</option>
+<option value="อุตรดิตถ์">อุตรดิตถ์</option>
+<option value="อุทัยธานี">อุทัยธานี</option>
+<option value="อุบลราชธานี">อุบลราชธานี</option>
+</select>
+<span class="material-symbols-outlined text-gray-400 text-[18px] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+</div>
+</div>
+<div>
+<label class="block text-[11px] font-medium text-gray-600 mb-1" for="shipZip">รหัสไปรษณีย์ <span class="text-red-500">*</span></label>
+<input class="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-mint/60 focus:border-brand-mint transition-all placeholder:text-gray-400" id="shipZip" maxlength="5" placeholder="10XXX" type="text"/>
+</div>
+</div>
+<!-- Save address toggle/checkbox -->
+<div class="pt-2">
+<label class="flex items-center gap-2.5 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-brand-mintDark border-gray-300 focus:ring-brand-mint focus:ring-offset-0" id="saveAddressCheck" type="checkbox"/>
+<span class="text-xs text-gray-700">บันทึกที่อยู่นี้สำหรับการสั่งซื้อครั้งถัดไป</span>
+</label>
+</div>
+</div>
+</section>
+<!-- SECTION 3: วิธีจัดส่ง (Shipping Method) -->
+<section class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+<div class="flex items-center gap-2 mb-3">
+<span class="w-6 h-6 rounded-full bg-brand-mintLight text-brand-mintDark font-bold text-xs flex items-center justify-center">3</span>
+<h2 class="text-sm font-bold text-gray-900 tracking-tight">วิธีจัดส่ง</h2>
+</div>
+<!-- Clean Single Option for Version 1 -->
+<label class="relative flex items-center justify-between p-3 rounded-xl border border-brand-mint bg-brand-mintLight/40 cursor-pointer transition-all">
+<div class="flex items-center gap-3">
+<input checked="" class="w-4 h-4 text-brand-mintDark focus:ring-brand-mint" name="shippingMethod" type="radio" value="standard"/>
+<div>
+<div class="flex items-center gap-1.5">
+<p class="text-xs font-semibold text-gray-900">จัดส่งมาตรฐาน</p>
+<span class="text-[9px] bg-brand-mint/60 text-brand-mintDark px-1.5 py-0.2 rounded font-medium">เร็ว &amp; ปลอดภัย</span>
+</div>
+<p class="text-[11px] text-gray-500 mt-0.5">ระยะเวลาประมาณ 2–3 วันทำการ</p>
+</div>
+</div>
+<div class="text-right">
+<span class="text-xs font-bold text-gray-900">฿0</span>
+<p class="text-[9px] text-gray-400">(คำนวณตามจริง)</p>
+</div>
+</label>
+</section>
+<!-- SECTION 4: วิธีชำระเงิน (Payment Method) -->
+<section class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+<div class="flex items-center gap-2 mb-3">
+<span class="w-6 h-6 rounded-full bg-brand-mintLight text-brand-mintDark font-bold text-xs flex items-center justify-center">4</span>
+<h2 class="text-sm font-bold text-gray-900 tracking-tight">วิธีชำระเงิน</h2>
+</div>
+<div class="space-y-2.5">
+<!-- Option 1: COD (Cash on Delivery) - V1 Vital Option -->
+<label id="paymentOptionCod" class="payment-card relative flex items-center justify-between p-3 rounded-xl border-2 border-brand-mint bg-brand-mintLight/30 cursor-pointer transition-all">
+<div class="flex items-center gap-3">
+<input checked="" class="w-4 h-4 text-brand-mintDark focus:ring-brand-mint" name="paymentMethod" onchange="updatePaymentSelection(this)" type="radio" value="cod"/>
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-emerald-50 text-brand-mintDark flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">local_shipping</span>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<p class="text-xs font-semibold text-gray-900">เก็บเงินปลายทาง (COD)</p>
+<span class="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-medium">รอชำระ</span>
+</div>
+<p class="text-[10px] text-gray-500">ชำระเงินเป็นเงินสดเมื่อได้รับสินค้าหน้าบ้าน</p>
+</div>
+</div>
+</div>
+<span class="text-[10px] bg-brand-mint/60 text-brand-mintDark px-1.5 py-0.5 rounded font-medium flex-shrink-0">ยอดนิยม</span>
+</label>
+<!-- COD Unavailable Notice -->
+<div id="codUnavailableNotice" class="hidden p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+  <span class="material-symbols-outlined text-[18px] text-amber-600 shrink-0">info</span>
+  <span>สินค้าบางรายการไม่รองรับการเก็บเงินปลายทาง</span>
+</div>
+<!-- Option 2: PromptPay / QR Code -->
+<label class="payment-card relative flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:border-gray-300 bg-white cursor-pointer transition-all">
+<div class="flex items-center gap-3">
+<input class="w-4 h-4 text-brand-mintDark focus:ring-brand-mint" name="paymentMethod" onchange="updatePaymentSelection(this)" type="radio" value="promptpay"/>
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 font-bold text-xs">
+                    QR
+                  </div>
+<div>
+<div class="flex items-center gap-1.5">
+<p class="text-xs font-semibold text-gray-900">PromptPay / สแกน QR โอนเงิน</p>
+</div>
+<p class="text-[10px] text-gray-500">สร้าง QR Code ชำระเงินทันที ปลอดภัย (พร้อมใช้ในขั้นตอนถัดไป)</p>
+</div>
+</div>
+</div>
+</label>
+<!-- Option 3: Credit / Debit Card -->
+<label class="payment-card relative flex items-center justify-between p-3 rounded-xl border border-gray-200 hover:border-gray-300 bg-white cursor-pointer transition-all">
+<div class="flex items-center gap-3">
+<input class="w-4 h-4 text-brand-mintDark focus:ring-brand-mint" name="paymentMethod" onchange="updatePaymentSelection(this)" type="radio" value="card"/>
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-purple-50 text-brand-pink flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[18px]">credit_card</span>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<p class="text-xs font-semibold text-gray-900">บัตรเครดิต / เดบิต</p>
+</div>
+<p class="text-[10px] text-gray-500">รองรับ Visa, Mastercard, JCB</p>
+</div>
+</div>
+</div>
+</label>
+</div>
+</section>
+<!-- SECTION 5: สรุปคำสั่งซื้อ (Order Summary & Applied Cart Coupon) -->
+<section class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm" id="checkoutOrderSummarySection">
+<h2 class="text-sm font-bold text-gray-900 tracking-tight mb-3">สรุปคำสั่งซื้อ</h2>
+<!-- Dynamic Cart Items Container -->
+<div class="space-y-2 mb-3" id="checkoutCartItemsList"></div>
+<!-- Coupon Display State (Reflects coupon applied from Cart) -->
+<div class="mb-3.5 p-2.5 rounded-xl bg-brand-pinkLight/70 border border-brand-pink/30 flex items-center justify-between" id="appliedCouponBox">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-brand-pink text-[18px]">local_offer</span>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="text-[11px] font-bold text-brand-pink uppercase tracking-wider" id="couponCodeDisplay">SOULMATE</span>
+<span class="text-[9px] bg-emerald-100 text-emerald-700 px-1 py-0.2 rounded font-semibold">ใช้แล้ว ✓</span>
+</div>
+<p class="text-[10px] text-gray-500">คูปองส่วนลดพิเศษจากตะกร้าสินค้า</p>
+</div>
+</div>
+<button class="text-[11px] text-gray-500 hover:text-red-500 font-medium px-2 py-1 hover:bg-white rounded-lg transition-all" onclick="handleRemoveCoupon()" title="ยกเลิกคูปอง" type="button">
+              ยกเลิก
+            </button>
+</div>
+<!-- Pricing Summary Rows (Zero Data Rule compliant) -->
+<div class="space-y-2 text-xs border-t border-gray-100 pt-3">
+<div class="flex justify-between items-center text-gray-600">
+<span>ยอดสินค้า</span>
+<span class="font-medium text-gray-900" id="summarySubtotal">฿0</span>
+</div>
+<div class="flex justify-between items-center text-brand-pink font-medium">
+<span>ส่วนลดคูปอง</span>
+<span id="summaryDiscount">-฿0</span>
+</div>
+<div class="flex justify-between items-center text-gray-600">
+<span>ค่าจัดส่ง</span>
+<span class="font-medium text-gray-900" id="summaryShipping">฿0</span>
+</div>
+<div class="border-t border-dashed border-gray-200 pt-2.5 flex justify-between items-baseline">
+<div>
+<span class="text-sm font-bold text-gray-900">ยอดรวมทั้งสิ้น</span>
+<p class="text-[10px] text-gray-400">(รวมภาษีมูลค่าเพิ่มแล้ว)</p>
+</div>
+<div class="text-right">
+<span class="text-base font-extrabold text-brand-pink tracking-tight" id="summaryGrandTotal">฿0</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Validation Error Message Alert (Hidden by default) -->
+<div class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl p-3 items-center gap-2" id="validationAlert">
+<span class="material-symbols-outlined text-rose-600 text-[18px] flex-shrink-0">error</span>
+<span id="validationMessage">กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน</span>
+</div>
+</form>
+</div>
+<!-- ==============================================
+         STATE 2: LOADING SKELETON
+         ============================================== -->
+<div class="hidden space-y-4 px-4 pt-4 animate-pulse" id="viewLoading">
+<div class="h-12 bg-gray-200 rounded-2xl"></div>
+<div class="bg-white rounded-2xl p-4 border border-gray-100 space-y-3">
+<div class="h-4 bg-gray-200 rounded w-1/3"></div>
+<div class="grid grid-cols-2 gap-2">
+<div class="h-9 bg-gray-100 rounded-xl"></div>
+<div class="h-9 bg-gray-100 rounded-xl"></div>
+</div>
+<div class="h-9 bg-gray-100 rounded-xl"></div>
+</div>
+<div class="bg-white rounded-2xl p-4 border border-gray-100 space-y-3">
+<div class="h-4 bg-gray-200 rounded w-1/4"></div>
+<div class="h-14 bg-gray-100 rounded-xl"></div>
+<div class="grid grid-cols-2 gap-2">
+<div class="h-9 bg-gray-100 rounded-xl"></div>
+<div class="h-9 bg-gray-100 rounded-xl"></div>
+</div>
+</div>
+<div class="bg-white rounded-2xl p-4 border border-gray-100 space-y-2">
+<div class="h-4 bg-gray-200 rounded w-1/3"></div>
+<div class="h-12 bg-gray-100 rounded-xl"></div>
+</div>
+</div>
+<!-- ==============================================
+         STATE 3: ERROR STATE
+         ============================================== -->
+<div class="hidden flex-col items-center justify-center p-8 text-center my-12" id="viewError">
+<div class="w-16 h-16 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-[32px]">warning</span>
+</div>
+<h3 class="text-base font-bold text-gray-900 mb-1">ไม่สามารถโหลดข้อมูลการชำระเงินได้</h3>
+<p class="text-xs text-gray-500 max-w-xs mb-6">เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง</p>
+<button class="px-6 py-2.5 rounded-full bg-brand-pink text-white text-xs font-semibold hover:bg-brand-pinkHover active:scale-95 transition-all shadow-sm" onclick="handleRetryCheckout()" type="button">
+        ลองอีกครั้ง
+      </button>
+</div>
+</main>
+<!-- ==============================================
+       STICKY BOTTOM BAR (Mobile Standard Viewport)
+       ============================================== -->
+<aside aria-label="แถบชำระเงินด้านล่าง" class="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 py-3 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] flex items-center justify-between" id="stickyCheckoutBar">
+<div>
+<span class="text-[11px] text-gray-500 block leading-tight">ยอดรวม</span>
+<div class="flex items-baseline gap-1">
+<span class="text-lg font-extrabold text-brand-pink tracking-tight" id="stickyTotal">฿0</span>
+<span class="text-[10px] text-gray-400">บาท</span>
+</div>
+</div>
+<!-- PRIMARY CTA: "ยืนยันคำสั่งซื้อ" with Double-submission Prevention -->
+<button class="flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-brand-pink hover:bg-brand-pinkHover text-white font-bold text-xs tracking-wide shadow-md active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed" id="btnSubmitOrder" onclick="handlePlaceOrder()" type="button">
+<span class="hidden animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" id="submitSpinner"></span>
+<span class="material-symbols-outlined text-[16px]" id="submitCheckIcon">check_circle</span>
+<span id="submitText">ยืนยันคำสั่งซื้อ</span>
+</button>
+</aside>
+<!-- TOAST NOTIFICATION -->
+<div class="fixed top-14 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 pointer-events-none opacity-0 translate-y-2" id="toastNotification">
+<div class="bg-brand-black text-white text-xs px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-brand-mint text-[16px]" id="toastIcon">check</span>
+<span id="toastText">บันทึกข้อมูลเรียบร้อย</span>
+</div>
+</div>
+<!-- JAVASCRIPT LOGIC -->
+<script>
+    // State Switching (Normal, Loading, Error)
+    function setCheckoutState(state) {
+      const vNormal = document.getElementById('viewNormal');
+      const vLoading = document.getElementById('viewLoading');
+      const vError = document.getElementById('viewError');
+      const stickyBar = document.getElementById('stickyCheckoutBar');
+
+      const btnNormal = document.getElementById('btnStateNormal');
+      const btnLoading = document.getElementById('btnStateLoading');
+      const btnError = document.getElementById('btnStateError');
+
+      [btnNormal, btnLoading, btnError].forEach(btn => {
+        btn.className = 'px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:text-white text-[10px] transition-all';
+      });
+
+      vNormal.classList.add('hidden');
+      vLoading.classList.add('hidden');
+      vError.classList.add('hidden');
+      vError.classList.remove('flex');
+
+      if (state === 'normal') {
+        vNormal.classList.remove('hidden');
+        stickyBar.classList.remove('hidden');
+        btnNormal.className = 'px-2 py-0.5 rounded bg-brand-mint text-brand-black font-semibold text-[10px] transition-all';
+      } else if (state === 'loading') {
+        vLoading.classList.remove('hidden');
+        stickyBar.classList.add('hidden');
+        btnLoading.className = 'px-2 py-0.5 rounded bg-brand-mint text-brand-black font-semibold text-[10px] transition-all';
+      } else if (state === 'error') {
+        vError.classList.remove('hidden');
+        vError.classList.add('flex');
+        stickyBar.classList.add('hidden');
+        btnError.className = 'px-2 py-0.5 rounded bg-brand-mint text-brand-black font-semibold text-[10px] transition-all';
+      }
+    }
+
+    // Navigation fallback -> /cart
+    function handleBackToCart() {
+      showToast('กำลังกลับไปยังตะกร้าสินค้า (/cart)');
+    }
+
+    // Member Profile Prefill Toggle
+    function toggleMemberPrefill() {
+      if (typeof window.handleMemberPrefillToggle === 'function') {
+        window.handleMemberPrefillToggle();
+      }
+    }
+
+    // Payment Selection Radio styling update
+    function updatePaymentSelection(radio) {
+      document.querySelectorAll('.payment-card').forEach(card => {
+        card.classList.remove('border-2', 'border-brand-mint', 'bg-brand-mintLight/30');
+        card.classList.add('border', 'border-gray-200', 'bg-white');
+      });
+      const selectedCard = radio.closest('.payment-card');
+      selectedCard.classList.remove('border', 'border-gray-200', 'bg-white');
+      selectedCard.classList.add('border-2', 'border-brand-mint', 'bg-brand-mintLight/30');
+    }
+
+    // Remove Coupon Action
+    function handleRemoveCoupon() {
+      const couponBox = document.getElementById('appliedCouponBox');
+      const discountRow = document.getElementById('summaryDiscount');
+      
+      couponBox.innerHTML = `
+        <div class="flex items-center justify-between w-full py-1 text-xs text-gray-500">
+          <span class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px] text-gray-400">info</span>
+            ไม่ได้ใช้คูปองส่วนลด
+          </span>
+          <button type="button" onclick="restoreCoupon()" class="text-brand-pink font-semibold text-[11px] underline">กู้คืนคูปอง</button>
+        </div>
+      `;
+      discountRow.innerText = '฿0';
+      showToast('ยกเลิกคูปองเรียบร้อย');
+    }
+
+    function restoreCoupon() {
+      location.reload();
+    }
+
+    // Validation & Order Submission with Double-submission Prevention
+    function handlePlaceOrder() {
+      if (typeof window.isCartEmpty === 'function' && window.isCartEmpty()) {
+        showToast('ยังไม่มีสินค้าในตะกร้า กรุณาเลือกซื้อสินค้าก่อน', true);
+        return;
+      }
+      const firstName = document.getElementById('custFirstName').value.trim();
+      const lastName = document.getElementById('custLastName').value.trim();
+      const phone = document.getElementById('custPhone').value.trim();
+      const address = document.getElementById('shipAddress').value.trim();
+      const subdistrict = document.getElementById('shipSubdistrict').value.trim();
+      const district = document.getElementById('shipDistrict').value.trim();
+      const province = document.getElementById('shipProvince').value.trim();
+      const zip = document.getElementById('shipZip').value.trim();
+
+      const alertBox = document.getElementById('validationAlert');
+      const alertMsg = document.getElementById('validationMessage');
+
+      if (!firstName || !lastName || !phone || !address || !subdistrict || !district || !province || !zip) {
+        alertMsg.innerText = 'กรุณากรอกข้อมูลผู้รับและที่อยู่จัดส่งให้ครบถ้วน';
+        alertBox.classList.remove('hidden');
+        alertBox.classList.add('flex');
+        alertBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      alertBox.classList.add('hidden');
+      alertBox.classList.remove('flex');
+
+      // Prevent duplicate submission: disable button & show spinner
+      const submitBtn = document.getElementById('btnSubmitOrder');
+      const spinner = document.getElementById('submitSpinner');
+      const checkIcon = document.getElementById('submitCheckIcon');
+      const submitText = document.getElementById('submitText');
+
+      submitBtn.disabled = true;
+      spinner.classList.remove('hidden');
+      checkIcon.classList.add('hidden');
+      submitText.innerText = 'กำลังประมวลผล...';
+
+      setTimeout(() => {
+        submitBtn.disabled = false;
+        spinner.classList.add('hidden');
+        checkIcon.classList.remove('hidden');
+        submitText.innerText = 'ยืนยันคำสั่งซื้อ';
+        showToast('ยืนยันคำสั่งซื้อสำเร็จ! (เตรียมเข้าสู่ขั้นตอนสำเร็จ)');
+      }, 1500);
+    }
+
+    // Retry Button Function
+    function handleRetryCheckout() {
+      setCheckoutState('loading');
+      setTimeout(() => {
+        setCheckoutState('normal');
+        showToast('โหลดข้อมูลการชำระเงินสำเร็จ');
+      }, 700);
+    }
+
+    // Toast helper
+    function showToast(message) {
+      const toast = document.getElementById('toastNotification');
+      const toastText = document.getElementById('toastText');
+      toastText.innerText = message;
+      toast.classList.remove('opacity-0', 'translate-y-2');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-2');
+      }, 2400);
+    }
+  </script>
+</body></html>

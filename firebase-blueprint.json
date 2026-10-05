@@ -1,0 +1,225 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile document for customers and admins",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Full display name"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "Given name"
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Family name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Profile picture URL"
+        },
+        "role": {
+          "type": "string",
+          "description": "User access role",
+          "enum": ["customer", "admin", "super_admin"]
+        },
+        "status": {
+          "type": "string",
+          "description": "User account status",
+          "enum": ["active", "inactive"]
+        },
+        "membershipTier": {
+          "type": "string",
+          "description": "Loyalty tier",
+          "enum": ["classic", "silver", "gold", "platinum"]
+        },
+        "completedOrderCount": {
+          "type": "number",
+          "description": "Number of completed orders"
+        },
+        "lifetimeSpend": {
+          "type": "number",
+          "description": "Total spend amount in THB"
+        },
+        "defaultShippingAddress": {
+          "type": "object",
+          "description": "Default shipping address object"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when account was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when account was last updated"
+        }
+      },
+      "required": ["email", "role", "status"]
+    },
+    "CartItem": {
+      "title": "CartItem",
+      "description": "Item in a user's shopping cart subcollection",
+      "type": "object",
+      "properties": {
+        "productId": {
+          "type": "string",
+          "description": "Target product ID"
+        },
+        "productName": {
+          "type": "string",
+          "description": "Product title"
+        },
+        "productImage": {
+          "type": "string",
+          "description": "Product display image URL"
+        },
+        "variantId": {
+          "type": "string",
+          "description": "Selected variant ID"
+        },
+        "variantName": {
+          "type": "string",
+          "description": "Selected variant display name"
+        },
+        "unitPrice": {
+          "type": "number",
+          "description": "Unit price at time of adding to cart"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity added"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when item was added"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when item was updated"
+        }
+      },
+      "required": ["productId", "productName", "unitPrice", "quantity"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "E-commerce product document",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Product name"
+        },
+        "slug": {
+          "type": "string",
+          "description": "SEO friendly URL slug"
+        },
+        "price": {
+          "type": "number",
+          "description": "Regular selling price"
+        },
+        "compareAtPrice": {
+          "type": "number",
+          "description": "Original comparison or sale price"
+        },
+        "stock": {
+          "type": "number",
+          "description": "Inventory stock quantity"
+        },
+        "status": {
+          "type": "string",
+          "description": "Publication status",
+          "enum": ["active", "draft", "archived"]
+        },
+        "images": {
+          "type": "array",
+          "description": "List of product image objects"
+        },
+        "primaryImageURL": {
+          "type": "string",
+          "description": "Direct download URL for main cover image"
+        },
+        "primaryImageId": {
+          "type": "string",
+          "description": "Unique identifier of cover image"
+        },
+        "sku": {
+          "type": "string",
+          "description": "Stock keeping unit identifier"
+        },
+        "hasVariants": {
+          "type": "boolean",
+          "description": "Whether product contains variant options"
+        },
+        "optionGroups": {
+          "type": "array",
+          "description": "Product option groups"
+        },
+        "variants": {
+          "type": "array",
+          "description": "Product variants list"
+        },
+        "shipping": {
+          "type": "object",
+          "description": "Shipping dimensions and weight specifications"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Update timestamp"
+        }
+      },
+      "required": ["name", "status"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Designated administrator document",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Admin email address"
+        },
+        "role": {
+          "type": "string",
+          "description": "Admin privilege level",
+          "enum": ["admin", "super_admin"]
+        }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User customer and administrator profile document"
+    },
+    "/users/{userId}/cart/{cartItemId}": {
+      "schema": "CartItem",
+      "description": "Cart items subcollection for each user"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Catalog products collection"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "List of system administrators"
+    }
+  }
+}
