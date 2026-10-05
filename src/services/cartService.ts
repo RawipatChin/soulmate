@@ -17,6 +17,7 @@ export interface AddStorefrontCartItemInput {
   unitPrice: number;
   quantity?: number;
   productImage?: string | null;
+  availableStock?: number;
 }
 
 export interface StorefrontCartSnapshot {
@@ -220,6 +221,11 @@ export function addCartItem(
   const existingIndex = current.findIndex(
     (item) => item.id === id
   );
+  const existingQuantity = existingIndex >= 0 ? current[existingIndex].quantity : 0;
+  if (input.availableStock !== undefined &&
+      existingQuantity + addQuantity > input.availableStock) {
+    throw new Error('จำนวนสินค้าในตะกร้าเกินสต็อกที่มี');
+  }
 
   let next: StorefrontCartItem[];
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ScreenDefinition, CustomerProfile } from '../types';
+import { ScreenDefinition } from '../types';
 import { useAuth } from '../context/AuthContext';
 import {
   getCartSnapshot,
@@ -10,16 +10,17 @@ import {
   replaceCartItems,
   sanitizePersistedCartItems,
 } from '../services/cartService';
-import type {
-  StorefrontCartItem,
-  StorefrontCartSnapshot,
-} from '../services/cartService';
+import type { StorefrontCartItem } from '../services/cartService';
+import { assessCartItem, hasAvailableProductOption } from '../services/cartAvailability';
+import type { CartItemAssessment } from '../services/cartAvailability';
+import { getPublishedProducts, getPublishedProduct } from '../services/storefrontCatalog';
+import { resolveStorefrontPricing, resolveProductSelectionPricing } from '../services/storefrontPricing';
+import type { StorefrontPricing } from '../services/storefrontPricing';
 import { mapFirebaseAuthError } from '../utils/authErrors';
 import { getMembershipProgress } from '../utils/membership';
 import {
   getProducts,
   getProductById,
-  getProductBySlugOrId,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -254,7 +255,7 @@ function updateAllCartBadges(doc: Document, itemCount: number) {
     headerCountBadge.textContent = countLabel;
   }
 
-  const navBadges = doc.querySelectorAll('[data-path="cart"] span:last-child, #nav-cart-badge');
+  const navBadges = doc.querySelectorAll('[data-path="cart"] span[class~="absolute"], #nav-cart-badge');
   navBadges.forEach((el) => {
     el.textContent = countStr;
   });
@@ -537,56 +538,6 @@ function isRenderableProductImageUrl(value: unknown): value is string {
  * IMPORTANT: Never use the promotional homepage banner as a product fallback.
  */
 
-type StorefrontPricing = {
-  regularPrice: number;
-  specialPrice: number | null;
-  sellingPrice: number;
-  hasSpecialPrice: boolean;
-};
-
-function resolveStorefrontPricing(
-  source: any,
-  fallbackRegularPrice: number = 0,
-  fallbackSpecialPrice: number | null = null
-): StorefrontPricing {
-  const toNumber = (value: unknown): number | null => {
-    if (value === null || value === undefined || value === '') return null;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-
-  // SOULMATE product schema currently stores:
-  //   price          = regular price
-  //   compareAtPrice = special / sale price
-  const regularCandidate =
-    toNumber(source?.price) ??
-    toNumber(source?.regularPrice) ??
-    toNumber(fallbackRegularPrice) ??
-    0;
-
-  const specialCandidate =
-    toNumber(source?.compareAtPrice) ??
-    toNumber(source?.salePrice) ??
-    toNumber(fallbackSpecialPrice);
-
-  const regularPrice = Math.max(0, regularCandidate);
-
-  const hasSpecialPrice =
-    specialCandidate !== null &&
-    specialCandidate > 0 &&
-    regularPrice > 0 &&
-    specialCandidate < regularPrice;
-
-  const specialPrice = hasSpecialPrice ? specialCandidate : null;
-
-  return {
-    regularPrice,
-    specialPrice,
-    sellingPrice: specialPrice ?? regularPrice,
-    hasSpecialPrice,
-  };
-}
-
 function renderStorefrontPrice(
   pricing: StorefrontPricing,
   options: {
@@ -667,15 +618,11 @@ function renderMissingProductImage(label = 'ยังไม่มีรูปส
 
 type PersistedCartItem = StorefrontCartItem;
 
-type CartContextType = {
-  items: StorefrontCartItem[];
-  itemCount: number;
-  subtotal: number;
-  addToCart: (input: any) => Promise<void>;
-  updateCartQuantity: (cartItemId: string, quantity: number) => Promise<void>;
-  removeCartItem: (cartItemId: string) => Promise<void>;
-  clearCart: () => Promise<void>;
-};
+function assessCartItems(items: StorefrontCartItem[], productsById: Map<string, Product>) {
+  return new Map(items.map((item) => [
+    item.id, assessCartItem(item, productsById.get(item.productId) || null),
+  ] as const));
+}
 
 function loadPersistedCart(): PersistedCartItem[] {
   return getCartSnapshot().items;
@@ -695,6 +642,7 @@ function addPersistedCartItem(input: {
   unitPrice: number;
   quantity?: number;
   productImage?: string | null;
+  availableStock?: number;
 }): PersistedCartItem[] {
   return addCartItem(input).items;
 }
@@ -710,30 +658,6 @@ function removePersistedCartItem(
   cartId: string
 ): PersistedCartItem[] {
   return removeCartItemFromService(cartId).items;
-}
-
-function getServiceCartAdapter(): CartContextType {
-  const snapshot = getCartSnapshot();
-
-  return {
-    items: snapshot.items,
-    itemCount: snapshot.itemCount,
-    subtotal: snapshot.subtotal,
-
-    // Storefront writes are performed directly through cartService.
-    // These no-op async functions preserve the existing renderer API
-    // without requiring CartProvider.
-    addToCart: async () => undefined,
-    updateCartQuantity: async () => undefined,
-    removeCartItem: async () => undefined,
-    clearCart: async () => undefined,
-  };
-}
-
-function createEffectiveCart(
-  _cart?: CartContextType
-): CartContextType {
-  return getServiceCartAdapter();
 }
 
 function removeLegacyProductDetailPurchaseControls(doc: Document) {
@@ -775,8 +699,11 @@ function removeLegacyProductDetailPurchaseControls(doc: Document) {
   });
 }
 
-function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
-  cart = createEffectiveCart(cart);
+function renderCartScreen(
+  doc: Document,
+  validation?: { state: 'pending' | 'ready' | 'failed'; items: Map<string, CartItemAssessment> }
+) {
+  const cart = getCartSnapshot();
 
   // Cart page always reflects the persistent cart source, never the imported
   // Stitch preview state.
@@ -786,13 +713,28 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
   const filledState = doc.getElementById('state-filled');
   const cartItemList = doc.getElementById('cart-item-list');
   const stickyBar = doc.getElementById('sticky-purchase-bar');
-  const checkoutBtn = doc.getElementById('btn-checkout') as HTMLButtonElement | null;
+  doc.getElementById('btn-checkout')?.remove();
   const headerBadge = doc.getElementById('header-count-badge');
   const navBadge = doc.getElementById('nav-cart-badge');
   const subtotalVal = doc.getElementById('summary-subtotal-val');
   const discountVal = doc.getElementById('summary-discount-val');
   const grandtotalVal = doc.getElementById('summary-grandtotal-val');
   const barSubtotalVal = doc.getElementById('bar-subtotal-val');
+  if (cartItemList) {
+    let notice = doc.getElementById('cart-validation-message');
+    if (!notice) {
+      notice = doc.createElement('p');
+      notice.id = 'cart-validation-message';
+      notice.setAttribute('role', 'status');
+      notice.className = 'px-4 py-2 text-sm text-on-surface-variant';
+      cartItemList.insertAdjacentElement('beforebegin', notice);
+    }
+    notice.textContent = validation?.state === 'pending'
+      ? 'กำลังตรวจสอบสินค้าในตะกร้า…'
+      : validation?.state === 'failed'
+        ? 'ตรวจสอบสินค้าไม่ได้ กรุณาลองโหลดหน้าใหม่อีกครั้ง'
+        : '';
+  }
 
   // Some imported Stitch cart screens do not contain the expected summary IDs.
   // Fall back to the visible Thai row labels so the real cart totals are always
@@ -843,9 +785,6 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
     if (stickyBar) {
       stickyBar.classList.add('hidden');
     }
-    if (checkoutBtn) {
-      checkoutBtn.setAttribute('disabled', 'true');
-    }
     if (headerBadge) headerBadge.textContent = '0 ชิ้น';
     if (navBadge) navBadge.textContent = '0';
     if (cartItemList) cartItemList.innerHTML = '';
@@ -871,9 +810,6 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
     if (stickyBar) {
       stickyBar.classList.remove('hidden');
     }
-    if (checkoutBtn) {
-      checkoutBtn.removeAttribute('disabled');
-    }
     if (headerBadge) headerBadge.textContent = `${cart.itemCount} ชิ้น`;
     if (navBadge) navBadge.textContent = `${cart.itemCount}`;
 
@@ -881,21 +817,23 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
       cartItemList.innerHTML = cart.items
         .map((item) => {
           const lineTotal = item.unitPrice * item.quantity;
+          const assessment = validation?.items.get(item.id);
+          const needsCorrection = assessment && assessment.status !== 'available';
           return `
-          <article class="bg-surface-container-lowest rounded-xl p-space-md flex flex-col gap-space-sm shadow-xs" data-cart-item-id="${item.id}">
+          <article class="bg-surface-container-lowest rounded-xl p-space-md flex flex-col gap-space-sm shadow-xs" data-cart-item-id="${escapeHtml(item.id)}">
             <div class="flex gap-space-md">
               <div class="w-20 h-20 rounded-lg bg-surface-container-low flex items-center justify-center overflow-hidden shrink-0">
                 ${
                   item.productImage
-                    ? `<img class="w-full h-full object-cover" src="${item.productImage}" alt="${item.productName}">`
+                    ? `<img class="w-full h-full object-cover" src="${escapeHtml(item.productImage)}" alt="${escapeHtml(item.productName)}">`
                     : `<span class="material-symbols-outlined text-primary text-[32px]">spa</span>`
                 }
               </div>
               <div class="flex flex-col flex-1 min-w-0 justify-between">
                 <div>
                   <span class="font-label-sm text-label-sm text-primary font-semibold">SOULMATE</span>
-                  <h3 class="font-headline-sm text-headline-sm text-on-surface truncate">${item.productName}</h3>
-                  ${item.variantName ? `<p class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">${item.variantName}</p>` : ''}
+                   <h3 class="font-headline-sm text-headline-sm text-on-surface truncate">${escapeHtml(item.productName)}</h3>
+                   ${item.variantName ? `<p class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">${escapeHtml(item.variantName)}</p>` : ''}
                 </div>
                 <div class="flex items-center justify-between mt-space-xs">
                   <span class="font-headline-sm text-headline-sm text-on-surface font-bold">฿${item.unitPrice.toLocaleString('th-TH')}</span>
@@ -903,18 +841,19 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
                 </div>
               </div>
             </div>
+             ${needsCorrection ? `<p role="alert" class="text-sm text-error">${escapeHtml(assessment.message)} <button type="button" class="underline" data-cart-action="${assessment.reason === 'price' ? 'accept-price' : assessment.reason === 'stock' ? 'fit-stock' : 'review'}" data-cart-id="${escapeHtml(item.id)}">${assessment.reason === 'price' ? 'อัปเดตราคา' : assessment.reason === 'stock' ? 'ปรับจำนวน' : 'ดูสินค้า'}</button></p>` : ''}
             <!-- Stepper & Actions -->
             <div class="flex items-center justify-between pt-space-xs bg-surface-container-low/50 px-space-sm py-1.5 rounded-lg">
-              <button class="flex items-center gap-1 text-on-surface-variant hover:text-error transition-colors text-label-sm font-label-sm" data-cart-action="remove" data-cart-id="${item.id}" type="button">
+               <button aria-label="ลบ ${escapeHtml(item.productName)}" class="flex items-center gap-1 text-on-surface-variant hover:text-error transition-colors text-label-sm font-label-sm" data-cart-action="remove" data-cart-id="${escapeHtml(item.id)}" type="button">
                 <span class="material-symbols-outlined text-[18px]">delete</span>
                 <span>ลบ</span>
               </button>
               <div class="flex items-center bg-surface-container-lowest rounded-full shadow-xs px-1">
-                <button aria-label="ลดจำนวน" class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary active:scale-90 transition-transform font-bold" data-cart-action="decrease" data-cart-id="${item.id}" type="button">
+                 <button aria-label="ลดจำนวน ${escapeHtml(item.productName)}" class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary active:scale-90 transition-transform font-bold" data-cart-action="decrease" data-cart-id="${escapeHtml(item.id)}" type="button">
                   <span class="material-symbols-outlined text-[16px]">remove</span>
                 </button>
                 <span class="w-8 text-center font-label-md text-label-md font-semibold text-on-surface select-none">${item.quantity}</span>
-                <button aria-label="เพิ่มจำนวน" class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary active:scale-90 transition-transform font-bold" data-cart-action="increase" data-cart-id="${item.id}" type="button">
+                 <button aria-label="เพิ่มจำนวน ${escapeHtml(item.productName)}" class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary active:scale-90 transition-transform font-bold" data-cart-action="increase" data-cart-id="${escapeHtml(item.id)}" type="button" ${assessment && assessment.currentStock <= item.quantity ? 'disabled' : ''}>
                   <span class="material-symbols-outlined text-[16px]">add</span>
                 </button>
               </div>
@@ -938,274 +877,6 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
   }
 }
 
-function configureCheckoutPaymentMethods(doc: Document) {
-  const normalize = (value: string | null | undefined) =>
-    (value || '').replace(/\s+/g, ' ').trim();
-
-  const findPaymentRow = (needle: string): HTMLElement | null => {
-    const leaf = Array.from(
-      doc.querySelectorAll<HTMLElement>('body *')
-    ).find((el) => {
-      if (el.children.length > 0) return false;
-      return normalize(el.textContent).includes(needle);
-    });
-
-    if (!leaf) return null;
-
-    let current: HTMLElement | null = leaf;
-
-    for (let depth = 0; current && depth < 7; depth += 1) {
-      const hasRadio = Boolean(
-        current.querySelector('input[type="radio"]')
-      );
-      const text = normalize(current.textContent);
-
-      if (
-        hasRadio &&
-        (text.includes('เก็บเงินปลายทาง') ||
-          text.includes('PromptPay') ||
-          text.includes('บัตรเครดิต'))
-      ) {
-        return current;
-      }
-
-      current = current.parentElement;
-    }
-
-    return leaf.parentElement;
-  };
-
-  // Remove Credit / Debit Card from the checkout UI completely.
-  const cardRow =
-    findPaymentRow('บัตรเครดิต / เดบิต') ||
-    findPaymentRow('บัตรเครดิต') ||
-    findPaymentRow('เดบิต');
-
-  if (cardRow) {
-    cardRow.remove();
-  }
-
-  // COD must be the default selected payment method.
-  const codRow = findPaymentRow('เก็บเงินปลายทาง');
-  const codRadio =
-    codRow?.querySelector<HTMLInputElement>('input[type="radio"]') ||
-    Array.from(
-      doc.querySelectorAll<HTMLInputElement>('input[type="radio"]')
-    ).find((radio) => {
-      const row = radio.closest<HTMLElement>('label, div');
-      return normalize(row?.textContent).includes('เก็บเงินปลายทาง');
-    }) ||
-    null;
-
-  if (codRadio) {
-    doc
-      .querySelectorAll<HTMLInputElement>('input[type="radio"]')
-      .forEach((radio) => {
-        radio.checked = radio === codRadio;
-      });
-
-    codRadio.checked = true;
-    codRadio.dispatchEvent(new Event('input', { bubbles: true }));
-    codRadio.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-}
-
-function renderCheckoutSummary(doc: Document, win: any, cart: CartContextType) {
-  cart = createEffectiveCart(cart);
-
-  let container = doc.getElementById('checkoutCartItemsList');
-  if (!container) {
-    const summarySection =
-      doc.getElementById('checkoutOrderSummarySection') ||
-      doc.querySelector('section:has(#summarySubtotal)');
-    if (summarySection) {
-      const heading = summarySection.querySelector('h2');
-      container = doc.createElement('div');
-      container.id = 'checkoutCartItemsList';
-      container.className = 'space-y-2 mb-3';
-      if (heading && heading.nextSibling) {
-        summarySection.insertBefore(container, heading.nextSibling);
-      } else {
-        summarySection.prepend(container);
-      }
-    }
-  }
-
-  const subtotalEl = doc.getElementById('summarySubtotal');
-  const discountEl = doc.getElementById('summaryDiscount');
-  const shippingEl = doc.getElementById('summaryShipping');
-  const grandTotalEl = doc.getElementById('summaryGrandTotal');
-  const stickyTotalEl = doc.getElementById('stickyTotal');
-  const submitBtn = doc.getElementById('btnSubmitOrder') as HTMLButtonElement | null;
-  const couponBox = doc.getElementById('appliedCouponBox');
-
-  win.isCartEmpty = () => cart.items.length === 0;
-
-  if (couponBox) {
-    couponBox.classList.add('hidden');
-  }
-
-  if (cart.items.length === 0) {
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-      submitBtn.title = 'ยังไม่มีสินค้าในตะกร้า';
-    }
-
-    if (container) {
-      container.innerHTML = `
-        <div class="p-4 rounded-xl bg-amber-50/80 border border-amber-200 text-center my-2" id="checkoutEmptyCartNotice">
-          <span class="material-symbols-outlined text-amber-600 text-[28px] mb-1">shopping_cart_off</span>
-          <p class="text-xs font-semibold text-amber-900 mb-1">ยังไม่มีสินค้าในตะกร้า</p>
-          <p class="text-[11px] text-amber-700 mb-3">กรุณาเลือกซื้อสินค้าก่อนดำเนินการชำระเงิน</p>
-          <div class="flex items-center justify-center gap-2">
-            <a href="/products" class="px-3.5 py-1.5 rounded-full bg-white border border-amber-300 text-amber-900 text-xs font-medium hover:bg-amber-100 transition-all">เลือกซื้อสินค้า</a>
-            <a href="/cart" class="px-3.5 py-1.5 rounded-full bg-amber-600 text-white text-xs font-medium hover:bg-amber-700 transition-all">ไปที่ตะกร้า</a>
-          </div>
-        </div>
-      `;
-    }
-
-    if (subtotalEl) subtotalEl.textContent = '฿0';
-    if (discountEl) discountEl.textContent = '-฿0';
-    if (shippingEl) shippingEl.textContent = '฿0';
-    if (grandTotalEl) grandTotalEl.textContent = '฿0';
-    if (stickyTotalEl) stickyTotalEl.textContent = '฿0';
-  } else {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-      submitBtn.removeAttribute('title');
-    }
-
-    if (container) {
-      container.innerHTML = `
-        <div class="space-y-2 mb-3 divide-y divide-gray-100">
-          ${cart.items
-            .map((item) => {
-              const lineTotal = item.unitPrice * item.quantity;
-              return `
-              <div class="pt-2 first:pt-0 flex items-center justify-between text-xs">
-                <div class="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-                  <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0">
-                    ${
-                      item.productImage
-                        ? `<img src="${item.productImage}" class="w-full h-full object-cover" alt="${item.productName}" />`
-                        : `<span class="material-symbols-outlined text-gray-400 text-base">spa</span>`
-                    }
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <p class="font-medium text-gray-900 truncate">${item.productName}</p>
-                    ${item.variantName ? `<p class="text-[10px] text-gray-500">${item.variantName}</p>` : ''}
-                    <p class="text-[10px] text-gray-400">฿${item.unitPrice.toLocaleString('th-TH')} × ${item.quantity}</p>
-                  </div>
-                </div>
-                <div class="text-right shrink-0">
-                  <span class="font-semibold text-gray-900">฿${lineTotal.toLocaleString('th-TH')}</span>
-                </div>
-              </div>
-            `;
-            })
-            .join('')}
-        </div>
-      `;
-    }
-
-    const formattedSubtotal = `฿${cart.subtotal.toLocaleString('th-TH')}`;
-    if (subtotalEl) subtotalEl.textContent = formattedSubtotal;
-    if (discountEl) discountEl.textContent = '-฿0';
-    if (shippingEl) shippingEl.textContent = '฿0';
-    if (grandTotalEl) grandTotalEl.textContent = formattedSubtotal;
-    if (stickyTotalEl) stickyTotalEl.textContent = formattedSubtotal;
-  }
-}
-
-function attachCheckoutEditListeners(doc: Document) {
-  const ids = [
-    'custFirstName',
-    'custLastName',
-    'custPhone',
-    'custEmail',
-    'shipAddress',
-    'shipSubdistrict',
-    'shipDistrict',
-    'shipProvince',
-    'shipZip',
-  ];
-
-  ids.forEach((id) => {
-    const el = doc.getElementById(id) as HTMLElement | null;
-    if (el && !el.dataset.listenerAttached) {
-      el.dataset.listenerAttached = 'true';
-      const markEdited = () => {
-        el.dataset.userEdited = 'true';
-      };
-      el.addEventListener('input', markEdited);
-      el.addEventListener('change', markEdited);
-    }
-  });
-}
-
-function populateCheckoutFromDoc(
-  doc: Document,
-  profile: CustomerProfile | null,
-  userEmail?: string | null,
-  force = false
-) {
-  if (!profile) return;
-
-  const custFirstName = doc.getElementById('custFirstName') as HTMLInputElement | null;
-  const custLastName = doc.getElementById('custLastName') as HTMLInputElement | null;
-  const custPhone = doc.getElementById('custPhone') as HTMLInputElement | null;
-  const custEmail = doc.getElementById('custEmail') as HTMLInputElement | null;
-
-  const shipAddress = (doc.getElementById('shipAddress') ||
-    doc.getElementById('addressLine')) as HTMLTextAreaElement | HTMLInputElement | null;
-  const shipSubdistrict = (doc.getElementById('shipSubdistrict') ||
-    doc.getElementById('subDistrict')) as HTMLInputElement | null;
-  const shipDistrict = (doc.getElementById('shipDistrict') ||
-    doc.getElementById('district')) as HTMLInputElement | null;
-  const shipProvince = (doc.getElementById('shipProvince') ||
-    doc.getElementById('province')) as HTMLSelectElement | HTMLInputElement | null;
-  const shipZip = (doc.getElementById('shipZip') ||
-    doc.getElementById('postalCode')) as HTMLInputElement | null;
-
-  const setField = (
-    el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null,
-    val: string | undefined | null
-  ) => {
-    if (!el) return;
-    if (!force && el.dataset.userEdited === 'true') return;
-    el.value = val || '';
-  };
-
-  const addr = profile.defaultShippingAddress;
-
-  if (addr) {
-    setField(custFirstName, addr.firstName || profile.firstName || '');
-    setField(custLastName, addr.lastName || profile.lastName || '');
-    setField(custPhone, addr.phone || profile.phone || '');
-    setField(custEmail, profile.email || userEmail || '');
-
-    setField(shipAddress, addr.addressLine1 || '');
-    setField(shipSubdistrict, addr.subdistrict || '');
-    setField(shipDistrict, addr.district || '');
-    setField(shipProvince, addr.province || '');
-    setField(shipZip, addr.postalCode || '');
-  } else {
-    setField(custFirstName, profile.firstName || '');
-    setField(custLastName, profile.lastName || '');
-    setField(custPhone, profile.phone || '');
-    setField(custEmail, profile.email || userEmail || '');
-  }
-}
-
-/**
- * Wires the product image upload control, hidden file input, drag-and-drop,
- * and preview gallery for /admin/products/new and /admin/products/:productId/edit.
- * Enforces single cover image selection without array reshuffling,
- * supports async resolution of legacy storagePath images, and real HTTPS download URLs.
- */
 function wireProductImageUpload(
   doc: Document,
   win: any,
@@ -1624,7 +1295,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const auth = useAuth();
-  const cart = getServiceCartAdapter();
 
   useEffect(() => {
     if (location.pathname !== '/admin/products/new') {
@@ -1741,7 +1411,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         e.preventDefault();
         e.stopPropagation();
 
-        const effective = createEffectiveCart(cart);
+        const effective = getCartSnapshot();
         if (effective.items.length > 0) {
           savePersistedCart(effective.items);
         }
@@ -1970,7 +1640,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     });
 
     // 2. Global Cart Badges
-    const effectiveCartOnLoad = createEffectiveCart(cart);
+    const effectiveCartOnLoad = getCartSnapshot();
     updateAllCartBadges(doc, effectiveCartOnLoad.itemCount);
 
     // 3. Storefront Navigation Highlights
@@ -2424,7 +2094,12 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     // --- Cart Screen Wiring ---
     if (location.pathname === '/cart') {
       removeStorefrontTestModeUI(doc);
-      renderCartScreen(doc, win, cart);
+      const validation: {
+        state: 'pending' | 'ready' | 'failed';
+        items: Map<string, CartItemAssessment>;
+      } = { state: 'pending', items: new Map() };
+      let productsById = new Map<string, Product>();
+      renderCartScreen(doc, validation);
 
       // Cart Item Stepper Actions
       doc.addEventListener('click', async (e) => {
@@ -2435,13 +2110,29 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         const cartId = target.getAttribute('data-cart-id');
         if (!cartId || !action) return;
 
-        const effective = createEffectiveCart(cart);
+        const effective = getCartSnapshot();
         const existing = effective.items.find((i) => i.id === cartId);
         if (!existing) return;
+        if (action === 'review') {
+          navigate(`/products/${encodeURIComponent(existing.productId)}`);
+          return;
+        }
 
         let nextItems = effective.items;
 
-        if (action === 'increase') {
+        if (action === 'accept-price') {
+          const price = validation.items.get(cartId)?.currentPrice;
+          if (price === null || price === undefined) return;
+          nextItems = savePersistedCart(effective.items.map((item) =>
+            item.id === cartId ? { ...item, unitPrice: price } : item));
+        } else if (action === 'fit-stock') {
+          const stock = validation.items.get(cartId)?.currentStock || 0;
+          if (stock <= 0) return;
+          nextItems = updatePersistedCartQuantity(cartId, stock);
+        } else if (action === 'increase') {
+          const assessment = validation.items.get(cartId);
+          if (validation.state === 'ready' && (!assessment ||
+              assessment.status !== 'available' || existing.quantity >= assessment.currentStock)) return;
           nextItems = updatePersistedCartQuantity(
             cartId,
             existing.quantity + 1
@@ -2458,53 +2149,24 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         } else if (action === 'remove') {
           nextItems = removePersistedCartItem(cartId);
         }
+        if (validation.state === 'ready') {
+          validation.items = assessCartItems(nextItems, productsById);
+        }
 
-        renderCartScreen(
-          doc,
-          win,
-          {
-            ...cart,
-            items: nextItems,
-            itemCount: nextItems.reduce(
-              (sum, item) => sum + item.quantity,
-              0
-            ),
-            subtotal: nextItems.reduce(
-              (sum, item) =>
-                sum + item.unitPrice * item.quantity,
-              0
-            ),
-          }
-        );
-
-        updateAllCartBadges(
-          doc,
-          nextItems.reduce(
-            (sum, item) => sum + item.quantity,
-            0
-          )
-        );
+        renderCartScreen(doc, validation);
       });
 
-      win.handleCheckout = () => {
-        const effective = createEffectiveCart(cart);
-
-        if (effective.items.length > 0) {
-          navigate('/checkout', {
-            state: {
-              soulmateCartItems: effective.items,
-            },
-          });
-        }
-      };
-    }
-
-    // --- Checkout Screen Wiring ---
-    if (location.pathname === '/checkout') {
-      configureCheckoutPaymentMethods(doc);
-      renderCheckoutSummary(doc, win, cart);
-      attachCheckoutEditListeners(doc);
-      populateCheckoutFromDoc(doc, auth.customerProfile, auth.user?.email);
+      win.handleCheckout = () => undefined;
+      try {
+        const published = await getPublishedProducts();
+        productsById = new Map(published.map((product) => [product.id, product]));
+        validation.items = assessCartItems(getCartSnapshot().items, productsById);
+        validation.state = 'ready';
+      } catch (error) {
+        console.error('[Storefront Cart] Could not check current catalog:', error);
+        validation.state = 'failed';
+      }
+      renderCartScreen(doc, validation);
     }
 
     // =========================================================================
@@ -3159,8 +2821,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       if (countLabel) countLabel.textContent = 'กำลังโหลดสินค้า…';
       const loadingSec = doc.getElementById('state-loading');
       loadingSec?.classList.remove('hidden');
+      doc.getElementById('state-grid')?.classList.add('hidden');
+      doc.getElementById('state-list')?.classList.add('hidden');
+      doc.getElementById('state-empty')?.classList.add('hidden');
       try {
-        const activeProducts = await getProducts({ status: 'active' });
+        const activeProducts = await getPublishedProducts();
         const activeProductsWithImages = await Promise.all(
           activeProducts.map(async (product) => ({
             product,
@@ -3170,6 +2835,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         if (countLabel) countLabel.textContent = `${activeProducts.length} สินค้า`;
 
         const gridSec = doc.getElementById('state-grid');
+        doc.getElementById('state-list')?.classList.add('hidden');
         const listSec = doc.getElementById('state-list');
         const emptySec = doc.getElementById('state-empty');
         loadingSec?.classList.add('hidden');
@@ -3183,18 +2849,20 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           if (listSec) {
             listSec.innerHTML = activeProductsWithImages.map(({ product: p, imageUrl: img }) => {
               const pricing = resolveStorefrontPricing(p);
+                 const available = hasAvailableProductOption(p);
               return `
                 <article class="flex items-center gap-3 rounded-xl bg-surface-container-lowest p-3 shadow-xs">
-                  <div class="flex min-w-0 flex-1 cursor-pointer items-center gap-3" data-action="view-product" data-slug="${escapeHtml(p.slug || p.id)}">
+                   <div class="flex min-w-0 flex-1 cursor-pointer items-center gap-3" data-action="view-product" data-slug="${escapeHtml(p.slug || p.id)}" role="link" tabindex="0" aria-label="ดูรายละเอียด ${escapeHtml(p.name)}">
                     <div class="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-surface-container-low">
                       ${img ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" class="h-full w-full object-cover" />` : renderMissingProductImage()}
                     </div>
                     <div class="min-w-0">
                       <h3 class="font-semibold text-on-surface line-clamp-2">${escapeHtml(p.name)}</h3>
                       <p class="font-bold text-primary">฿${pricing.sellingPrice.toLocaleString('th-TH')}</p>
+                       ${available ? '' : '<p class="text-sm text-error">สินค้าหมด</p>'}
                     </div>
                   </div>
-                  <button type="button" data-action="add-to-cart" data-product-id="${escapeHtml(p.id)}" data-product-name="${escapeHtml(p.name)}" data-product-price="${pricing.sellingPrice}" data-product-img="${escapeHtml(img || '')}" class="rounded-full bg-primary-container p-2 text-on-primary-container" title="เพิ่มลงตะกร้า">
+                   <button type="button" data-action="add-to-cart" data-product-id="${escapeHtml(p.id)}" data-product-img="${escapeHtml(img || '')}" class="rounded-full bg-primary-container p-2 text-on-primary-container disabled:opacity-50" aria-label="${available ? p.hasVariants ? 'เลือกตัวเลือกของ' : 'เพิ่ม' : 'สินค้าหมด'} ${escapeHtml(p.name)}${available && !p.hasVariants ? ' ลงตะกร้า' : ''}" title="${available ? p.hasVariants ? 'เลือกตัวเลือก' : 'เพิ่มลงตะกร้า' : 'สินค้าหมด'}" ${available ? '' : 'disabled'}>
                     <span class="material-symbols-outlined">add_shopping_cart</span>
                   </button>
                 </article>`;
@@ -3206,20 +2874,22 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               .map(({ product: p, imageUrl: img }) => {
 
                 const pricing = resolveStorefrontPricing(p);
+                const available = hasAvailableProductOption(p);
 
                 return `
                 <article class="bg-surface-container-lowest rounded-2xl p-3 shadow-xs flex flex-col justify-between border border-surface-container-high/40 hover:shadow-sm transition-all" data-product-slug="${p.slug || p.id}">
-                  <div class="cursor-pointer group" data-action="view-product" data-slug="${p.slug || p.id}">
+                   <div class="cursor-pointer group" data-action="view-product" data-slug="${escapeHtml(p.slug || p.id)}" role="link" tabindex="0" aria-label="ดูรายละเอียด ${escapeHtml(p.name)}">
                     <div class="relative w-full aspect-square rounded-xl bg-surface-container-low overflow-hidden mb-2.5 flex items-center justify-center">
-                      ${
+                       ${
                         img
-                          ? `<img src="${img}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.onerror=null; this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');" />
+                           ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.onerror=null; this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');" />
                              <div class="hidden absolute inset-0">${renderMissingProductImage()}</div>`
                           : renderMissingProductImage()
                       }
                     </div>
                     <span class="font-label-sm text-[11px] text-primary font-semibold uppercase tracking-wider">SOULMATE</span>
                     <h3 class="font-headline-sm text-sm text-on-surface font-semibold line-clamp-2 mt-0.5 leading-snug">${escapeHtml(p.name)}</h3>
+                     ${available ? '' : '<p class="text-sm text-error">สินค้าหมด</p>'}
                   </div>
                   <div class="mt-2.5 pt-2 border-t border-surface-container-low flex items-center justify-between">
                     <div class="flex items-baseline gap-1.5 flex-wrap">
@@ -3240,7 +2910,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                           `
                       }
                     </div>
-                    <button type="button" data-action="add-to-cart" data-product-id="${p.id}" data-product-name="${escapeHtml(p.name)}" data-product-price="${pricing.sellingPrice}" data-product-img="${img || ''}" class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary flex items-center justify-center transition-colors active:scale-90" title="เพิ่มลงตะกร้า">
+                     <button type="button" data-action="add-to-cart" data-product-id="${escapeHtml(p.id)}" data-product-img="${escapeHtml(img || '')}" class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary flex items-center justify-center transition-colors active:scale-90 disabled:opacity-50" aria-label="${available ? p.hasVariants ? 'เลือกตัวเลือกของ' : 'เพิ่ม' : 'สินค้าหมด'} ${escapeHtml(p.name)}${available && !p.hasVariants ? ' ลงตะกร้า' : ''}" title="${available ? p.hasVariants ? 'เลือกตัวเลือก' : 'เพิ่มลงตะกร้า' : 'สินค้าหมด'}" ${available ? '' : 'disabled'}>
                       <span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
                     </button>
                   </div>
@@ -3251,29 +2921,49 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
             // Click listeners for viewing detail and adding to cart
             doc.querySelectorAll('#state-grid [data-action="view-product"], #state-list [data-action="view-product"]').forEach((card) => {
-              card.addEventListener('click', () => {
+               const open = () => {
                 const slug = card.getAttribute('data-slug');
                 if (slug) navigate(`/products/${slug}`);
-              });
+               };
+               card.addEventListener('click', open);
+               card.addEventListener('keydown', (event) => {
+                 const key = (event as KeyboardEvent).key;
+                 if (key === 'Enter' || key === ' ') { event.preventDefault(); open(); }
+               });
             });
 
             doc.querySelectorAll('#state-grid [data-action="add-to-cart"], #state-list [data-action="add-to-cart"]').forEach((btn) => {
               btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const pId = btn.getAttribute('data-product-id') || '';
-                const pName = btn.getAttribute('data-product-name') || '';
-                const pPrice = parseFloat(btn.getAttribute('data-product-price') || '0');
+                 const product = activeProducts.find((candidate) => candidate.id === pId);
+                 if (!product) return;
+                 if (product.hasVariants) {
+                   navigate(`/products/${product.slug || product.id}`);
+                   return;
+                 }
+                 if (product.stock <= 0) {
+                   win.alert('สินค้านี้หมดสต็อก');
+                   return;
+                 }
                 const pImg = btn.getAttribute('data-product-img') || null;
 
                 const cartPayload = {
                   productId: pId,
-                  productName: pName,
-                  unitPrice: pPrice,
+                   productName: product.name,
+                   unitPrice: resolveStorefrontPricing(product).sellingPrice,
                   quantity: 1,
                   productImage: pImg,
+                   availableStock: product.stock,
                 };
 
-                const persistedItems = addPersistedCartItem(cartPayload);
+                 let persistedItems: PersistedCartItem[];
+                 try {
+                   persistedItems = addPersistedCartItem(cartPayload);
+                 } catch (error) {
+                   win.alert(error instanceof Error ? error.message : 'ไม่สามารถเพิ่มสินค้าได้');
+                   return;
+                 }
 
                 updateAllCartBadges(
                   doc,
@@ -3306,7 +2996,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         emptySec?.classList.add('hidden');
         if (gridSec) {
           gridSec.classList.remove('hidden');
-          gridSec.innerHTML = '<p class="p-6 text-center text-error">ไม่สามารถโหลดสินค้าได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง</p>';
+           gridSec.innerHTML = '<p role="alert" class="p-6 text-center text-error">ไม่สามารถโหลดสินค้าได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง</p>';
         }
       }
     }
@@ -3317,8 +3007,12 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       const slugOrId = parts[2];
 
       if (slugOrId) {
+        const loadingHost = doc.querySelector('main');
+        if (loadingHost) {
+          loadingHost.innerHTML = '<p role="status" class="min-h-[70vh] flex items-center justify-center text-on-surface-variant">กำลังโหลดสินค้า…</p>';
+        }
         try {
-          const product = await getProductBySlugOrId(slugOrId);
+          const product = await getPublishedProduct(slugOrId);
 
           if (!product) {
             const main = doc.querySelector('main') || doc.body;
@@ -3355,11 +3049,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           };
 
           // Support both canonical fields and older form field names.
-          const basePricing = resolveStorefrontPricing(product);
-
-          const basePrice = basePricing.regularPrice;
-          const baseSpecialPrice = basePricing.specialPrice;
-
           const baseStock = asFiniteNumber(
             product.stock,
             rawProduct.stockQuantity,
@@ -3431,56 +3120,34 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             ? product.variants.filter((variant: any) => variant?.active !== false)
             : [];
 
-          let selectedVariant: any =
-            product.hasVariants && allVariants.length > 0
-              ? allVariants.find((variant: any) => Number(variant?.stock || 0) > 0) ||
-                allVariants[0]
-              : null;
+          const optionGroups = Array.isArray(product.optionGroups)
+            ? product.optionGroups
+            : [];
+
+          // Start with the first purchasable package so Add to cart works
+          // without requiring a click on the promotion/option selector.
+          let selectedVariant: any = product.hasVariants
+            ? allVariants.find((variant) => Number(variant.stock) > 0 &&
+                optionGroups.every((group) => variant.options?.some((option) =>
+                  String(option.groupId) === String(group.id)))) || null
+            : null;
+          const selectedOptions = new Map<string, string>();
+          for (const group of optionGroups) {
+            const option = selectedVariant?.options?.find((entry: any) =>
+              String(entry.groupId) === String(group.id));
+            if (option) selectedOptions.set(String(group.id), String(option.valueId));
+          }
 
           let quantity = 1;
 
-          const getCurrentPricing = (): StorefrontPricing => {
-            if (!selectedVariant) {
-              return basePricing;
-            }
-
-            const variantRegular = asFiniteNumber(
-              selectedVariant.price,
-              basePrice
-            );
-
-            // If a variant has its own explicit special price, use it.
-            // Otherwise, reuse the product-level special price only when the
-            // variant regular price is the same as the base regular price.
-            const variantExplicitSpecial =
-              selectedVariant.compareAtPrice ??
-              selectedVariant.salePrice ??
-              null;
-
-            const inheritedSpecial =
-              variantExplicitSpecial !== null &&
-              variantExplicitSpecial !== undefined &&
-              variantExplicitSpecial !== ''
-                ? Number(variantExplicitSpecial)
-                : variantRegular === basePrice
-                  ? baseSpecialPrice
-                  : null;
-
-            return resolveStorefrontPricing(
-              {
-                price: variantRegular,
-                compareAtPrice: inheritedSpecial,
-              },
-              variantRegular,
-              inheritedSpecial
-            );
-          };
+          const getCurrentPricing = (): StorefrontPricing =>
+            resolveProductSelectionPricing(product, selectedVariant);
 
           const getCurrentPrice = (): number =>
             getCurrentPricing().sellingPrice;
 
           const getCurrentStock = (): number =>
-            selectedVariant
+            product.hasVariants && !selectedVariant ? 0 : selectedVariant
               ? asFiniteNumber(selectedVariant.stock)
               : baseStock;
 
@@ -3609,10 +3276,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             `;
           };
 
-          const optionGroups = Array.isArray(product.optionGroups)
-            ? product.optionGroups
-            : [];
-
           const renderVariantsHtml = () => {
             if (
               !product.hasVariants ||
@@ -3627,7 +3290,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                 <div class="flex items-center justify-between gap-3">
                   <h2 class="text-base font-bold text-on-surface">ตัวเลือกสินค้า</h2>
                   <span id="real-selected-variant" class="text-xs font-semibold text-primary">
-                    ${escapeHtml(selectedVariant?.displayName || '')}
+                     ${product.hasVariants ? 'กรุณาเลือกตัวเลือก' : ''}
                   </span>
                 </div>
 
@@ -3648,13 +3311,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                           )}">
                             ${values
                               .map((value: any) => {
-                                const isSelected = Boolean(
-                                  selectedVariant?.options?.some(
-                                    (opt: any) =>
-                                      String(opt.groupId) === String(group.id) &&
-                                      String(opt.valueId) === String(value.id)
-                                  )
-                                );
+                                 const isSelected = selectedOptions.get(String(group.id)) === String(value.id);
+                                  const valueAvailable = allVariants.some((variant) =>
+                                    variant.active !== false && Number(variant.stock) > 0 && variant.options.some((option) =>
+                                     String(option.groupId) === String(group.id) && String(option.valueId) === String(value.id)));
 
                                 return `
                                   <button
@@ -3666,8 +3326,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                                     }"
                                     data-group-id="${escapeHtml(String(group?.id || ''))}"
                                     data-value-id="${escapeHtml(String(value?.id || ''))}"
+                                     aria-pressed="${isSelected}"
+                                     ${valueAvailable ? '' : 'disabled'}
                                   >
                                     ${escapeHtml(String(value?.name || value?.value || ''))}
+                                     ${valueAvailable ? '' : ' (หมด)'}
                                   </button>
                                 `;
                               })
@@ -3740,13 +3403,17 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                   <span
                     id="real-product-stock"
                     class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      getCurrentStock() > 0
+                       product.hasVariants && !selectedVariant
+                         ? 'bg-surface-container text-on-surface-variant'
+                         : getCurrentStock() > 0
                         ? 'bg-primary-container/50 text-primary'
                         : 'bg-error-container text-error'
                     }"
                   >
                     ${
-                      getCurrentStock() > 0
+                       product.hasVariants && !selectedVariant
+                         ? 'กรุณาเลือกตัวเลือกสินค้า'
+                         : getCurrentStock() > 0
                         ? `มีสินค้า ${getCurrentStock().toLocaleString('th-TH')} ชิ้น`
                         : 'สินค้าหมด'
                     }
@@ -3880,19 +3547,9 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                   ${getCurrentStock() <= 0 ? 'disabled' : ''}
                 >
                   <span class="material-symbols-outlined text-[20px]">shopping_bag</span>
-                  <span>${getCurrentStock() > 0 ? 'เพิ่มใส่ตะกร้า' : 'สินค้าหมด'}</span>
+                   <span>${getCurrentStock() > 0 ? 'เพิ่มใส่ตะกร้า' : product.hasVariants && !selectedVariant ? 'เลือกตัวเลือก' : 'สินค้าหมด'}</span>
                 </button>
 
-                <button
-                  type="button"
-                  id="real-buy-now"
-                  class="flex-1 h-12 rounded-xl font-bold flex items-center justify-center gap-1 active:scale-[0.99] transition-transform disabled:opacity-50"
-                  style="min-width:110px;border:1.5px solid #CA5A9A;background:#CA5A9A;color:#FFFFFF;border-radius:12px;"
-                  ${getCurrentStock() <= 0 ? 'disabled' : ''}
-                >
-                  <span class="material-symbols-outlined text-[20px]">bolt</span>
-                  <span>${getCurrentStock() > 0 ? 'สั่งซื้อ' : 'สินค้าหมด'}</span>
-                </button>
               </div>
             </div>
           `;
@@ -3958,14 +3615,18 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
             const stockEl = doc.getElementById('real-product-stock');
             if (stockEl) {
-              stockEl.textContent =
-                currentStock > 0
+             stockEl.textContent =
+               product.hasVariants && !selectedVariant
+                 ? 'กรุณาเลือกตัวเลือกสินค้า'
+                 : currentStock > 0
                   ? `มีสินค้า ${currentStock.toLocaleString('th-TH')} ชิ้น`
                   : 'สินค้าหมด';
 
               stockEl.className =
                 `inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                  currentStock > 0
+                    product.hasVariants && !selectedVariant
+                      ? 'bg-surface-container text-on-surface-variant'
+                      : currentStock > 0
                     ? 'bg-primary-container/50 text-primary'
                     : 'bg-error-container text-error'
                 }`;
@@ -3981,8 +3642,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
             const selectedVariantEl = doc.getElementById('real-selected-variant');
             if (selectedVariantEl) {
-              selectedVariantEl.textContent =
-                selectedVariant?.displayName || '';
+               selectedVariantEl.textContent = selectedVariant?.displayName ||
+                 (product.hasVariants ? 'กรุณาเลือกตัวเลือกที่มีสินค้า' : '');
             }
 
             const totalEl = doc.getElementById('real-product-total');
@@ -4001,22 +3662,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               const label = addButton.querySelector('span:last-child');
               if (label) {
                 label.textContent =
-                  currentStock > 0 ? 'เพิ่มใส่ตะกร้า' : 'สินค้าหมด';
+                   currentStock > 0 ? 'เพิ่มใส่ตะกร้า' : product.hasVariants && !selectedVariant ? 'เลือกตัวเลือก' : 'สินค้าหมด';
               }
             }
 
-            const buyNowButton = doc.getElementById(
-              'real-buy-now'
-            ) as HTMLButtonElement | null;
-
-            if (buyNowButton) {
-              buyNowButton.disabled = currentStock <= 0;
-              const label = buyNowButton.querySelector('span:last-child');
-              if (label) {
-                label.textContent =
-                  currentStock > 0 ? 'สั่งซื้อ' : 'สินค้าหมด';
-              }
-            }
           };
 
           // ---------------------------------------------------------
@@ -4060,7 +3709,9 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           const quantityDisplay = doc.getElementById('real-qty-display');
 
           const updateQuantity = (nextQuantity: number) => {
-            const maxStock = Math.max(0, getCurrentStock());
+            const maxStock = product.hasVariants && !selectedVariant
+              ? 99
+              : Math.max(0, getCurrentStock());
 
             quantity = Math.max(
               1,
@@ -4098,68 +3749,16 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                   const groupId = String(button.dataset.groupId || '');
                   const valueId = String(button.dataset.valueId || '');
 
-                  const selectedOptions = selectedVariant?.options
-                    ? [...selectedVariant.options]
-                    : [];
-
-                  const existingIndex = selectedOptions.findIndex(
-                    (option: any) => String(option.groupId) === groupId
-                  );
-
-                  const group = optionGroups.find(
-                    (item: any) => String(item?.id) === groupId
-                  );
-
-                  const value = Array.isArray(group?.values)
-                    ? group.values.find(
-                        (item: any) => String(item?.id) === valueId
-                      )
-                    : null;
-
-                  if (group && value) {
-                    const nextOption = {
-                      groupId,
-                      groupName: String(group.name || ''),
-                      valueId,
-                      valueName: String(value.name || (value as any).value || ''),
-                    };
-
-                    if (existingIndex >= 0) {
-                      selectedOptions[existingIndex] = nextOption;
-                    } else {
-                      selectedOptions.push(nextOption);
-                    }
-                  }
-
-                  const matchedVariant =
-                    allVariants.find((variant: any) => {
-                      const variantOptions = Array.isArray(variant?.options)
-                        ? variant.options
-                        : [];
-
-                      return selectedOptions.every((selected: any) =>
-                        variantOptions.some(
-                          (variantOption: any) =>
-                            String(variantOption.groupId) ===
-                              String(selected.groupId) &&
-                            String(variantOption.valueId) ===
-                              String(selected.valueId)
-                        )
-                      );
-                    }) ||
-                    allVariants.find((variant: any) =>
-                      Array.isArray(variant?.options) &&
-                      variant.options.some(
-                        (variantOption: any) =>
-                          String(variantOption.groupId) === groupId &&
-                          String(variantOption.valueId) === valueId
-                      )
-                    );
-
-                  if (!matchedVariant) return;
-
-                  selectedVariant = matchedVariant;
-                  quantity = 1;
+                   selectedOptions.set(groupId, valueId);
+                   selectedVariant = selectedOptions.size === optionGroups.length
+                      ? allVariants.find((variant) => variant.active !== false && Number(variant.stock) > 0 &&
+                         optionGroups.every((group) => variant.options.some((option) =>
+                           String(option.groupId) === String(group.id) &&
+                           String(option.valueId) === selectedOptions.get(String(group.id))))) || null
+                     : null;
+                   if (selectedVariant) {
+                     quantity = Math.min(quantity, Math.max(1, Number(selectedVariant.stock) || 1));
+                   }
 
                   doc
                     .querySelectorAll<HTMLElement>('.real-variant-option')
@@ -4171,13 +3770,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                         optionButton.dataset.valueId || ''
                       );
 
-                      const active = Boolean(
-                        selectedVariant?.options?.some(
-                          (option: any) =>
-                            String(option.groupId) === optionGroupId &&
-                            String(option.valueId) === optionValueId
-                        )
-                      );
+                       const active = selectedOptions.get(optionGroupId) === optionValueId;
+                       optionButton.setAttribute('aria-pressed', String(active));
 
                       optionButton.className =
                         `real-variant-option px-3 py-2 rounded-xl text-sm border transition-colors ${
@@ -4188,7 +3782,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                     });
 
                   if (quantityDisplay) {
-                    quantityDisplay.textContent = '1';
+                     quantityDisplay.textContent = String(quantity);
                   }
 
                   refreshDetailUi();
@@ -4207,8 +3801,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             const currentPrice = getCurrentPrice();
             const currentStock = getCurrentStock();
 
-            if (currentStock <= 0) {
-              win.alert('สินค้านี้หมดสต็อก');
+             if (currentStock <= 0 || (product.hasVariants && !selectedVariant)) {
+               win.alert(product.hasVariants && !selectedVariant ? 'กรุณาเลือกตัวเลือกสินค้าที่มีสินค้า' : 'สินค้านี้หมดสต็อก');
               return;
             }
 
@@ -4220,10 +3814,16 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               unitPrice: currentPrice,
               quantity,
               productImage: getCurrentImage(),
+               availableStock: currentStock,
             };
 
             // Write directly to the single storefront cart source.
-            addCartItem(cartPayload);
+             try {
+               addCartItem(cartPayload);
+             } catch (error) {
+               win.alert(error instanceof Error ? error.message : 'ไม่สามารถเพิ่มสินค้าได้');
+               return;
+             }
 
             // Re-read immediately. This is the proof that the item was actually
             // persisted rather than only changing a visual badge.
@@ -4240,7 +3840,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
               button.innerHTML = `
                 <span class="material-symbols-outlined text-[20px]">check_circle</span>
-                <span>เพิ่มลงตะกร้าแล้ว (${snapshot.itemCount})</span>
+                 <span>เพิ่ม ${escapeHtml(selectedVariant?.displayName || product.name)} ${quantity} ชิ้นลงตะกร้าแล้ว</span>
               `;
 
               setTimeout(() => {
@@ -4259,38 +3859,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             .getElementById('real-add-to-cart')
             ?.addEventListener('click', handleRealAddToCart);
 
-          const handleRealBuyNow = async (event?: Event) => {
-            event?.preventDefault();
-            event?.stopPropagation();
-
-            const currentPrice = getCurrentPrice();
-            const currentStock = getCurrentStock();
-
-            if (currentStock <= 0) {
-              win.alert('สินค้านี้หมดสต็อก');
-              return;
-            }
-
-            addCartItem({
-              productId: product.id,
-              productName: product.name,
-              variantId: selectedVariant?.id || null,
-              variantName: selectedVariant?.displayName || null,
-              unitPrice: currentPrice,
-              quantity,
-              productImage: getCurrentImage(),
-            });
-
-            const snapshot = getCartSnapshot();
-            updateAllCartBadges(doc, snapshot.itemCount);
-
-            navigate('/checkout');
-          };
-
-          doc
-            .getElementById('real-buy-now')
-            ?.addEventListener('click', handleRealBuyNow);
-
           // Safety net for any residual imported button that the HTML template
           // recreates after load. The real button is ignored here to avoid
           // double-adding.
@@ -4301,8 +3869,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
             if (
               !target ||
-              target.id === 'real-add-to-cart' ||
-              target.id === 'real-buy-now'
+              target.id === 'real-add-to-cart'
             ) return;
 
             const label = (target.textContent || '')
@@ -4341,11 +3908,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
     // --- Storefront Home Wiring (/) ---
     if (location.pathname === '/') {
+      let homeGrid: HTMLElement | null = null;
       try {
-        // Storefront must show ONLY real published/active products from Firestore.
-        // Never keep Stitch sample/mock cards on the production homepage.
-        const activeProducts = await getProducts({ status: 'active' });
-
         const findSampleProductCard = (): HTMLElement | null => {
           const candidates: HTMLElement[] = Array.from(
             doc.querySelectorAll<HTMLElement>(
@@ -4422,7 +3986,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         }
 
         // Remove every mock/sample card from the product area.
+        homeGrid = productGrid;
         productGrid.innerHTML = '';
+        productGrid.innerHTML = '<p role="status" class="p-6 text-center">กำลังโหลดสินค้า…</p>';
+        const activeProducts = await getPublishedProducts();
 
         // Real zero-state: no fake products.
         if (activeProducts.length === 0) {
@@ -4490,16 +4057,15 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           .map(({ product, imageUrl, pricing }, index) => {
             const safeName = escapeHtml(product.name || 'สินค้า');
             const safeImage = escapeHtml(imageUrl || '');
+             const available = hasAvailableProductOption(product);
 
             return `
               <article
-                class="real-home-product-card group bg-white rounded-2xl overflow-hidden border border-outline-variant/20 shadow-sm cursor-pointer active:scale-[0.99] transition-transform"
+                class="real-home-product-card group bg-white rounded-2xl overflow-hidden border border-outline-variant/20 shadow-sm"
                 data-product-index="${index}"
                 data-product-id="${escapeHtml(product.id)}"
-                tabindex="0"
-                role="button"
-                aria-label="ดูรายละเอียด ${safeName}"
               >
+                 <a class="real-home-product-link block" href="/products/${escapeHtml(encodeURIComponent(product.slug || product.id))}" data-product-index="${index}" aria-label="ดูรายละเอียด ${safeName}">
                 <div class="w-full aspect-square bg-surface-container-low overflow-hidden flex items-center justify-center">
                   ${
                     safeImage
@@ -4519,11 +4085,15 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                   }
                 </div>
 
-                <div class="p-3">
+                <div class="p-3 pb-0">
                   <h3 class="text-sm font-semibold text-on-surface leading-snug line-clamp-2 min-h-[40px]">
                     ${safeName}
                   </h3>
+                   ${available ? '' : '<p class="text-sm text-error">สินค้าหมด</p>'}
+                </div>
+                </a>
 
+                <div class="p-3 pt-0">
                   <div class="mt-2 flex items-end justify-between gap-2">
                     <div class="min-w-0">
                       ${
@@ -4546,9 +4116,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
                     <button
                       type="button"
-                      class="real-home-add-cart w-9 h-9 rounded-full bg-primary-container text-primary flex items-center justify-center flex-shrink-0"
+                      class="real-home-add-cart w-9 h-9 rounded-full bg-primary-container text-primary flex items-center justify-center flex-shrink-0 disabled:opacity-50"
                       data-product-index="${index}"
-                      aria-label="เพิ่ม ${safeName} ลงตะกร้า"
+                      aria-label="${available ? product.hasVariants ? 'เลือกตัวเลือกของ' : 'เพิ่ม' : 'สินค้าหมด'} ${safeName}${available && !product.hasVariants ? ' ลงตะกร้า' : ''}"
+                      ${available ? '' : 'disabled'}
                     >
                       <span class="material-symbols-outlined text-[20px]">add</span>
                     </button>
@@ -4572,30 +4143,13 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           navigate(target);
         };
 
-        doc
-          .querySelectorAll<HTMLElement>('.real-home-product-card')
-          .forEach((card) => {
-            const index = Number(card.dataset.productIndex || 0);
-
-            card.addEventListener('click', (event) => {
-              // Add-to-cart button has its own action.
-              if ((event.target as HTMLElement).closest('.real-home-add-cart')) {
-                return;
-              }
-
-              event.preventDefault();
-              event.stopPropagation();
-              openHomeProduct(index);
-            });
-
-            card.addEventListener('keydown', (event: KeyboardEvent) => {
-              if (event.key !== 'Enter' && event.key !== ' ') return;
-
-              event.preventDefault();
-              event.stopPropagation();
-              openHomeProduct(index);
-            });
-          });
+         doc.querySelectorAll<HTMLElement>('.real-home-product-link').forEach((link) => {
+           link.addEventListener('click', (event) => {
+             event.preventDefault();
+             event.stopPropagation();
+             openHomeProduct(Number(link.dataset.productIndex || 0));
+           });
+         });
 
         doc
           .querySelectorAll<HTMLButtonElement>('.real-home-add-cart')
@@ -4610,18 +4164,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               if (!item) return;
 
               const product = item.product;
-              const availableVariants = Array.isArray(product.variants)
-                ? product.variants.filter(
-                    (variant: any) =>
-                      variant?.active !== false &&
-                      Number(variant?.stock || 0) > 0
-                  )
-                : [];
-
               // If a product has variants, the customer should choose them
               // on the real product detail page instead of silently adding
               // a guessed variant from the homepage.
-              if (product.hasVariants && availableVariants.length > 0) {
+               if (product.hasVariants) {
                 openHomeProduct(index);
                 return;
               }
@@ -4647,9 +4193,16 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                 unitPrice: item.pricing.sellingPrice,
                 quantity: 1,
                 productImage: item.imageUrl || null,
+                 availableStock: stock,
               };
 
-              const persistedItems = addPersistedCartItem(cartPayload);
+               let persistedItems: PersistedCartItem[];
+               try {
+                 persistedItems = addPersistedCartItem(cartPayload);
+               } catch (error) {
+                 win.alert(error instanceof Error ? error.message : 'ไม่สามารถเพิ่มสินค้าได้');
+                 return;
+               }
 
               updateAllCartBadges(
                 doc,
@@ -4674,12 +4227,15 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           });
       } catch (err) {
         console.error('[Home Page] Error:', err);
+        if (homeGrid) {
+          homeGrid.innerHTML = '<p role="alert" class="p-6 text-center text-error">ไม่สามารถโหลดสินค้าได้ กรุณาลองใหม่อีกครั้ง</p>';
+        }
       }
     }
   };
 
   useEffect(() => {
-    // Keep iframe UI synchronized with the REAL React cart state.
+    // Keep iframe UI synchronized with the persistent cart snapshot.
     // The iframe only mounts its initial HTML once, so without this effect the
     // cart page can remain stuck in the imported empty-state even after
     // addToCart/update/remove succeeds.
@@ -4697,20 +4253,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       savePersistedCart(stateItems);
     }
 
-    const effectiveCart = createEffectiveCart(cart);
+    const effectiveCart = getCartSnapshot();
 
     ensureHeaderSearchIcon(doc, navigate);
     updateAllCartBadges(doc, effectiveCart.itemCount);
 
-    if (location.pathname === '/cart') {
-      removeStorefrontTestModeUI(doc);
-      renderCartScreen(doc, win, effectiveCart);
-    }
-
-    if (location.pathname === '/checkout') {
-      configureCheckoutPaymentMethods(doc);
-      renderCheckoutSummary(doc, win, effectiveCart);
-    }
   }, [
     location.pathname,
     auth.customerProfile,

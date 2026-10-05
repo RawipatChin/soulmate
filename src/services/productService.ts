@@ -165,8 +165,7 @@ export async function getProducts(options?: {
   status?: ProductStatus | 'all';
 }): Promise<Product[]> {
   if (!db) {
-    console.warn('[ProductService] Firestore is not initialized');
-    return [];
+    throw new Error('Firestore is not initialized');
   }
 
   try {
@@ -269,7 +268,7 @@ export async function getProductById(productId: string): Promise<Product | null>
     };
   } catch (err) {
     console.error('[ProductService] Error getting product by ID:', err);
-    return null;
+    throw err;
   }
 }
 
@@ -281,7 +280,8 @@ export async function getProductBySlugOrId(identifier: string): Promise<Product 
     const found = all.find((p) => p.slug === identifier || p.id === identifier);
     if (!found) return null;
 
-    return await getProductById(found.id);
+    const current = await getProductById(found.id);
+    return current?.status === 'active' ? current : null;
   } catch (err) {
     console.error('[ProductService] Error getting product by slug/id:', err);
     throw err;

@@ -6,7 +6,6 @@ import { NotFoundPage } from './components/NotFoundPage';
 import { DevShowcase } from './components/DevShowcase';
 import { ScreenDefinition } from './types';
 import { AuthProvider } from './context/AuthContext';
-import { CartProvider } from './context/CartContext';
 import { CustomerProtectedRoute } from './components/CustomerProtectedRoute';
 import { AdminProtectedRoute } from './components/AdminProtectedRoute';
 
@@ -24,7 +23,6 @@ export default function App() {
   const productsScreen = getScreen('storefront-products');
   const productDetailScreen = getScreen('storefront-product-detail');
   const cartScreen = getScreen('storefront-cart');
-  const checkoutScreen = getScreen('storefront-checkout');
   const orderSuccessScreen = getScreen('storefront-order-success');
   const loginScreen = getScreen('storefront-login');
   const registerScreen = getScreen('storefront-register');
@@ -56,7 +54,6 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <CartProvider>
         <BrowserRouter>
         <Routes>
         {/* ========================================================= */}
@@ -105,13 +102,7 @@ export default function App() {
         />
         <Route
           path="/checkout"
-          element={
-            <ScreenRenderer
-              screen={checkoutScreen}
-              routeType="storefront"
-              backFallback="/cart"
-            />
-          }
+          element={<Navigate to="/cart" replace />}
         />
         <Route
           path="/order-success"
@@ -407,7 +398,6 @@ export default function App() {
         <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </BrowserRouter>
-      </CartProvider>
     </AuthProvider>
   );
 }
