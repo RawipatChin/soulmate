@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SCREENS } from './screensData';
 import { ScreenRenderer } from './components/ScreenRenderer';
 import { NotFoundPage } from './components/NotFoundPage';
@@ -9,6 +9,7 @@ import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { CustomerProtectedRoute } from './components/CustomerProtectedRoute';
 import { AdminProtectedRoute } from './components/AdminProtectedRoute';
+import { StorefrontArticlePage, StorefrontContentPage, userFacingPages } from './components/storefront/StorefrontContentPage';
 
 function getScreen(id: string): ScreenDefinition {
   const found = SCREENS.find((s) => s.id === id);
@@ -16,6 +17,13 @@ function getScreen(id: string): ScreenDefinition {
     throw new Error(`Screen ${id} not found in screensData`);
   }
   return found;
+}
+
+function RouteNotFound() {
+  const location = useLocation();
+  return location.pathname.startsWith('/admin')
+    ? <NotFoundPage />
+    : <StorefrontContentPage {...userFacingPages.notFound} />;
 }
 
 export default function App() {
@@ -191,6 +199,53 @@ export default function App() {
             </CustomerProtectedRoute>
           }
         />
+
+        {/* Additional user-facing sitemap destinations */}
+        <Route path="/about" element={<StorefrontContentPage {...userFacingPages.about} />} />
+        <Route path="/articles" element={<StorefrontArticlePage />} />
+        <Route path="/articles/:articleId" element={<StorefrontArticlePage />} />
+        <Route path="/community" element={<StorefrontContentPage {...userFacingPages.community} />} />
+        <Route path="/contact" element={<StorefrontContentPage {...userFacingPages.contact} />} />
+        <Route path="/product/:slug" element={<ScreenRenderer screen={productDetailScreen} routeType="storefront" backFallback="/products" />} />
+        <Route path="/profile" element={<Navigate to="/account/profile" replace />} />
+        <Route path="/orders" element={<Navigate to="/account/orders" replace />} />
+        <Route
+          path="/addresses"
+          element={
+            <CustomerProtectedRoute>
+              <StorefrontContentPage {...userFacingPages.addresses} />
+            </CustomerProtectedRoute>
+          }
+        />
+        <Route
+          path="/wishlist"
+          element={
+            <CustomerProtectedRoute>
+              <StorefrontContentPage {...userFacingPages.wishlist} />
+            </CustomerProtectedRoute>
+          }
+        />
+        <Route
+          path="/account/addresses"
+          element={
+            <CustomerProtectedRoute>
+              <StorefrontContentPage {...userFacingPages.addresses} />
+            </CustomerProtectedRoute>
+          }
+        />
+        <Route
+          path="/account/wishlist"
+          element={
+            <CustomerProtectedRoute>
+              <StorefrontContentPage {...userFacingPages.wishlist} />
+            </CustomerProtectedRoute>
+          }
+        />
+        <Route path="/privacy" element={<StorefrontContentPage {...userFacingPages.privacy} />} />
+        <Route path="/terms" element={<StorefrontContentPage {...userFacingPages.terms} />} />
+        <Route path="/coming-soon" element={<StorefrontContentPage {...userFacingPages.comingSoon} />} />
+        <Route path="/maintenance" element={<StorefrontContentPage {...userFacingPages.maintenance} />} />
+        <Route path="/404" element={<StorefrontContentPage {...userFacingPages.notFound} />} />
 
         {/* ========================================================= */}
         {/* ADMIN & SUPER ADMIN ROUTES                                */}
@@ -404,7 +459,7 @@ export default function App() {
         <Route path="/_dev/showcase" element={<DevShowcase />} />
 
         {/* 404 Fallback */}
-        <Route path="*" element={<NotFoundPage />} />
+        <Route path="*" element={<RouteNotFound />} />
         </Routes>
         </BrowserRouter>
       </CartProvider>

@@ -142,6 +142,12 @@ function mapProductDoc(id: string, d: any): Product {
     countryOfOrigin,
     shelfLife,
     categoryId: d.categoryId || null,
+    categoryName:
+      typeof d.categoryName === 'string'
+        ? d.categoryName
+        : typeof d.category?.name === 'string'
+        ? d.category.name
+        : null,
     price: typeof d.price === 'number' ? d.price : 0,
     compareAtPrice: typeof d.compareAtPrice === 'number' ? d.compareAtPrice : null,
     stock: typeof d.stock === 'number' ? d.stock : 0,

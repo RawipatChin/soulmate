@@ -42,6 +42,144 @@ import {
   deleteProductImageFiles,
 } from '../services/productImageService';
 import { mountVariantManager } from '../utils/productVariantManager';
+import { StorefrontShell } from './storefront/StorefrontShell';
+import { renderStorefrontProductCard } from './storefront/StorefrontProductCard';
+
+function installStorefrontDesktopStyles(doc: Document) {
+  if (doc.getElementById('soulmate-desktop-storefront-styles')) return;
+  const style = doc.createElement('style');
+  style.id = 'soulmate-desktop-storefront-styles';
+  style.textContent = `
+    @media (min-width: 769px) {
+      html, body { width: 100% !important; max-width: none !important; min-height: 0 !important; height: auto !important; overflow-x: hidden !important; }
+      body { display: block !important; margin: 0 auto !important; padding-bottom: 0 !important; }
+      body > header, body > nav, body > footer { display: none !important; }
+      main { width: min(100%, 1600px) !important; max-width: 1600px !important; min-height: 0 !important; margin: 0 auto !important; padding-top: 24px !important; padding-bottom: 32px !important; }
+      main > div { max-width: 100% !important; }
+      #state-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 20px !important; }
+      #view-detail { display: grid !important; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr) !important; align-items: start !important; gap: 20px !important; }
+      #view-detail > div:first-child { grid-row: 1 / span 5 !important; border: 1px solid #e4e4e7 !important; border-radius: 20px !important; }
+      #view-detail > section { border: 1px solid #e4e4e7 !important; border-radius: 16px !important; }
+      #real-product-detail { width: 100% !important; max-width: 1600px !important; margin: 0 auto !important; padding: 24px 0 32px !important; }
+      #real-product-detail > div:first-child { width: 100% !important; max-width: 1440px !important; margin: 0 auto !important; padding: 0 32px !important; display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; align-items: start !important; gap: 20px 28px !important; }
+      #real-product-primary-column, #real-product-secondary-column { min-width: 0 !important; display: flex !important; flex-direction: column !important; gap: 20px !important; }
+      #real-product-primary-column { grid-column: 1 !important; grid-row: 1 !important; }
+      #real-product-secondary-column { grid-column: 2 !important; grid-row: 1 !important; }
+      #real-back-to-products { align-self: flex-start !important; margin-bottom: -4px !important; }
+      #real-product-overview { min-height: 0 !important; }
+      #real-product-summary { display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 16px !important; }
+      #real-product-description { min-height: 0 !important; }
+      #real-product-attributes { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; align-content: start !important; gap: 12px !important; }
+      #real-product-attributes > section { min-width: 0 !important; }
+      #soulmate-product-reviews { margin-top: 0 !important; }
+      #soulmate-related-products { grid-column: 1 / -1 !important; grid-row: 2 !important; }
+      #real-product-purchase-bar { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 50 !important; }
+      #soulmate-related-grid { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 16px !important; }
+      #checkoutForm { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px) !important; align-items: start !important; gap: 20px !important; }
+      #checkoutOrderSummarySection { grid-column: 2 !important; grid-row: 1 / span 5 !important; position: sticky !important; top: 16px !important; }
+      #checkoutForm > section:not(#checkoutOrderSummarySection) { grid-column: 1 !important; }
+      #state-filled { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px) !important; align-items: start !important; gap: 20px !important; }
+      #cart-item-list { min-width: 0 !important; }
+      #state-filled > #cart-item-list { grid-column: 1 !important; grid-row: 1 / span 3 !important; }
+      #state-filled > #coupon-section { grid-column: 2 !important; grid-row: 1 !important; }
+      #state-filled > section:not(#cart-item-list):not(#coupon-section) { grid-column: 2 !important; grid-row: 2 !important; }
+      #sticky-purchase-bar { position: static !important; grid-column: 2 !important; grid-row: 3 !important; }
+      .soulmate-home-feature-grid { display: grid !important; grid-template-columns: minmax(0, 1.4fr) minmax(320px, .8fr) !important; align-items: stretch !important; gap: 24px !important; }
+      .soulmate-account-nav { width: min(100% - 48px, 1600px); margin: 18px auto 0; display: flex; flex-wrap: wrap; gap: 8px; }
+      .soulmate-account-nav a { padding: 9px 14px; border: 1px solid #dce7e1; border-radius: 999px; color: #2d6857; text-decoration: none; font-size: 13px; }
+      .soulmate-account-nav a[aria-current="page"], .soulmate-account-nav a:hover { background: #e8f8f2; }
+      .soulmate-category-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
+      .soulmate-category-filters a { padding: 8px 14px; border: 1px solid #dce7e1; border-radius: 999px; color: #2d6857; text-decoration: none; font-size: 13px; }
+      .soulmate-category-filters a[aria-current="page"], .soulmate-category-filters a:hover { background: #a8e5cf; }
+      .soulmate-category-filters span { color: #71717a; font-size: 13px; }
+      .soulmate-home-feature-grid > [data-cms-slot="hero_banner_1"] { padding: 0 !important; }
+      .soulmate-guidance-panel { display: flex !important; flex-direction: column !important; justify-content: center !important; padding: 28px !important; border: 1px solid #d8eee4 !important; border-radius: 20px !important; background: #e8f8f2 !important; }
+      .soulmate-guidance-panel h2 { margin: 0 !important; color: #1b4d3e !important; font-size: 23px !important; line-height: 1.45 !important; }
+      .soulmate-guidance-panel p { margin: 10px 0 18px !important; color: #53615d !important; font-size: 14px !important; line-height: 1.75 !important; }
+      .soulmate-guidance-panel textarea { width: 100% !important; min-height: 106px !important; padding: 12px 14px !important; border: 1px solid #dce7e1 !important; border-radius: 14px !important; background: white !important; resize: vertical !important; }
+      .soulmate-guidance-panel button { min-height: 44px !important; margin-top: 12px !important; border: 0 !important; border-radius: 999px !important; background: #ca5a9a !important; color: white !important; font-weight: 700 !important; opacity: .58 !important; }
+      .soulmate-guidance-panel small { margin-top: 12px !important; color: #53615d !important; line-height: 1.6 !important; }
+      .real-home-product-card { border: 1px solid #d3ded8 !important; box-shadow: 0 8px 24px rgba(31, 66, 53, .14) !important; transition: box-shadow .18s ease, transform .18s ease !important; }
+      .real-home-product-card:hover, .real-home-product-card:focus-within { box-shadow: 0 12px 30px rgba(31, 66, 53, .2) !important; transform: translateY(-2px); }
+    }
+    @media (min-width: 769px) and (max-width: 1050px) {
+      #state-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+      .soulmate-home-feature-grid { grid-template-columns: minmax(0, 1.15fr) minmax(270px, .85fr) !important; gap: 16px !important; }
+    }
+    @media (max-width: 768px) {
+      #real-product-detail > div:first-child { display: flex !important; flex-direction: column !important; gap: 16px !important; padding: 0 16px !important; }
+      #real-product-primary-column, #real-product-secondary-column { display: contents !important; }
+      #real-back-to-products { order: 0 !important; align-self: flex-start !important; }
+      #real-product-gallery { order: 1 !important; }
+      #real-product-overview { order: 2 !important; }
+      #real-product-attributes { order: 3 !important; }
+      #real-product-summary { order: 4 !important; }
+      #real-product-config { order: 5 !important; }
+      #soulmate-product-reviews { order: 6 !important; }
+      #soulmate-related-products { order: 7 !important; }
+      #real-product-overview, #real-product-summary, #real-product-config, #real-product-attributes, #soulmate-product-reviews, #soulmate-related-products { width: 100% !important; }
+      #real-product-summary { display: block !important; }
+      #real-product-attributes { display: flex !important; flex-direction: column !important; }
+      #real-product-purchase-bar { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 50 !important; }
+      .soulmate-category-filters { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px 8px; }
+      .soulmate-category-filters a { flex: 0 0 auto; padding: 7px 12px; border: 1px solid #dce7e1; border-radius: 999px; color: #2d6857; text-decoration: none; font-size: 12px; }
+      .soulmate-category-filters a[aria-current="page"] { background: #a8e5cf; }
+      .soulmate-category-filters span { color: #71717a; font-size: 12px; }
+      .soulmate-account-nav { display: flex !important; gap: 8px; overflow-x: auto; padding: 0 16px 8px; }
+      .soulmate-account-nav a { flex: 0 0 auto; padding: 7px 12px; border: 1px solid #dce7e1; border-radius: 999px; color: #2d6857; text-decoration: none; font-size: 12px; }
+      .soulmate-home-feature-grid { display: flex; flex-direction: column; gap: 16px; }
+      .soulmate-guidance-panel { margin: 0 16px; padding: 18px; border: 1px solid #d8eee4; border-radius: 18px; background: #e8f8f2; }
+      .soulmate-guidance-panel h2 { margin: 0; color: #1b4d3e; font-size: 19px; }
+      .soulmate-guidance-panel p { margin: 8px 0 14px; color: #53615d; font-size: 13px; line-height: 1.7; }
+      .soulmate-guidance-panel textarea { width: 100%; min-height: 82px; padding: 10px 12px; border: 1px solid #dce7e1; border-radius: 12px; background: white; }
+      .soulmate-guidance-panel button { width: 100%; min-height: 42px; margin-top: 10px; border: 0; border-radius: 999px; background: #ca5a9a; color: white; font-weight: 700; opacity: .58; }
+      .soulmate-guidance-panel small { display: block; margin-top: 10px; color: #53615d; line-height: 1.6; }
+    }
+  `;
+  doc.head.appendChild(style);
+}
+
+function mountHomeGuidancePanel(doc: Document) {
+  const hero = doc.querySelector<HTMLElement>('[data-cms-slot="hero_banner_1"]');
+  if (!hero || doc.getElementById('soulmate-guidance-panel')) return;
+
+  const featureGrid = doc.createElement('div');
+  featureGrid.className = 'soulmate-home-feature-grid';
+  const panel = doc.createElement('section');
+  panel.id = 'soulmate-guidance-panel';
+  panel.className = 'soulmate-guidance-panel';
+  panel.setAttribute('aria-labelledby', 'soulmate-guidance-heading');
+  panel.innerHTML = `
+    <h2 id="soulmate-guidance-heading">ให้ SOULMATE ช่วยเลือกสินค้า</h2>
+    <p>พื้นที่ถามตอบจะแนะนำสินค้าจากข้อมูลที่ร้านตรวจสอบแล้ว เมื่อระบบพร้อมใช้งาน</p>
+    <label class="sr-only" for="soulmate-guidance-question">คำถามเกี่ยวกับสินค้า</label>
+    <textarea id="soulmate-guidance-question" placeholder="ระบบถามตอบยังไม่เปิดใช้งาน" disabled></textarea>
+    <button type="button" disabled>ส่งคำถาม</button>
+    <small>ผู้ช่วยนี้ให้ข้อมูลสินค้า ไม่วินิจฉัยหรือแนะนำการรักษาอาการ</small>
+  `;
+  hero.parentElement?.insertBefore(featureGrid, hero);
+  featureGrid.append(hero, panel);
+}
+
+function mountAccountNavigation(doc: Document, pathname: string) {
+  if (!pathname.startsWith('/account') || doc.querySelector('.soulmate-account-nav')) return;
+  const main = doc.querySelector('main');
+  if (!main) return;
+  const nav = doc.createElement('nav');
+  nav.className = 'soulmate-account-nav';
+  nav.setAttribute('aria-label', 'เมนูบัญชี');
+  const links = [
+    ['ภาพรวมบัญชี', '/account'],
+    ['โปรไฟล์', '/account/profile'],
+    ['คำสั่งซื้อ', '/account/orders'],
+    ['ที่อยู่', '/account/addresses'],
+    ['รายการที่ชื่นชอบ', '/account/wishlist'],
+  ];
+  nav.innerHTML = links.map(([label, href]) =>
+    `<a href="${href}"${pathname === href ? ' aria-current="page"' : ''}>${label}</a>`
+  ).join('');
+  main.parentElement?.insertBefore(nav, main);
+}
 
 function escapeHtml(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -793,6 +931,25 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
   const discountVal = doc.getElementById('summary-discount-val');
   const grandtotalVal = doc.getElementById('summary-grandtotal-val');
   const barSubtotalVal = doc.getElementById('bar-subtotal-val');
+  const couponSection = doc.getElementById('coupon-section');
+
+  if (couponSection) {
+    couponSection.innerHTML = `
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary" aria-hidden="true">confirmation_number</span>
+        <div>
+          <h2 class="font-semibold text-on-surface">คูปองส่วนลด</h2>
+          <p class="mt-1 text-sm text-on-surface-variant">ระบบใช้คูปองยังไม่พร้อมใช้งาน ยอดรวมด้านล่างยังไม่หักส่วนลด</p>
+        </div>
+      </div>
+    `;
+  }
+
+  Array.from(doc.querySelectorAll<HTMLElement>('body *')).forEach((element) => {
+    if ((element.textContent || '').replace(/\s+/g, ' ').trim() === 'ผลิตภัณฑ์สารสกัดธรรมชาติ ปลอดภัย 100%') {
+      element.closest<HTMLElement>('div')?.remove();
+    }
+  });
 
   // Some imported Stitch cart screens do not contain the expected summary IDs.
   // Fall back to the visible Thai row labels so the real cart totals are always
@@ -1620,6 +1777,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
   backFallback = '/',
 }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeResizeObserverRef = useRef<ResizeObserver | null>(null);
+  const iframeResizeCleanupRef = useRef<(() => void) | null>(null);
   const newProductIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -1639,6 +1798,103 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     const doc = iframe.contentDocument;
     const win = iframe.contentWindow as any;
     if (!win) return;
+
+    iframeResizeCleanupRef.current?.();
+    iframeResizeObserverRef.current?.disconnect();
+
+    if (routeType === 'storefront') {
+      installStorefrontDesktopStyles(doc);
+      if (location.pathname === '/') mountHomeGuidancePanel(doc);
+      mountAccountNavigation(doc, location.pathname);
+
+      const syncIframeHeight = () => {
+        if (window.matchMedia('(max-width: 768px)').matches) {
+          iframe.style.height = '100dvh';
+          return;
+        }
+        if (location.pathname.startsWith('/products/') || location.pathname.startsWith('/product/')) {
+          const storefrontHeaderHeight = document.querySelector('.storefront-header')?.getBoundingClientRect().height || 0;
+          iframe.style.height = `${Math.max(window.innerHeight - storefrontHeaderHeight, 320)}px`;
+          return;
+        }
+        iframe.style.height = `${Math.max(
+          doc.documentElement.scrollHeight,
+          doc.body?.scrollHeight || 0,
+          520
+        )}px`;
+      };
+
+      const resizeObserver = new ResizeObserver(syncIframeHeight);
+      iframeResizeObserverRef.current = resizeObserver;
+      resizeObserver.observe(doc.documentElement);
+      if (doc.body) resizeObserver.observe(doc.body);
+      window.addEventListener('resize', syncIframeHeight);
+
+      // Wheel input stays inside an iframe document instead of bubbling to the
+      // page that owns the browser scrollbar. Forward vertical wheel movement
+      // to the storefront shell when no nested frame element can scroll it.
+      const forwardWheelToStorefront = (event: WheelEvent) => {
+        if (
+          window.matchMedia('(max-width: 768px)').matches ||
+          event.defaultPrevented ||
+          event.deltaY === 0 ||
+          Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ) {
+          return;
+        }
+
+        const target = win.HTMLElement && event.target instanceof win.HTMLElement
+          ? event.target as HTMLElement
+          : null;
+        if (target?.closest('select, input[type="number"], input[type="range"]')) return;
+
+        for (let element = target; element && element !== doc.body; element = element.parentElement) {
+          const overflowY = win.getComputedStyle(element).overflowY;
+          if (!['auto', 'scroll', 'overlay'].includes(overflowY)) continue;
+          if (element.scrollHeight <= element.clientHeight + 1) continue;
+
+          const canScrollUp = event.deltaY < 0 && element.scrollTop > 0;
+          const canScrollDown =
+            event.deltaY > 0 && element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+          if (canScrollUp || canScrollDown) return;
+        }
+
+        const frameScrollRoot = doc.scrollingElement;
+        if (frameScrollRoot) {
+          const frameCanScrollUp = event.deltaY < 0 && frameScrollRoot.scrollTop > 0;
+          const frameCanScrollDown =
+            event.deltaY > 0 && frameScrollRoot.scrollTop + frameScrollRoot.clientHeight < frameScrollRoot.scrollHeight - 1;
+          if (frameCanScrollUp || frameCanScrollDown) return;
+        }
+
+        const scrollRoot = document.scrollingElement;
+        if (!scrollRoot) return;
+        const maxScrollTop = scrollRoot.scrollHeight - window.innerHeight;
+        const canScrollUp = event.deltaY < 0 && scrollRoot.scrollTop > 0;
+        const canScrollDown = event.deltaY > 0 && scrollRoot.scrollTop < maxScrollTop - 1;
+        if (!canScrollUp && !canScrollDown) return;
+
+        event.preventDefault();
+        window.scrollBy(0, event.deltaY);
+      };
+      doc.addEventListener('wheel', forwardWheelToStorefront, { passive: false });
+
+      const showMissingProductImage = (event: Event) => {
+        const image = event.target as HTMLImageElement | null;
+        if (!image || image.tagName !== 'IMG' || !image.hasAttribute('data-storefront-product-image')) return;
+        image.classList.add('hidden');
+        image.nextElementSibling?.classList.remove('hidden');
+      };
+      doc.addEventListener('error', showMissingProductImage, true);
+
+      iframeResizeCleanupRef.current = () => {
+        window.removeEventListener('resize', syncIframeHeight);
+        doc.removeEventListener('wheel', forwardWheelToStorefront);
+        doc.removeEventListener('error', showMissingProductImage, true);
+        resizeObserver.disconnect();
+      };
+      syncIframeHeight();
+    }
 
     // Ensure search icon is placed before profile icon in header
     ensureHeaderSearchIcon(doc, navigate);
@@ -3161,92 +3417,136 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       loadingSec?.classList.remove('hidden');
       try {
         const activeProducts = await getProducts({ status: 'active' });
+        const searchQuery = new URLSearchParams(location.search)
+          .get('search')
+          ?.trim()
+          .toLocaleLowerCase('th-TH') || '';
+        const selectedCategoryId = new URLSearchParams(location.search).get('category') || '';
+        const visibleProducts = activeProducts.filter((product) => {
+          if (selectedCategoryId && product.categoryId !== selectedCategoryId) return false;
+          if (!searchQuery) return true;
+              const details = product as any;
+              const highlights = Array.isArray(details.highlights)
+                ? details.highlights.join(' ')
+                : '';
+              const searchText = [
+                product.name,
+                details.description,
+                details.category,
+                details.categoryName,
+                product.categoryName,
+                highlights,
+                product.ingredients,
+              ]
+                .filter(Boolean)
+                .join(' ')
+                .toLocaleLowerCase('th-TH');
+              return searchText.includes(searchQuery);
+        });
+
+        const categoryBar = doc.createElement('nav');
+        categoryBar.className = 'soulmate-category-filters';
+        categoryBar.setAttribute('aria-label', 'หมวดหมู่สินค้า');
+        const namedCategories = Array.from(
+          new Map(
+            activeProducts
+              .filter((product) => product.categoryId && product.categoryName?.trim())
+              .map((product) => [product.categoryId as string, product.categoryName!.trim()])
+          ).entries()
+        );
+        const allCategoryLink = doc.createElement('a');
+        allCategoryLink.href = `/products${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`;
+        allCategoryLink.textContent = 'ทั้งหมด';
+        if (!selectedCategoryId) allCategoryLink.setAttribute('aria-current', 'page');
+        categoryBar.appendChild(allCategoryLink);
+        namedCategories.forEach(([categoryId, categoryName]) => {
+          const link = doc.createElement('a');
+          const params = new URLSearchParams();
+          params.set('category', categoryId);
+          if (searchQuery) params.set('search', searchQuery);
+          link.href = `/products?${params.toString()}`;
+          link.textContent = categoryName;
+          if (selectedCategoryId === categoryId) link.setAttribute('aria-current', 'page');
+          categoryBar.appendChild(link);
+        });
+        if (namedCategories.length === 0) {
+          const unavailable = doc.createElement('span');
+          unavailable.textContent = 'หมวดหมู่จะแสดงเมื่อมีข้อมูลชื่อหมวดหมู่จากร้าน';
+          categoryBar.appendChild(unavailable);
+        }
+        const toolbar = doc.getElementById('shop-toolbar');
+        if (toolbar?.parentElement && !doc.querySelector('.soulmate-category-filters')) {
+          toolbar.parentElement.insertBefore(categoryBar, toolbar);
+        }
+
+        const productSearch = doc.getElementById('product-search-input') as HTMLInputElement | null;
+        if (productSearch) productSearch.value = searchQuery;
+        if (productSearch) {
+          const submitCatalogSearch = () => {
+            const query = productSearch.value.trim();
+            navigate(query ? `/products?search=${encodeURIComponent(query)}` : '/products');
+          };
+          productSearch.addEventListener('keydown', (event: KeyboardEvent) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            submitCatalogSearch();
+          });
+          productSearch.parentElement
+            ?.querySelector('button')
+            ?.addEventListener('click', submitCatalogSearch);
+        }
+
         const activeProductsWithImages = await Promise.all(
-          activeProducts.map(async (product) => ({
+          visibleProducts.map(async (product) => ({
             product,
             imageUrl: await resolveProductDisplayImage(product),
           }))
         );
-        if (countLabel) countLabel.textContent = `${activeProducts.length} สินค้า`;
+        if (countLabel) countLabel.textContent = `${visibleProducts.length} สินค้า`;
 
         const gridSec = doc.getElementById('state-grid');
         const listSec = doc.getElementById('state-list');
         const emptySec = doc.getElementById('state-empty');
         loadingSec?.classList.add('hidden');
 
-        if (activeProducts.length === 0) {
+        if (visibleProducts.length === 0) {
           if (gridSec) gridSec.classList.add('hidden');
           listSec?.classList.add('hidden');
-          if (emptySec) emptySec.classList.remove('hidden');
+          if (emptySec) {
+            emptySec.classList.remove('hidden');
+            const heading = emptySec.querySelector('h3');
+            const message = emptySec.querySelector('p');
+            if (searchQuery) {
+              if (heading) heading.textContent = 'ไม่พบสินค้าที่ค้นหา';
+              if (message) message.textContent = `ไม่มีสินค้าที่ตรงกับ “${searchQuery}” ลองใช้คำค้นอื่น`;
+              const clearButton = emptySec.querySelector('button');
+              if (clearButton) {
+                clearButton.textContent = 'ล้างคำค้น';
+                clearButton.addEventListener('click', () => navigate('/products'));
+              }
+            }
+          }
         } else {
           if (emptySec) emptySec.classList.add('hidden');
           if (listSec) {
-            listSec.innerHTML = activeProductsWithImages.map(({ product: p, imageUrl: img }) => {
-              const pricing = resolveStorefrontPricing(p);
-              return `
-                <article class="flex items-center gap-3 rounded-xl bg-surface-container-lowest p-3 shadow-xs">
-                  <div class="flex min-w-0 flex-1 cursor-pointer items-center gap-3" data-action="view-product" data-slug="${escapeHtml(p.slug || p.id)}">
-                    <div class="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-surface-container-low">
-                      ${img ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" class="h-full w-full object-cover" />` : renderMissingProductImage()}
-                    </div>
-                    <div class="min-w-0">
-                      <h3 class="font-semibold text-on-surface line-clamp-2">${escapeHtml(p.name)}</h3>
-                      <p class="font-bold text-primary">฿${pricing.sellingPrice.toLocaleString('th-TH')}</p>
-                    </div>
-                  </div>
-                  <button type="button" data-action="add-to-cart" data-product-id="${escapeHtml(p.id)}" data-product-name="${escapeHtml(p.name)}" data-product-price="${pricing.sellingPrice}" data-product-img="${escapeHtml(img || '')}" class="rounded-full bg-primary-container p-2 text-on-primary-container" title="เพิ่มลงตะกร้า">
-                    <span class="material-symbols-outlined">add_shopping_cart</span>
-                  </button>
-                </article>`;
-            }).join('');
+            listSec.innerHTML = activeProductsWithImages.map(({ product, imageUrl }) =>
+              renderStorefrontProductCard({
+                product,
+                imageUrl: imageUrl || null,
+                pricing: resolveStorefrontPricing(product),
+                variant: 'catalog-list',
+              })
+            ).join('');
           }
           if (gridSec) {
             gridSec.classList.remove('hidden');
             gridSec.innerHTML = activeProductsWithImages
-              .map(({ product: p, imageUrl: img }) => {
-
-                const pricing = resolveStorefrontPricing(p);
-
-                return `
-                <article class="bg-surface-container-lowest rounded-2xl p-3 shadow-xs flex flex-col justify-between border border-surface-container-high/40 hover:shadow-sm transition-all" data-product-slug="${p.slug || p.id}">
-                  <div class="cursor-pointer group" data-action="view-product" data-slug="${p.slug || p.id}">
-                    <div class="relative w-full aspect-square rounded-xl bg-surface-container-low overflow-hidden mb-2.5 flex items-center justify-center">
-                      ${
-                        img
-                          ? `<img src="${img}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.onerror=null; this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');" />
-                             <div class="hidden absolute inset-0">${renderMissingProductImage()}</div>`
-                          : renderMissingProductImage()
-                      }
-                    </div>
-                    <span class="font-label-sm text-[11px] text-primary font-semibold uppercase tracking-wider">SOULMATE</span>
-                    <h3 class="font-headline-sm text-sm text-on-surface font-semibold line-clamp-2 mt-0.5 leading-snug">${escapeHtml(p.name)}</h3>
-                  </div>
-                  <div class="mt-2.5 pt-2 border-t border-surface-container-low flex items-center justify-between">
-                    <div class="flex items-baseline gap-1.5 flex-wrap">
-                      ${
-                        pricing.hasSpecialPrice && pricing.specialPrice !== null
-                          ? `
-                            <span class="text-[12px] text-on-surface-variant line-through">
-                              ฿${pricing.regularPrice.toLocaleString('th-TH')}
-                            </span>
-                            <span class="font-headline-sm text-base text-tertiary font-bold">
-                              ฿${pricing.specialPrice.toLocaleString('th-TH')}
-                            </span>
-                          `
-                          : `
-                            <span class="font-headline-sm text-base text-primary font-bold">
-                              ฿${pricing.regularPrice.toLocaleString('th-TH')}
-                            </span>
-                          `
-                      }
-                    </div>
-                    <button type="button" data-action="add-to-cart" data-product-id="${p.id}" data-product-name="${escapeHtml(p.name)}" data-product-price="${pricing.sellingPrice}" data-product-img="${img || ''}" class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary flex items-center justify-center transition-colors active:scale-90" title="เพิ่มลงตะกร้า">
-                      <span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
-                    </button>
-                  </div>
-                </article>
-              `;
-              })
+              .map(({ product, imageUrl }) => renderStorefrontProductCard({
+                product,
+                imageUrl: imageUrl || null,
+                pricing: resolveStorefrontPricing(product),
+                variant: 'catalog-grid',
+              }))
               .join('');
 
             // Click listeners for viewing detail and adding to cart
@@ -3312,7 +3612,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     }
 
     // --- Storefront Product Detail Wiring (/products/:slug) ---
-    if (location.pathname.startsWith('/products/') && location.pathname !== '/products') {
+    if (
+      (location.pathname.startsWith('/products/') && location.pathname !== '/products') ||
+      location.pathname.startsWith('/product/')
+    ) {
       const parts = location.pathname.split('/');
       const slugOrId = parts[2];
 
@@ -3368,9 +3671,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
           const sku =
             String(product.sku || rawProduct.productSku || '').trim();
-
-          const shortDescription =
-            String(product.shortDescription || '').trim();
 
           const description =
             String(product.description || '').trim();
@@ -3612,6 +3912,12 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           const optionGroups = Array.isArray(product.optionGroups)
             ? product.optionGroups
             : [];
+          const variantOptionClass = (selected: boolean) =>
+            `real-variant-option px-3 py-2 rounded-xl text-sm border transition-colors ${
+              selected
+                ? 'border-tertiary bg-tertiary text-on-tertiary font-semibold ring-2 ring-tertiary/20'
+                : 'border-outline-variant bg-white text-on-surface hover:border-primary hover:bg-primary-container/20'
+            }`;
 
           const renderVariantsHtml = () => {
             if (
@@ -3623,12 +3929,9 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             }
 
             return `
-              <section class="bg-white rounded-2xl p-4 border border-outline-variant/20">
-                <div class="flex items-center justify-between gap-3">
+              <div id="real-product-variants">
+                <div>
                   <h2 class="text-base font-bold text-on-surface">ตัวเลือกสินค้า</h2>
-                  <span id="real-selected-variant" class="text-xs font-semibold text-primary">
-                    ${escapeHtml(selectedVariant?.displayName || '')}
-                  </span>
                 </div>
 
                 <div class="mt-4 space-y-4">
@@ -3659,11 +3962,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                                 return `
                                   <button
                                     type="button"
-                                    class="real-variant-option px-3 py-2 rounded-xl text-sm border transition-colors ${
-                                      isSelected
-                                        ? 'border-primary bg-primary-container/60 text-on-primary-fixed font-semibold'
-                                        : 'border-outline-variant bg-white text-on-surface'
-                                    }"
+                                    class="${variantOptionClass(isSelected)}"
                                     data-group-id="${escapeHtml(String(group?.id || ''))}"
                                     data-value-id="${escapeHtml(String(value?.id || ''))}"
                                   >
@@ -3678,7 +3977,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                     })
                     .join('')}
                 </div>
-              </section>
+              </div>
             `;
           };
 
@@ -3708,35 +4007,23 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             .join('');
 
           const codEnabled = product.shipping?.codEnabled !== false;
+          const variantsHtml = renderVariantsHtml();
 
           detailHost.innerHTML = `
-            <div class="max-w-[520px] mx-auto px-4 py-4 space-y-4">
+              <div class="max-w-[520px] mx-auto px-4 py-4">
 
-              <section>
+              <div id="real-product-primary-column">
+              <button id="real-back-to-products" type="button" class="inline-flex min-h-10 items-center gap-2 self-start rounded-full border border-outline-variant/50 bg-white px-4 text-sm font-medium text-primary transition-colors hover:bg-primary-container/30" aria-label="กลับไปหน้าสินค้าทั้งหมด">
+                <span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_back</span>
+                <span>กลับไปหน้าสินค้าทั้งหมด</span>
+              </button>
+              <section id="real-product-gallery">
                 ${renderGalleryHtml()}
               </section>
 
-              <section class="bg-white rounded-2xl p-4 border border-outline-variant/20">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <h1 id="real-product-name" class="text-xl font-bold text-on-surface leading-snug">
-                      ${escapeHtml(product.name)}
-                    </h1>
-                    ${
-                      shortDescription
-                        ? `<p class="text-sm text-on-surface-variant mt-2 leading-relaxed">${escapeHtml(
-                            shortDescription
-                          )}</p>`
-                        : ''
-                    }
-                  </div>
-                </div>
-
-                <div class="mt-4">
-                  ${renderPriceHtml(getCurrentPricing())}
-                </div>
-
-                <div class="mt-3 flex items-center gap-2">
+              <section id="real-product-summary" class="bg-white rounded-2xl p-4 border border-outline-variant/20">
+                <div>${renderPriceHtml(getCurrentPricing())}</div>
+                <div class="flex flex-wrap items-center gap-2">
                   <span
                     id="real-product-stock"
                     class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -3760,9 +4047,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                 </div>
               </section>
 
-              ${renderVariantsHtml()}
+              <section id="real-product-config" aria-label="ตัวเลือกสินค้าและจำนวน" class="bg-white rounded-2xl p-4 border border-outline-variant/20">
+                ${variantsHtml}
 
-              <section class="bg-white rounded-2xl p-4 border border-outline-variant/20">
+              <div id="real-product-quantity" class="${variantsHtml ? 'mt-4 border-t border-outline-variant/30 pt-4' : ''}">
                 <div class="flex items-center justify-between">
                   <h2 class="text-base font-bold text-on-surface">จำนวน</h2>
 
@@ -3789,25 +4077,36 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                     </button>
                   </div>
                 </div>
+              </div>
+              </section>
+              </div>
+
+              <div id="real-product-secondary-column">
+              <section id="real-product-overview" class="bg-white rounded-2xl p-5 border border-outline-variant/20">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <h1 id="real-product-name" class="text-xl font-bold text-on-surface leading-snug">
+                      ${escapeHtml(product.name)}
+                    </h1>
+                  </div>
+                </div>
+                ${
+                  description
+                    ? `<div id="real-product-description" class="mt-3 border-t border-outline-variant/30 pt-3">
+                        <h2 class="text-base font-bold text-on-surface">รายละเอียดสินค้า</h2>
+                        <p class="text-sm text-on-surface-variant mt-2 leading-relaxed whitespace-pre-line">${escapeHtml(description)}</p>
+                      </div>`
+                    : ''
+                }
+
               </section>
 
-              ${
-                description
-                  ? `
-                    <section class="bg-white rounded-2xl p-4 border border-outline-variant/20">
-                      <h2 class="text-base font-bold text-on-surface">รายละเอียดสินค้า</h2>
-                      <p class="text-sm text-on-surface-variant mt-3 leading-relaxed whitespace-pre-line">${escapeHtml(
-                        description
-                      )}</p>
-                    </section>
-                  `
-                  : ''
-              }
+              <div id="real-product-attributes">
 
               ${
                 highlights
                   ? `
-                    <section class="bg-white rounded-2xl p-4 border border-outline-variant/20">
+                    <section id="real-product-highlights" class="bg-white rounded-2xl p-4 border border-outline-variant/20">
                       <h2 class="text-base font-bold text-on-surface">จุดเด่น</h2>
                       <p class="text-sm text-on-surface-variant mt-3 leading-relaxed whitespace-pre-line">${escapeHtml(
                         highlights
@@ -3820,7 +4119,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               ${
                 ingredients
                   ? `
-                    <section class="bg-white rounded-2xl p-4 border border-outline-variant/20">
+                    <section id="real-product-ingredients" class="bg-white rounded-2xl p-4 border border-outline-variant/20">
                       <h2 class="text-base font-bold text-on-surface">ส่วนประกอบสำคัญ</h2>
                       <p class="text-sm text-on-surface-variant mt-3 leading-relaxed whitespace-pre-line">${escapeHtml(
                         ingredients
@@ -3833,7 +4132,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               ${
                 usageInstructions
                   ? `
-                    <section class="bg-white rounded-2xl p-4 border border-outline-variant/20">
+                    <section id="real-product-usage" class="bg-white rounded-2xl p-4 border border-outline-variant/20">
                       <h2 class="text-base font-bold text-on-surface">วิธีใช้ / รับประทาน</h2>
                       <p class="text-sm text-on-surface-variant mt-3 leading-relaxed whitespace-pre-line">${escapeHtml(
                         usageInstructions
@@ -3846,13 +4145,16 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               ${
                 infoRows
                   ? `
-                    <section class="bg-white rounded-2xl p-4 border border-outline-variant/20">
+                    <section id="real-product-info" class="bg-white rounded-2xl p-4 border border-outline-variant/20">
                       <h2 class="text-base font-bold text-on-surface mb-2">ข้อมูลสินค้า</h2>
                       ${infoRows}
                     </section>
                   `
                   : ''
               }
+              </div>
+              </div>
+
             </div>
 
             <div
@@ -3896,6 +4198,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               </div>
             </div>
           `;
+
+          const productAttributes = doc.getElementById('real-product-attributes');
+          if (productAttributes && !productAttributes.querySelector('section')) {
+            productAttributes.remove();
+          }
 
           // The real product detail is mounted now.
           // Remove only residual Stitch/mock purchase controls that live OUTSIDE
@@ -3977,12 +4284,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
             if (mainImageEl && currentImage) {
               mainImageEl.src = currentImage;
-            }
-
-            const selectedVariantEl = doc.getElementById('real-selected-variant');
-            if (selectedVariantEl) {
-              selectedVariantEl.textContent =
-                selectedVariant?.displayName || '';
             }
 
             const totalEl = doc.getElementById('real-product-total');
@@ -4179,12 +4480,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                         )
                       );
 
-                      optionButton.className =
-                        `real-variant-option px-3 py-2 rounded-xl text-sm border transition-colors ${
-                          active
-                            ? 'border-primary bg-primary-container/60 text-on-primary-fixed font-semibold'
-                            : 'border-outline-variant bg-white text-on-surface'
-                        }`;
+                      optionButton.className = variantOptionClass(active);
                     });
 
                   if (quantityDisplay) {
@@ -4259,6 +4555,13 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             .getElementById('real-add-to-cart')
             ?.addEventListener('click', handleRealAddToCart);
 
+          doc
+            .getElementById('real-back-to-products')
+            ?.addEventListener('click', (event) => {
+              event.preventDefault();
+              navigate('/products');
+            });
+
           const handleRealBuyNow = async (event?: Event) => {
             event?.preventDefault();
             event?.stopPropagation();
@@ -4284,7 +4587,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             const snapshot = getCartSnapshot();
             updateAllCartBadges(doc, snapshot.itemCount);
 
-            navigate('/checkout');
+            navigate('/cart');
           };
 
           doc
@@ -4317,6 +4620,56 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           doc.addEventListener('click', productDetailDelegatedAdd);
 
           refreshDetailUi();
+
+          const reviewsSection = doc.createElement('section');
+          reviewsSection.id = 'soulmate-product-reviews';
+          reviewsSection.className = 'mt-6 rounded-2xl border border-surface-container-high bg-white p-5';
+          reviewsSection.innerHTML = `
+            <h2 class="text-lg font-bold text-on-surface">รีวิวสินค้า</h2>
+            <p class="mt-2 text-sm text-on-surface-variant">ระบบรีวิวยังไม่พร้อมใช้งาน จึงยังไม่มีรีวิวที่ตรวจสอบได้</p>
+          `;
+
+          const relatedSection = doc.createElement('section');
+          relatedSection.id = 'soulmate-related-products';
+          relatedSection.className = 'mt-6 rounded-2xl border border-surface-container-high bg-white p-5';
+          relatedSection.innerHTML = `
+            <h2 class="text-lg font-bold text-on-surface">สินค้าอื่นที่เลือกดูได้</h2>
+            <div class="mt-4 grid grid-cols-2 gap-3" id="soulmate-related-grid">
+              <p class="text-sm text-on-surface-variant">กำลังโหลดสินค้า…</p>
+            </div>
+          `;
+          const detailLayout = detailHost.firstElementChild;
+          const secondaryColumn = doc.getElementById('real-product-secondary-column');
+          if (secondaryColumn) secondaryColumn.append(reviewsSection);
+          if (detailLayout) detailLayout.append(relatedSection);
+
+          try {
+            const relatedProducts = (await getProducts({ status: 'active' }))
+              .filter((item) => item.id !== product.id)
+              .sort((a, b) => Number(b.categoryId === product.categoryId) - Number(a.categoryId === product.categoryId))
+              .slice(0, 4);
+            const relatedGrid = doc.getElementById('soulmate-related-grid');
+            if (relatedGrid) {
+              if (relatedProducts.length === 0) {
+                relatedGrid.innerHTML = '<p class="text-sm text-on-surface-variant">ยังไม่มีสินค้าอื่นที่เผยแพร่</p>';
+              } else {
+                const relatedCards = await Promise.all(relatedProducts.map(async (item) => {
+                  const image = await resolveProductDisplayImage(item);
+                  return renderStorefrontProductCard({
+                    product: item,
+                    imageUrl: image,
+                    pricing: resolveStorefrontPricing(item),
+                    variant: 'related',
+                  });
+                }));
+                relatedGrid.innerHTML = relatedCards.join('');
+              }
+            }
+          } catch (relatedError) {
+            const relatedGrid = doc.getElementById('soulmate-related-grid');
+            if (relatedGrid) relatedGrid.innerHTML = '<p class="text-sm text-on-surface-variant">ไม่สามารถโหลดสินค้าอื่นได้ในขณะนี้</p>';
+            console.warn('[Storefront Detail] Related products unavailable:', relatedError);
+          }
         } catch (err) {
           console.error('[Storefront Detail] Error:', err);
 
@@ -4487,76 +4840,13 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4';
 
         productGrid.innerHTML = homeProducts
-          .map(({ product, imageUrl, pricing }, index) => {
-            const safeName = escapeHtml(product.name || 'สินค้า');
-            const safeImage = escapeHtml(imageUrl || '');
-
-            return `
-              <article
-                class="real-home-product-card group bg-white rounded-2xl overflow-hidden border border-outline-variant/20 shadow-sm cursor-pointer active:scale-[0.99] transition-transform"
-                data-product-index="${index}"
-                data-product-id="${escapeHtml(product.id)}"
-                tabindex="0"
-                role="button"
-                aria-label="ดูรายละเอียด ${safeName}"
-              >
-                <div class="w-full aspect-square bg-surface-container-low overflow-hidden flex items-center justify-center">
-                  ${
-                    safeImage
-                      ? `
-                        <img
-                          src="${safeImage}"
-                          alt="${safeName}"
-                          class="w-full h-full object-cover"
-                        />
-                      `
-                      : `
-                        <div class="w-full h-full flex flex-col items-center justify-center text-on-surface-variant">
-                          <span class="material-symbols-outlined text-[38px]">image_not_supported</span>
-                          <span class="text-[11px] mt-1">ยังไม่มีรูปสินค้า</span>
-                        </div>
-                      `
-                  }
-                </div>
-
-                <div class="p-3">
-                  <h3 class="text-sm font-semibold text-on-surface leading-snug line-clamp-2 min-h-[40px]">
-                    ${safeName}
-                  </h3>
-
-                  <div class="mt-2 flex items-end justify-between gap-2">
-                    <div class="min-w-0">
-                      ${
-                        pricing.hasSpecialPrice && pricing.specialPrice !== null
-                          ? `
-                            <div class="text-[11px] text-on-surface-variant line-through leading-tight">
-                              ฿${pricing.regularPrice.toLocaleString('th-TH')}
-                            </div>
-                            <div class="text-base font-bold text-tertiary leading-tight mt-0.5">
-                              ฿${pricing.specialPrice.toLocaleString('th-TH')}
-                            </div>
-                          `
-                          : `
-                            <div class="text-base font-bold text-tertiary">
-                              ฿${pricing.regularPrice.toLocaleString('th-TH')}
-                            </div>
-                          `
-                      }
-                    </div>
-
-                    <button
-                      type="button"
-                      class="real-home-add-cart w-9 h-9 rounded-full bg-primary-container text-primary flex items-center justify-center flex-shrink-0"
-                      data-product-index="${index}"
-                      aria-label="เพิ่ม ${safeName} ลงตะกร้า"
-                    >
-                      <span class="material-symbols-outlined text-[20px]">add</span>
-                    </button>
-                  </div>
-                </div>
-              </article>
-            `;
-          })
+          .map(({ product, imageUrl, pricing }, index) => renderStorefrontProductCard({
+            product,
+            imageUrl: imageUrl || null,
+            pricing,
+            variant: 'home',
+            index,
+          }))
           .join('');
 
         const openHomeProduct = (index: number) => {
@@ -4678,6 +4968,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     }
   };
 
+  useEffect(() => () => {
+    iframeResizeCleanupRef.current?.();
+    iframeResizeObserverRef.current?.disconnect();
+  }, []);
+
   useEffect(() => {
     // Keep iframe UI synchronized with the REAL React cart state.
     // The iframe only mounts its initial HTML once, so without this effect the
@@ -4716,16 +5011,27 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     auth.customerProfile,
   ]);
 
-  return (
-    <div className="w-full h-screen overflow-hidden bg-surface">
-      <iframe
-        key={`${screen.id}:${screen.htmlPath}`}
-        ref={iframeRef}
-        src={screen.htmlPath}
-        title={screen.title}
-        className="w-full h-full border-0"
-        onLoad={handleIframeLoaded}
-      />
-    </div>
+  const iframe = (
+    <iframe
+      key={`${screen.id}:${screen.htmlPath}:${location.pathname}:${location.search}`}
+      ref={iframeRef}
+      src={screen.htmlPath}
+      title={screen.title}
+      className="w-full border-0"
+      onLoad={handleIframeLoaded}
+    />
   );
+
+  if (routeType === 'storefront') {
+    return (
+      <StorefrontShell
+        contentClassName={`storefront-embedded-content ${location.pathname.startsWith('/products/') || location.pathname.startsWith('/product/') ? 'storefront-content--product-detail' : ''}`}
+        mobileChrome={false}
+      >
+        <div className="storefront-frame">{iframe}</div>
+      </StorefrontShell>
+    );
+  }
+
+  return <div className="w-full min-h-screen bg-surface">{iframe}</div>;
 };

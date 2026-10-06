@@ -65,6 +65,7 @@ export interface Product {
   countryOfOrigin?: string;
   shelfLife?: string;
   categoryId: string | null;
+  categoryName?: string | null;
   price: number;
   compareAtPrice: number | null;
   stock: number;
