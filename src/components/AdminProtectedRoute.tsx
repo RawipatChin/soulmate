@@ -1,22 +1,13 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { canAccessAdmin } from '../utils/accountAccess';
 
-/**
- * AdminProtectedRoute
- *
- * STEP 20 Architecture:
- * - Prepares the authorization gate for administrative routes.
- * - Enforces authentication and leaves a clear hook for Firestore Role verification.
- * - STEP 21 INTEGRATION POINT:
- *   Query Firestore `users/{uid}` or `admins/{uid}` to verify `role === 'admin' || role === 'super_admin'`.
- * - For now, normal authenticated customers are NOT authorized as administrators.
- */
 export const AdminProtectedRoute: React.FC<{
   children: React.ReactNode;
   requiredRole?: 'super_admin' | 'admin';
 }> = ({ children, requiredRole }) => {
-  const { user, customerProfile, loading, profileLoading } = useAuth();
+  const { user, customerProfile, loading, profileLoading, profileError, refreshCustomerProfile } = useAuth();
   const location = useLocation();
 
   if (loading || (user && profileLoading)) {
@@ -32,23 +23,29 @@ export const AdminProtectedRoute: React.FC<{
 
   const role = customerProfile?.role || '';
   const isAuthorizedAdmin =
-    !!user &&
-    (role === 'admin' || role === 'super_admin') &&
+    canAccessAdmin(customerProfile) &&
     (!requiredRole || requiredRole === 'admin' || role === 'super_admin');
 
-  if (!isAuthorizedAdmin) {
+  if (!user) {
     return (
       <Navigate
         to="/admin/login"
         state={{
           from: location.pathname,
-          reason: !user
-            ? 'กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ'
-            : 'บัญชีนี้ไม่มีสิทธิ์เข้าถึงส่วนงานผู้ดูแลระบบ',
+          reason: 'กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ',
         }}
         replace
       />
     );
+  }
+
+  if (!isAuthorizedAdmin) {
+    return <main className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center bg-[#fcf9f8] text-[#132e27]">
+      <h1 className="text-2xl font-bold">ไม่มีสิทธิ์เข้าหลังบ้าน</h1>
+      <p>{customerProfile?.status === 'suspended' ? 'บัญชีนี้ถูกระงับการใช้งาน' : profileError || 'บัญชีนี้ไม่มีสิทธิ์ผู้ดูแลระบบ'}</p>
+      {!customerProfile && <button className="rounded-xl bg-[#2d6857] px-5 py-3 text-white" onClick={() => void refreshCustomerProfile()} type="button">ลองตรวจสิทธิ์อีกครั้ง</button>}
+      <a className="font-semibold text-[#2d6857] underline" href="/">กลับหน้าร้าน</a>
+    </main>;
   }
 
   return <>{children}</>;

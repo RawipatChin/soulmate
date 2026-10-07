@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   User,
   UserCredential,
@@ -26,6 +26,7 @@ import type {
   ShippingAddress,
   MembershipTier,
 } from '../types';
+import { canAccessAdmin, hasActiveAccount } from '../utils/accountAccess';
 
 export type { CustomerRegistrationPayload, CustomerProfileUpdatePayload, ShippingAddress };
 
@@ -53,7 +54,7 @@ export interface AuthContextType {
   adminLogin: (
     email: string,
     password: string,
-    requestedRole: string
+    requestedRole?: string
   ) => Promise<{ credential: UserCredential; authorized: boolean; reason?: string }>;
   uploadProfilePhoto: (file: File) => Promise<string>;
   deleteProfilePhoto: () => Promise<void>;
@@ -123,6 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pendingCustomerData, setPendingCustomerData] = useState<CustomerRegistrationPayload | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [adminAttemptRole, setAdminAttemptRole] = useState<string | null>(null);
+  const registrationInProgress = useRef(false);
 
   const { isConfigured, missingKeys } = checkFirebaseConfig();
 
@@ -136,12 +138,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setProfileLoading(true);
+    setCustomerProfile((previous) => previous?.uid === uid ? previous : null);
     setProfileNotFound(false);
     setProfileError(null);
 
     try {
       const userDocRef = doc(db, 'users', uid);
       const docSnap = await getDoc(userDocRef);
+
+      if (auth?.currentUser?.uid !== uid) return null;
 
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -154,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           phone: data.phone || '',
           photoURL: data.photoURL !== undefined ? data.photoURL : (firebaseUser?.photoURL || null),
           role: data.role || 'customer',
-          status: data.status || 'active',
+          status: data.status || '',
           membershipTier: (data.membershipTier as MembershipTier) || 'classic',
           completedOrderCount: typeof data.completedOrderCount === 'number' ? data.completedOrderCount : 0,
           lifetimeSpend: typeof data.lifetimeSpend === 'number' ? data.lifetimeSpend : 0,
@@ -185,9 +190,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
     } catch (err: any) {
+      if (auth?.currentUser?.uid !== uid) return null;
       console.error('[SOULMATE Auth] Error fetching customer profile from Firestore:', err);
       setCustomerProfile(null);
-      setProfileError('ไม่สามารถโหลดข้อมูลโปรไฟล์ได้ กรุณาลองใหม่อีกครั้ง');
+      setProfileError(err?.code === 'permission-denied'
+        ? 'บัญชีนี้ไม่มีสิทธิ์ใช้งานหรือถูกระงับ กรุณาติดต่อร้าน'
+        : 'ไม่สามารถโหลดข้อมูลโปรไฟล์ได้ กรุณาลองใหม่อีกครั้ง');
       return null;
     } finally {
       setProfileLoading(false);
@@ -205,8 +213,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       auth,
       async (currentUser) => {
         setUser(currentUser);
-        if (currentUser) {
+        if (currentUser?.isAnonymous) {
+          setCustomerProfile(null);
+          setProfileNotFound(false);
+          setProfileError(null);
+          setProfileLoading(false);
+        } else if (currentUser && !registrationInProgress.current) {
           await loadCustomerProfile(currentUser.uid, currentUser);
+        } else if (currentUser) {
+          setProfileLoading(false);
         } else {
           setCustomerProfile(null);
           setProfileLoading(false);
@@ -239,14 +254,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(errMessage);
     }
 
+    if (!db) {
+      const message = 'ระบบบัญชียังไม่พร้อมใช้งาน กรุณาลองใหม่อีกครั้ง';
+      setAuthError(message);
+      throw new Error(message);
+    }
+
+    let credential: UserCredential;
     try {
-      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
-      return credential;
+      credential = await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (err) {
       const friendlyMessage = mapFirebaseAuthError(err);
       setAuthError(friendlyMessage);
       throw new Error(friendlyMessage);
     }
+
+    const profile = await loadCustomerProfile(credential.user.uid, credential.user);
+    if (!hasActiveAccount(profile)) {
+      await signOut(auth);
+      const message = profile?.status === 'suspended'
+        ? 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อร้าน'
+        : 'ไม่สามารถตรวจสอบบัญชีได้ บัญชีอาจถูกระงับหรือข้อมูลไม่พร้อม กรุณาติดต่อร้าน';
+      setAuthError(message);
+      throw new Error(message);
+    }
+    setUser(credential.user);
+    return credential;
   };
 
   /**
@@ -264,16 +297,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(errMessage);
     }
 
+    if (!db) {
+      const message = 'ระบบบัญชียังไม่พร้อมใช้งาน กรุณาลองใหม่อีกครั้ง';
+      setAuthError(message);
+      throw new Error(message);
+    }
+
     const cleanEmail = email.trim();
     const firstName = extraData?.firstName?.trim() || '';
     const lastName = extraData?.lastName?.trim() || '';
     const phone = extraData?.phone?.trim() || '';
     const displayName = `${firstName} ${lastName}`.trim();
 
+    registrationInProgress.current = true;
     try {
-      const credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      let credential: UserCredential;
+      let resumingRegistration = false;
+      try {
+        credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      } catch (createErr: any) {
+        if (createErr?.code !== 'auth/email-already-in-use') throw createErr;
+        // A previous attempt may have created the Auth user before Firestore rejected
+        // its profile. Verify ownership with the same password before resuming.
+        try {
+          credential = await signInWithEmailAndPassword(auth, cleanEmail, password);
+        } catch {
+          throw createErr;
+        }
+        resumingRegistration = true;
+      }
       const newUser = credential.user;
       const uid = newUser.uid;
+      const userDocRef = doc(db, 'users', uid);
+
+      if (resumingRegistration) {
+        let existingProfile;
+        try {
+          existingProfile = await getDoc(userDocRef);
+        } catch {
+          await signOut(auth);
+          throw new Error('ไม่สามารถตรวจสอบบัญชีเดิมได้ กรุณาลองใหม่อีกครั้ง');
+        }
+        if (existingProfile.exists()) {
+          await signOut(auth);
+          throw new Error('อีเมลนี้มีบัญชีแล้ว กรุณาเข้าสู่ระบบ');
+        }
+      }
 
       try {
         await updateProfile(newUser, {
@@ -285,7 +354,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (db) {
         try {
-          const userDocRef = doc(db, 'users', uid);
           await setDoc(userDocRef, {
             email: newUser.email || cleanEmail,
             displayName: displayName,
@@ -295,7 +363,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             photoURL: null,
             role: 'customer',
             status: 'active',
-            membershipTier: 'classic',
             completedOrderCount: 0,
             lifetimeSpend: 0,
             createdAt: serverTimestamp(),
@@ -316,11 +383,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             completedOrderCount: 0,
             lifetimeSpend: 0,
           });
+          setUser(newUser);
           setProfileNotFound(false);
           setProfileError(null);
         } catch (firestoreErr: any) {
           console.error('[SOULMATE Auth] Firestore customer document creation failed:', firestoreErr);
-          const errMessage = 'ลงทะเบียนผู้ใช้สำเร็จ แต่ไม่สามารถสร้างโปรไฟล์ในฐานข้อมูลได้ กรุณาลองใหม่อีกครั้ง';
+          await signOut(auth);
+          const errMessage = firestoreErr?.code === 'permission-denied'
+            ? 'สร้างบัญชีแล้ว แต่ระบบไม่อนุญาตให้บันทึกโปรไฟล์ กรุณาติดต่อร้าน'
+            : 'สร้างบัญชีแล้ว แต่ยังบันทึกโปรไฟล์ไม่ได้ กรุณาลองสมัครด้วยอีเมลและรหัสผ่านเดิมอีกครั้ง';
           setAuthError(errMessage);
           throw new Error(errMessage);
         }
@@ -330,9 +401,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return credential;
     } catch (err: any) {
-      const friendlyMessage = err.message || mapFirebaseAuthError(err);
+      const friendlyMessage = err?.code ? mapFirebaseAuthError(err) : err?.message || mapFirebaseAuthError(err);
       setAuthError(friendlyMessage);
       throw new Error(friendlyMessage);
+    } finally {
+      registrationInProgress.current = false;
     }
   };
 
@@ -370,6 +443,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await sendPasswordResetEmail(auth, email.trim());
     } catch (err) {
+      if ((err as { code?: string })?.code === 'auth/user-not-found') return;
       const friendlyMessage = mapFirebaseAuthError(err);
       setAuthError(friendlyMessage);
       throw new Error(friendlyMessage);
@@ -382,7 +456,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const adminLogin = async (
     email: string,
     password: string,
-    requestedRole: string
+    requestedRole?: string
   ): Promise<{
     credential: UserCredential;
     authorized: boolean;
@@ -428,8 +502,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return value;
     };
 
-    const expectedRole =
-      normalizeRequestedRole(requestedRole);
+    const expectedRole = requestedRole
+      ? normalizeRequestedRole(requestedRole)
+      : null;
 
     setAdminAttemptRole(expectedRole);
 
@@ -531,7 +606,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // 5. Selected login type must match Firestore role
-      if (expectedRole !== actualRole) {
+      if (expectedRole && expectedRole !== actualRole) {
         await signOut(auth);
 
         const readableRole =
@@ -552,10 +627,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // 6. Authorized - load actual Firestore profile into context
-      await loadCustomerProfile(
+      const profile = await loadCustomerProfile(
         uid,
         firebaseUser
       );
+
+      if (!canAccessAdmin(profile)) {
+        await signOut(auth);
+        const reason = 'ไม่สามารถตรวจสอบสิทธิ์ผู้ดูแลระบบได้ กรุณาลองใหม่อีกครั้ง';
+        setAuthError(reason);
+        return { credential, authorized: false, reason };
+      }
+
+      setUser(firebaseUser);
 
       setAuthError(null);
 
@@ -574,9 +658,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         err
       );
 
-      const friendlyMessage =
-        err?.message ||
-        mapFirebaseAuthError(err);
+      const friendlyMessage = err?.code ? mapFirebaseAuthError(err) : err?.message || mapFirebaseAuthError(err);
 
       setAuthError(friendlyMessage);
 
@@ -830,7 +912,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             phone: docData.phone || phone,
             photoURL: docData.photoURL !== undefined ? docData.photoURL : (auth.currentUser.photoURL || null),
             role: docData.role || 'customer',
-            status: docData.status || 'active',
+            status: docData.status || '',
             membershipTier: (docData.membershipTier as MembershipTier) || 'classic',
             completedOrderCount: typeof docData.completedOrderCount === 'number' ? docData.completedOrderCount : 0,
             lifetimeSpend: typeof docData.lifetimeSpend === 'number' ? docData.lifetimeSpend : 0,
@@ -986,7 +1068,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           phone: docData.phone || '',
           photoURL: docData.photoURL !== undefined ? docData.photoURL : (auth.currentUser.photoURL || null),
           role: docData.role || 'customer',
-          status: docData.status || 'active',
+          status: docData.status || '',
           membershipTier: (docData.membershipTier as MembershipTier) || 'classic',
           completedOrderCount: typeof docData.completedOrderCount === 'number' ? docData.completedOrderCount : 0,
           lifetimeSpend: typeof docData.lifetimeSpend === 'number' ? docData.lifetimeSpend : 0,

@@ -31,6 +31,10 @@ export function mapFirebaseAuthError(error: unknown): string {
     case 'auth/user-disabled':
       return 'บัญชีผู้ใช้นี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
 
+    case 'permission-denied':
+    case 'firestore/permission-denied':
+      return 'บัญชีนี้ไม่มีสิทธิ์ใช้งานหรือถูกระงับ กรุณาติดต่อร้าน';
+
     case 'auth/operation-not-allowed':
       return 'ระบบยังไม่ได้เปิดใช้งานการลงทะเบียนด้วยอีเมลและรหัสผ่าน';
 

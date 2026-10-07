@@ -105,6 +105,16 @@ export const SCREENS: ScreenDefinition[] = [
     aliases: ['profile', 'profile-section', '/account/profile'],
   },
   {
+    id: 'storefront-shipping-address',
+    title: 'Shipping Address',
+    category: 'storefront',
+    path: '/account/addresses',
+    htmlPath: '/stitch_soulmate_e_commerce/soulmate_mobile_shipping_address_page/code.html',
+    description: 'Default delivery address for checkout',
+    defaultViewport: 'mobile',
+    aliases: ['addresses', '/addresses', '/account/addresses'],
+  },
+  {
     id: 'storefront-my-orders',
     title: 'My Orders History',
     category: 'storefront',

@@ -1,0 +1,86 @@
+.account-auth {
+  width: min(100% - 32px, 1120px);
+  min-height: min(720px, calc(100vh - 180px));
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 48px 0 64px;
+  color: #132e27;
+}
+
+.account-auth--admin {
+  width: 100%;
+  min-height: 100vh;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.85fr);
+  padding: 0;
+  background: #fcf9f8;
+}
+
+.account-auth-visual {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 22px;
+  padding: 28px;
+  background: #132e27;
+  color: #a8e5cf;
+}
+
+.account-auth-visual-image {
+  min-height: 65vh;
+  flex: 1;
+  border-radius: 14px;
+  background: #dcefe5 url('/auth-admin-visual.png') center / cover no-repeat;
+}
+
+.account-auth-visual p { margin: 0; letter-spacing: .13em; font-size: 13px; font-weight: 700; }
+
+.account-auth-main {
+  width: min(100%, 470px);
+  padding: 42px 38px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 16px 48px -28px rgba(19, 46, 39, .27);
+}
+
+.account-auth--admin .account-auth-main { width: min(calc(100% - 48px), 470px); }
+.account-auth-brand { display: inline-flex; margin-bottom: 32px; }
+.account-auth-brand img { width: 150px; height: auto; max-height: 50px; object-fit: contain; }
+.account-auth-intro { margin-bottom: 32px; }
+.account-auth-intro h1 { margin: 0 0 8px; color: #132e27; font-size: clamp(28px, 3vw, 36px); line-height: 1.2; font-weight: 750; letter-spacing: -.025em; }
+.account-auth-intro p { margin: 0; color: #53615d; font-size: 16px; line-height: 1.6; }
+.account-auth-form { display: grid; gap: 20px; }
+.account-auth-form label { display: grid; gap: 8px; min-width: 0; color: #223d34; font-size: 15px; font-weight: 650; }
+.account-auth-form input { width: 100%; min-width: 0; height: 52px; padding: 0 16px; border: 1px solid #bbc9c2; border-radius: 12px; background: #fcfdfb; color: #132e27; font: inherit; font-size: 16px; outline: none; }
+.account-auth-form input:focus { border-color: #2d6857; box-shadow: 0 0 0 3px #a8e5cf; }
+.account-auth-form input::placeholder { color: #657971; }
+.account-auth-name-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.account-auth-password { position: relative; display: block; }
+.account-auth-password input { padding-right: 54px; }
+.account-auth-password button { position: absolute; top: 3px; right: 3px; width: 46px; height: 46px; border: 0; border-radius: 9px; background: transparent; color: #2d6857; cursor: pointer; }
+.account-auth-password button:hover { background: #e8f8f2; }
+.account-auth-submit { min-height: 52px; margin-top: 4px; padding: 12px 20px; border: 0; border-radius: 12px; background: #a83278; color: #fff; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 9px 24px -13px rgba(113, 19, 72, .6); }
+.account-auth-submit:hover { background: #8f2966; }
+.account-auth-submit:disabled { cursor: wait; opacity: .7; }
+.account-auth-text-action { display: inline-block; margin-top: 18px; padding: 4px 0; border: 0; background: none; color: #8c235f; font: inherit; font-size: 15px; font-weight: 650; cursor: pointer; }
+.account-auth-footer { margin-top: 30px; padding-top: 22px; border-top: 1px solid #e4ebe7; color: #53615d; font-size: 15px; }
+.account-auth-footer a { color: #176149; font-weight: 700; text-underline-offset: 4px; }
+.account-auth-message { margin: -4px 0 0; padding: 12px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; font-weight: 500; }
+.account-auth-message--error { background: #fff0ed; color: #8c2b23; }
+.account-auth-message--success { background: #e7f7ef; color: #155540; }
+.account-auth a:focus-visible, .account-auth button:focus-visible { outline: 3px solid #a83278; outline-offset: 3px; }
+.account-auth ::selection { background: #a8e5cf; color: #132e27; }
+
+@media (max-width: 800px) {
+  .account-auth { min-height: 0; padding: 30px 0 54px; }
+  .account-auth--admin { display: block; min-height: 100vh; padding: 24px 0 48px; }
+  .account-auth-visual { display: none; }
+  .account-auth-main { padding: 30px 22px; }
+  .account-auth--admin .account-auth-main { width: min(calc(100% - 32px), 470px); margin: 0 auto; }
+}
+
+@media (max-width: 420px) {
+  .account-auth-main { padding: 26px 18px; }
+  .account-auth-name-row { grid-template-columns: 1fr; }
+}

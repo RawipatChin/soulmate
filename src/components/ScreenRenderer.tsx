@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ScreenDefinition, CustomerProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -43,7 +43,9 @@ import {
 } from '../services/productImageService';
 import { mountVariantManager } from '../utils/productVariantManager';
 import { StorefrontShell } from './storefront/StorefrontShell';
+import { canAccessAdmin } from '../utils/accountAccess';
 import { renderStorefrontProductCard } from './storefront/StorefrontProductCard';
+import { createPendingOrder, listAdminOrders, OrderReviewError } from '../services/orderService';
 
 function installStorefrontDesktopStyles(doc: Document) {
   if (doc.getElementById('soulmate-desktop-storefront-styles')) return;
@@ -520,6 +522,108 @@ function normalizeAdminSidebarRoutes(doc: Document) {
       el.setAttribute('href', destination);
     }
   });
+}
+
+const dashboardHtmlPath =
+  '/stitch_soulmate_e_commerce/soulmate_responsive_admin_dashboard_with_date_filtering/code.html';
+let dashboardShellRequest: Promise<string> | null = null;
+
+async function installDashboardAdminShell(doc: Document, pathname: string) {
+  if (pathname === '/admin/dashboard') return;
+
+  dashboardShellRequest ??= fetch(dashboardHtmlPath).then((response) => {
+    if (!response.ok) throw new Error(`Dashboard shell failed to load: ${response.status}`);
+    return response.text();
+  }).catch((error) => {
+    dashboardShellRequest = null;
+    throw error;
+  });
+
+  const source = new DOMParser().parseFromString(await dashboardShellRequest, 'text/html');
+  const sourceAside = source.body.querySelector('aside');
+  const sourceHeader = source.body.querySelector('header');
+  const targetAside = doc.body.querySelector('aside');
+  const targetHeader = doc.body.querySelector('header');
+  if (!sourceAside || !sourceHeader || !targetAside || !targetHeader) return;
+
+  const oldDrawer = doc.body.querySelector<HTMLInputElement>('input[type="checkbox"][id*="drawer"]');
+  if (oldDrawer) {
+    doc.body.querySelectorAll(`label[for="${oldDrawer.id}"]`).forEach((label) => label.remove());
+    oldDrawer.remove();
+  }
+
+  const drawer = source.body.querySelector<HTMLInputElement>('#nav-drawer-toggle');
+  const backdrop = source.body.querySelector<HTMLLabelElement>('label[for="nav-drawer-toggle"]');
+  if (drawer && backdrop) {
+    doc.body.insertBefore(doc.importNode(backdrop, true), targetAside);
+    doc.body.insertBefore(doc.importNode(drawer, true), doc.body.firstChild);
+  }
+
+  const aside = doc.importNode(sourceAside, true);
+  const header = doc.importNode(sourceHeader, true);
+  const logoLink = aside.querySelector('img[alt="SOULMATE"]')?.closest<HTMLAnchorElement>('a');
+  logoLink?.setAttribute('href', '/admin/dashboard');
+  logoLink?.setAttribute('data-path', 'admin-dashboard');
+  logoLink?.setAttribute('data-route', '/admin/dashboard');
+  const title = header.querySelector('h1');
+  const section = pathname.split('/')[2] || 'dashboard';
+  const titles: Record<string, string> = {
+    dashboard: 'Dashboard', products: 'Products', orders: 'Orders',
+    customers: 'Customers', banners: 'Banners', coupons: 'Coupons', settings: 'Settings',
+  };
+  if (title) title.textContent = titles[section] || 'Dashboard';
+  header.querySelector('#topbar-active-period-badge')?.remove();
+  header.querySelector('#refresh-dashboard-btn')?.remove();
+
+  const content = targetAside.nextElementSibling;
+  content?.classList.add('soulmate-admin-layout');
+  const style = doc.createElement('style');
+  style.textContent = `
+    @media (min-width: 1024px) {
+      .soulmate-admin-layout { padding-left: 260px !important; }
+    }
+    @media (max-width: 1023px) {
+      .soulmate-admin-layout { padding-left: 0 !important; }
+    }
+  `;
+  doc.head.appendChild(style);
+  targetAside.replaceWith(aside);
+  targetHeader.replaceWith(header);
+}
+
+function configureAdminTopbar(doc: Document) {
+  const header = doc.body.querySelector('header');
+  if (!header) return;
+
+  header.querySelector('#topbar-active-period-badge')?.remove();
+  header.querySelector('#refresh-dashboard-btn')?.remove();
+  header.querySelectorAll('div').forEach((element) => {
+    if (element.textContent?.trim() === 'Cloud Sync Active') element.remove();
+  });
+  header.querySelectorAll('button, a').forEach((element) => {
+    const icon = element.querySelector('.material-symbols-outlined')?.textContent?.trim();
+    if (element.id === 'header-search-icon-btn' || icon === 'search') element.remove();
+  });
+
+  if (header.querySelector('#admin-storefront-link')) return;
+  const actions = header.lastElementChild;
+  if (!actions) return;
+
+  const link = doc.createElement('a');
+  link.id = 'admin-storefront-link';
+  link.href = '/';
+  link.setAttribute('aria-label', 'กลับไปหน้าร้าน');
+  link.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span><span>กลับไปหน้าร้าน</span>';
+  actions.insertBefore(link, actions.firstChild);
+
+  const style = doc.createElement('style');
+  style.textContent = `
+    #admin-storefront-link { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 14px; border-radius: 999px; background: #d1f2e7; color: #2d6857; font-size: 13px; font-weight: 600; white-space: nowrap; text-decoration: none; transition: background-color 150ms ease; }
+    #admin-storefront-link:hover { background: #a8e5cf; }
+    #admin-storefront-link:focus-visible { outline: 2px solid #2d6857; outline-offset: 2px; }
+    #admin-storefront-link .material-symbols-outlined { font-size: 18px; }
+  `;
+  doc.head.appendChild(style);
 }
 
 /**
@@ -1142,28 +1246,29 @@ function configureCheckoutPaymentMethods(doc: Document) {
     cardRow.remove();
   }
 
-  // COD must be the default selected payment method.
   const codRow = findPaymentRow('เก็บเงินปลายทาง');
-  const codRadio =
-    codRow?.querySelector<HTMLInputElement>('input[type="radio"]') ||
+  if (codRow) codRow.remove();
+
+  // PromptPay is the only payment option in the test plan.
+  const promptPayRadio =
     Array.from(
       doc.querySelectorAll<HTMLInputElement>('input[type="radio"]')
     ).find((radio) => {
       const row = radio.closest<HTMLElement>('label, div');
-      return normalize(row?.textContent).includes('เก็บเงินปลายทาง');
+      return radio.value === 'promptpay' || normalize(row?.textContent).includes('PromptPay');
     }) ||
     null;
 
-  if (codRadio) {
+  if (promptPayRadio) {
     doc
       .querySelectorAll<HTMLInputElement>('input[type="radio"]')
       .forEach((radio) => {
-        radio.checked = radio === codRadio;
+        radio.checked = radio === promptPayRadio;
       });
 
-    codRadio.checked = true;
-    codRadio.dispatchEvent(new Event('input', { bubbles: true }));
-    codRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    promptPayRadio.checked = true;
+    promptPayRadio.dispatchEvent(new Event('input', { bubbles: true }));
+    promptPayRadio.dispatchEvent(new Event('change', { bubbles: true }));
   }
 }
 
@@ -1269,11 +1374,12 @@ function renderCheckoutSummary(doc: Document, win: any, cart: CartContextType) {
     }
 
     const formattedSubtotal = `฿${cart.subtotal.toLocaleString('th-TH')}`;
+    const formattedTotal = `฿${(cart.subtotal + 30).toLocaleString('th-TH')}`;
     if (subtotalEl) subtotalEl.textContent = formattedSubtotal;
     if (discountEl) discountEl.textContent = '-฿0';
-    if (shippingEl) shippingEl.textContent = '฿0';
-    if (grandTotalEl) grandTotalEl.textContent = formattedSubtotal;
-    if (stickyTotalEl) stickyTotalEl.textContent = formattedSubtotal;
+    if (shippingEl) shippingEl.textContent = '฿30';
+    if (grandTotalEl) grandTotalEl.textContent = formattedTotal;
+    if (stickyTotalEl) stickyTotalEl.textContent = formattedTotal;
   }
 }
 
@@ -1896,12 +2002,25 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       syncIframeHeight();
     }
 
+    if (routeType === 'admin') {
+      try {
+        await installDashboardAdminShell(doc, location.pathname);
+      } catch (error) {
+        console.error('[SOULMATE Admin] Dashboard navigation failed to load:', error);
+      }
+      configureAdminTopbar(doc);
+    }
+
     // Ensure search icon is placed before profile icon in header
-    ensureHeaderSearchIcon(doc, navigate);
+    if (routeType === 'storefront') ensureHeaderSearchIcon(doc, navigate);
 
     // Fix stale imported Admin sidebar routes before any clicks are handled.
     if (routeType === 'admin' || location.pathname.startsWith('/admin')) {
       normalizeAdminSidebarRoutes(doc);
+      const logoLink = doc.querySelector('aside img[alt="SOULMATE"]')?.closest<HTMLAnchorElement>('a');
+      logoLink?.setAttribute('href', '/admin/dashboard');
+      logoLink?.setAttribute('data-path', 'admin-dashboard');
+      logoLink?.setAttribute('data-route', '/admin/dashboard');
     }
 
     // Do not expose Stitch/dev test-state controls on real storefront pages.
@@ -2161,7 +2280,9 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         ) {
           e.preventDefault();
           e.stopPropagation();
-          navigate('/admin/login');
+          void auth.logout()
+            .then(() => navigate('/admin/login', { replace: true }))
+            .catch(() => win.alert('ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง'));
           return;
         }
       }
@@ -2323,7 +2444,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         if (isActive) {
           link.setAttribute('aria-current', 'page');
           link.className =
-            'flex items-center gap-space-sm px-space-md py-space-sm transition-colors bg-primary-container text-on-primary-container font-semibold rounded-xl';
+            'flex items-center gap-space-sm px-space-md py-space-sm transition-all bg-primary-container text-on-primary-container font-label-lg rounded-xl shadow-xs';
         } else if (
           link.getAttribute('data-path') ||
           link.getAttribute('data-route') ||
@@ -2331,7 +2452,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         ) {
           link.removeAttribute('aria-current');
           link.className =
-            'flex items-center gap-space-sm px-space-md py-space-sm rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-label-lg text-label-lg';
+            'flex items-center gap-space-sm px-space-md py-space-sm rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all';
         }
       });
     }
@@ -2554,6 +2675,29 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         if (tierName) tierName.textContent = tierInfo.currentTier;
       }
 
+      const passwordResetBtn = doc.getElementById('account-password-reset') as HTMLButtonElement | null;
+      const passwordMessage = doc.getElementById('account-password-message');
+      passwordResetBtn?.addEventListener('click', async () => {
+        const email = auth.user?.email || auth.customerProfile?.email;
+        if (!passwordMessage) return;
+        passwordMessage.classList.remove('hidden');
+        if (!email) {
+          passwordMessage.textContent = 'ไม่พบอีเมลของบัญชี กรุณาตรวจสอบข้อมูลส่วนตัว';
+          return;
+        }
+        passwordResetBtn.disabled = true;
+        passwordResetBtn.textContent = 'กำลังส่งอีเมล…';
+        try {
+          await auth.resetPassword(email);
+          passwordMessage.textContent = `ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่ ${email} แล้ว`;
+        } catch (error) {
+          passwordMessage.textContent = (error as Error).message || 'ส่งอีเมลไม่สำเร็จ กรุณาลองอีกครั้ง';
+        } finally {
+          passwordResetBtn.disabled = false;
+          passwordResetBtn.textContent = 'เปลี่ยนรหัสผ่าน';
+        }
+      });
+
       // Logout modal wiring
       const logoutBtn = doc.getElementById('btn-logout');
       const logoutModal = doc.getElementById('logout-modal');
@@ -2572,7 +2716,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       });
     }
 
-    // --- Customer Profile Page Wiring ---
+    // ---     // --- Customer Profile Page Wiring ---
     if (location.pathname === '/account/profile') {
       const profile = auth.customerProfile;
       if (profile) {
@@ -2585,30 +2729,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         if (lastEl) lastEl.value = profile.lastName || '';
         if (phoneEl) phoneEl.value = profile.phone || '';
         if (emailEl) emailEl.value = profile.email || auth.user?.email || '';
-
-        const addr = profile.defaultShippingAddress;
-        if (addr) {
-          const sFirst = doc.getElementById('shippingFirstName') as HTMLInputElement | null;
-          const sLast = doc.getElementById('shippingLastName') as HTMLInputElement | null;
-          const sPhone = doc.getElementById('shippingPhone') as HTMLInputElement | null;
-          const sAddr = doc.getElementById('addressLine') as HTMLTextAreaElement | null;
-          const sSub = doc.getElementById('subDistrict') as HTMLInputElement | null;
-          const sDist = doc.getElementById('district') as HTMLInputElement | null;
-          const sProv = doc.getElementById('province') as HTMLSelectElement | null;
-          const sZip = doc.getElementById('postalCode') as HTMLInputElement | null;
-
-          if (sFirst) sFirst.value = addr.firstName || '';
-          if (sLast) sLast.value = addr.lastName || '';
-          if (sPhone) sPhone.value = addr.phone || '';
-          if (sAddr) sAddr.value = addr.addressLine1 || '';
-          if (sSub) sSub.value = addr.subdistrict || '';
-          if (sDist) sDist.value = addr.district || '';
-          if (sProv) sProv.value = addr.province || '';
-          if (sZip) sZip.value = addr.postalCode || '';
-        }
       }
 
-      // Profile Form Save
       const profileForm = doc.getElementById('profileForm');
       profileForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -2636,8 +2758,31 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           }
         }
       });
+    }
 
-      // Shipping Form Save
+    // --- Customer Shipping Address Page Wiring ---
+    if (location.pathname === '/account/addresses') {
+      const addr = auth.customerProfile?.defaultShippingAddress;
+      if (addr) {
+        const sFirst = doc.getElementById('shippingFirstName') as HTMLInputElement | null;
+        const sLast = doc.getElementById('shippingLastName') as HTMLInputElement | null;
+        const sPhone = doc.getElementById('shippingPhone') as HTMLInputElement | null;
+        const sAddr = doc.getElementById('addressLine') as HTMLTextAreaElement | null;
+        const sSub = doc.getElementById('subDistrict') as HTMLInputElement | null;
+        const sDist = doc.getElementById('district') as HTMLInputElement | null;
+        const sProv = doc.getElementById('province') as HTMLSelectElement | null;
+        const sZip = doc.getElementById('postalCode') as HTMLInputElement | null;
+
+        if (sFirst) sFirst.value = addr.firstName || '';
+        if (sLast) sLast.value = addr.lastName || '';
+        if (sPhone) sPhone.value = addr.phone || '';
+        if (sAddr) sAddr.value = addr.addressLine1 || '';
+        if (sSub) sSub.value = addr.subdistrict || '';
+        if (sDist) sDist.value = addr.district || '';
+        if (sProv) sProv.value = addr.province || '';
+        if (sZip) sZip.value = addr.postalCode || '';
+      }
+
       const shippingForm = doc.getElementById('shippingAddressForm');
       shippingForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -2761,6 +2906,165 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       renderCheckoutSummary(doc, win, cart);
       attachCheckoutEditListeners(doc);
       populateCheckoutFromDoc(doc, auth.customerProfile, auth.user?.email);
+      const demoOrdersEnabled = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
+      const paymentEnabled = import.meta.env.VITE_OMISE_TEST_MODE_ENABLED === 'true';
+      const orderSubmitEnabled = demoOrdersEnabled || paymentEnabled;
+      const checkoutNotice = doc.createElement('p');
+      checkoutNotice.id = 'checkoutPaymentUnavailable';
+      checkoutNotice.className = 'text-[11px] text-amber-800 text-center px-3 pb-2';
+      checkoutNotice.textContent = demoOrdersEnabled
+        ? 'โหมดทดสอบจะบันทึกคำสั่งซื้อเป็นรอชำระเงินเท่านั้น'
+        : 'ยังไม่เปิดรับคำสั่งซื้อ: ต้องตั้งค่า Omise Test Mode และเปิดใช้ PromptPay ก่อน';
+      const existingCheckoutNotice = doc.getElementById('checkoutPaymentUnavailable');
+      if (demoOrdersEnabled || !paymentEnabled) {
+        if (existingCheckoutNotice) existingCheckoutNotice.textContent = checkoutNotice.textContent;
+        else doc.getElementById('stickyCheckoutBar')?.prepend(checkoutNotice);
+      } else {
+        existingCheckoutNotice?.remove();
+      }
+      const orderSubmitButton = doc.getElementById('btnSubmitOrder') as HTMLButtonElement | null;
+      if (orderSubmitButton && !orderSubmitEnabled) {
+        orderSubmitButton.disabled = true;
+        orderSubmitButton.title = 'ยังไม่ได้ตั้งค่า Omise Test Mode';
+      }
+      const showCheckoutMessage = (message: string) => {
+        const toast = doc.getElementById('toastNotification');
+        const text = doc.getElementById('toastText');
+        if (text) text.textContent = message;
+        if (!toast) return;
+        toast.classList.remove('opacity-0', 'translate-y-2');
+        toast.classList.add('opacity-100', 'translate-y-0');
+        win.setTimeout(() => {
+          toast.classList.add('opacity-0', 'translate-y-2');
+          toast.classList.remove('opacity-100', 'translate-y-0');
+        }, 3500);
+      };
+      win.handlePlaceOrder = async () => {
+        const effectiveCart = createEffectiveCart(cart);
+        const read = (id: string) => (doc.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)?.value.trim() || '';
+        const contact = {
+          firstName: read('custFirstName'),
+          lastName: read('custLastName'),
+          phone: read('custPhone'),
+          email: read('custEmail'),
+          addressLine1: read('shipAddress'),
+          subdistrict: read('shipSubdistrict'),
+          district: read('shipDistrict'),
+          province: read('shipProvince'),
+          postalCode: read('shipZip'),
+        };
+        const required = [
+          ['custFirstName', contact.firstName], ['custLastName', contact.lastName],
+          ['custPhone', contact.phone], ['custEmail', contact.email],
+          ['shipAddress', contact.addressLine1], ['shipSubdistrict', contact.subdistrict],
+          ['shipDistrict', contact.district], ['shipProvince', contact.province], ['shipZip', contact.postalCode],
+        ] as const;
+        const missing = required.find(([, value]) => !value);
+        if (missing || !/^\S+@\S+\.\S+$/.test(contact.email)) {
+          const invalidId = missing?.[0] ?? 'custEmail';
+          const invalid = doc.getElementById(invalidId) as HTMLInputElement | HTMLTextAreaElement | null;
+          invalid?.focus();
+          const message = !contact.email || !/^\S+@\S+\.\S+$/.test(contact.email)
+            ? 'กรุณากรอกอีเมลให้ถูกต้อง'
+            : 'กรุณากรอกข้อมูลติดต่อและที่อยู่จัดส่งให้ครบถ้วน';
+          showCheckoutMessage(message);
+          return;
+        }
+        if (effectiveCart.items.length === 0) return;
+        if (!orderSubmitEnabled) {
+          showCheckoutMessage('ยังไม่เปิดรับคำสั่งซื้อจนกว่าจะตั้งค่า Omise Test Mode');
+          return;
+        }
+        const submit = doc.getElementById('btnSubmitOrder') as HTMLButtonElement | null;
+        const submitText = doc.getElementById('submitText');
+        if (submit) submit.disabled = true;
+        if (submitText) submitText.textContent = 'กำลังบันทึกคำสั่งซื้อ…';
+        try {
+          const result = await createPendingOrder(effectiveCart.items, contact);
+          replaceCartItems([]);
+          if (result.ownerType === 'guest' && !result.replay) {
+            sessionStorage.setItem('soulmate_email_demo_order', result.orderId);
+          }
+          navigate(`/order-success?orderId=${encodeURIComponent(result.orderId)}`);
+        } catch (error) {
+          if (error instanceof OrderReviewError && error.currentItems) {
+            const updatedItems = effectiveCart.items.map((item) => {
+              const current = error.currentItems?.find((candidate) => candidate.productId === item.productId && candidate.variantId === item.variantId);
+              return current ? { ...item, productName: current.productName, variantName: current.variantName, unitPrice: current.unitPriceSatang / 100 } : item;
+            });
+            replaceCartItems(updatedItems);
+            renderCheckoutSummary(doc, win, createEffectiveCart(cart));
+            showCheckoutMessage('ราคาสินค้าเปลี่ยนแล้ว ปรับยอดใหม่ให้ตรวจสอบก่อนยืนยันอีกครั้ง');
+          } else {
+            showCheckoutMessage((error as Error)?.message || 'บันทึกคำสั่งซื้อไม่สำเร็จ กรุณาลองอีกครั้ง');
+          }
+          if (submit) submit.disabled = false;
+          if (submitText) submitText.textContent = 'ยืนยันคำสั่งซื้อ';
+        }
+      };
+    }
+
+    if (location.pathname === '/admin/dashboard') {
+      void listAdminOrders().then((orders) => {
+        const label = Array.from(doc.querySelectorAll<HTMLElement>('span, p'))
+          .find((element) => element.textContent?.trim() === 'คำสั่งซื้อ');
+        let card = label?.parentElement ?? null;
+        while (card && !card.querySelector('.font-headline-xl')) card = card.parentElement;
+        const count = card?.querySelector<HTMLElement>('.font-headline-xl');
+        if (count) {
+          const unit = count.querySelector('span');
+          count.textContent = `${orders.length} `;
+          if (unit) count.appendChild(unit);
+        }
+        const paidCount = card?.querySelector<HTMLElement>('.font-label-sm');
+        if (paidCount) paidCount.textContent = `ชำระแล้ว ${orders.filter((order) => order.payment?.status === 'successful').length} รายการ`;
+
+        const table = Array.from(doc.querySelectorAll('table')).find((element) => element.textContent?.includes('เลขที่คำสั่งซื้อ'));
+        const tbody = table?.querySelector('tbody');
+        if (!tbody) return;
+        tbody.replaceChildren();
+        if (orders.length === 0) {
+          const row = doc.createElement('tr');
+          const cell = doc.createElement('td');
+          cell.colSpan = 8;
+          cell.className = 'py-space-xl px-space-md text-center';
+          cell.textContent = 'ยังไม่มีคำสั่งซื้อ';
+          row.appendChild(cell);
+          tbody.appendChild(row);
+          return;
+        }
+        [...orders].sort((a, b) => (b.createdAt?.toDate?.().getTime() ?? 0) - (a.createdAt?.toDate?.().getTime() ?? 0)).slice(0, 8).forEach((order) => {
+          const row = doc.createElement('tr');
+          row.className = 'border-b border-surface-container-low';
+          const values = [
+            order.orderNumber,
+            order.createdAt?.toDate?.().toLocaleDateString('th-TH') ?? '—',
+            `${order.contact?.firstName ?? ''} ${order.contact?.lastName ?? ''}`.trim() || 'Guest',
+            `฿${(order.totalSatang / 100).toLocaleString('th-TH')}`,
+            'PromptPay',
+            order.payment?.status === 'successful' ? 'ชำระแล้ว' : order.payment?.status === 'failed' ? 'ชำระไม่สำเร็จ' : order.payment?.status === 'expired' ? 'หมดอายุ' : 'รอชำระ',
+            order.status === 'paid' ? 'ชำระแล้ว' : order.payment?.status === 'expired' ? 'หมดอายุ' : order.status === 'payment_failed' ? 'ชำระไม่สำเร็จ' : 'รอชำระเงิน',
+          ];
+          values.forEach((value, index) => {
+            const cell = doc.createElement('td');
+            cell.className = 'px-space-md py-space-sm';
+            cell.textContent = value;
+            if (index === 0) {
+              const link = doc.createElement('a');
+              link.href = `/admin/orders/${encodeURIComponent(order.id)}`;
+              link.textContent = value;
+              link.className = 'text-primary font-semibold';
+              cell.replaceChildren(link);
+            }
+            row.appendChild(cell);
+          });
+          const action = doc.createElement('td');
+          action.className = 'px-space-md py-space-sm text-right';
+          action.textContent = 'ดูรายละเอียด';
+          row.appendChild(action);
+          tbody.appendChild(row);
+        });
+      }).catch((error) => console.error('[SOULMATE Orders] Dashboard orders failed:', error));
     }
 
     // =========================================================================
@@ -4994,7 +5298,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
     const effectiveCart = createEffectiveCart(cart);
 
-    ensureHeaderSearchIcon(doc, navigate);
+    if (routeType === 'storefront') ensureHeaderSearchIcon(doc, navigate);
     updateAllCartBadges(doc, effectiveCart.itemCount);
 
     if (location.pathname === '/cart') {
@@ -5028,10 +5332,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         contentClassName={`storefront-embedded-content ${location.pathname.startsWith('/products/') || location.pathname.startsWith('/product/') ? 'storefront-content--product-detail' : ''}`}
         mobileChrome={false}
       >
+        {!auth.profileLoading && canAccessAdmin(auth.customerProfile) && <div className="storefront-admin-mobile"><Link to="/admin/dashboard">ไปหลังบ้าน</Link></div>}
         <div className="storefront-frame">{iframe}</div>
       </StorefrontShell>
     );
   }
 
-  return <div className="w-full min-h-screen bg-surface">{iframe}</div>;
+  return <div className="admin-screen bg-surface">{iframe}</div>;
 };

@@ -1,6 +1,6 @@
-# SOULMATE Product Guidance
+# SOULMATE Domain Language
 
-Vocabulary for helping customers choose and compare products in the SOULMATE store.
+Vocabulary for SOULMATE product guidance, orders, and customer accounts.
 
 ## Language
 
@@ -25,3 +25,12 @@ A customer message describing a health symptom. The assistant does not match pro
 
 **Guidance conversation**:
 The temporary exchange in which a visitor states product goals, refines preferences, and compares recommendations. It is not retained as a permanent customer record.
+
+**Order**:
+A confirmed record of a customer's selected products and purchase details, retained by SOULMATE whether the customer has a permanent account or checks out as a guest.
+
+**Guest checkout**:
+Placing an order without first signing in to or creating a permanent customer account. The buyer still provides the contact and delivery details needed to fulfil the order.
+
+**Customer account**:
+A persistent identity through which a customer manages personal details and views orders linked to that identity.

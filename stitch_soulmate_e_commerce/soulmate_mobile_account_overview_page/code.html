@@ -26,6 +26,22 @@
       .pt-safe {
         padding-top: env(safe-area-inset-top, 0px);
       }
+      .account-menu summary {
+        list-style: none;
+        cursor: pointer;
+      }
+      .account-menu summary::-webkit-details-marker { display: none; }
+      .account-menu summary:focus-visible,
+      .account-menu a:focus-visible,
+      .account-menu button:focus-visible {
+        outline: 2px solid #2d6857;
+        outline-offset: -3px;
+      }
+      .account-menu[open] .account-menu-chevron { transform: rotate(180deg); }
+      .account-menu-chevron { transition: transform 180ms ease; }
+      @media (prefers-reduced-motion: reduce) {
+        .account-menu-chevron { transition: none; }
+      }
     }
     ::-webkit-scrollbar {
       display: none;
@@ -156,7 +172,7 @@
     <div class="flex flex-col w-full px-margin pb-6 gap-space-md">
 
       <!-- Profile Header Delight Card -->
-      <section class="mt-space-md">
+      <section class="mt-space-md grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch" aria-label="ข้อมูลบัญชีและสมาชิก">
         <div class="relative overflow-hidden rounded-2xl bg-surface-container-low p-space-md shadow-sm border border-outline-variant/30">
           <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-primary-container/30 blur-2xl pointer-events-none"></div>
           <div class="absolute -left-6 -bottom-6 w-28 h-28 rounded-full bg-tertiary-container/20 blur-xl pointer-events-none"></div>
@@ -200,11 +216,8 @@
             </div>
           </div>
         </div>
-      </section>
-
-      <!-- Membership Tier & Loyalty Card (Step 20.3A) -->
-      <section>
-        <div class="rounded-2xl bg-surface-container-lowest p-space-md shadow-sm border border-outline-variant/30 flex flex-col gap-3">
+          <!-- Membership progress -->
+          <div class="relative rounded-2xl bg-surface-container-lowest p-space-md border border-outline-variant/40 flex flex-col gap-3">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="w-1.5 h-4 rounded-full bg-primary"></span>
@@ -214,7 +227,7 @@
           </div>
 
           <!-- Progress Info Callout -->
-          <div class="bg-surface-container-low rounded-xl p-3 flex flex-col gap-2" id="tier-callout-container">
+          <div class="flex flex-col gap-2" id="tier-callout-container">
             <p class="font-body-sm text-xs text-on-surface-variant leading-relaxed" id="tier-progress-message">
               สะสมคำสั่งซื้อสำเร็จหรือยอดซื้อเพื่อเลื่อนระดับสมาชิกและรับส่วนลดพิเศษ
             </p>
@@ -265,79 +278,43 @@
         </div>
       </section>
 
-      <!-- Quick Action Shortcuts Grid -->
-      <section class="grid grid-cols-2 gap-3">
-        <a href="/account/orders" class="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm hover:bg-surface-container-low transition-colors group">
-          <div class="w-11 h-11 rounded-xl bg-primary-container/60 text-primary flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-            <span class="material-symbols-outlined text-[24px]">receipt_long</span>
+      <!-- Account Management Menu -->
+      <section class="account-menu flex flex-col gap-2" aria-label="จัดการบัญชี">
+        <details class="rounded-2xl bg-surface-container-lowest border border-outline-variant/40 overflow-hidden" open>
+          <summary class="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-surface-container-low transition-colors">
+            <span class="flex items-center gap-3 min-w-0">
+              <span class="w-9 h-9 shrink-0 rounded-lg bg-surface-container flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[20px]">badge</span></span>
+              <span class="min-w-0"><span class="block font-label-md text-label-lg font-medium text-on-surface">แก้ไขข้อมูลส่วนตัว</span><span class="block text-[11px] text-secondary">ชื่อ, เบอร์ติดต่อ, รูปโปรไฟล์</span></span>
+            </span>
+            <span class="material-symbols-outlined text-[22px] text-primary account-menu-chevron" aria-hidden="true">keyboard_arrow_down</span>
+          </summary>
+          <div class="bg-surface-container-low px-3 pb-3 pt-1 flex flex-col gap-2">
+            <a href="/account/profile" class="block rounded-xl bg-surface-container-lowest border border-outline-variant/30 px-4 py-3 text-on-surface hover:bg-primary-container/20 transition-colors">ข้อมูลส่วนตัว</a>
+            <a href="/account/addresses" class="block rounded-xl bg-surface-container-lowest border border-outline-variant/30 px-4 py-3 text-on-surface hover:bg-primary-container/20 transition-colors">ที่อยู่จัดส่ง</a>
+            <button type="button" id="account-password-reset" class="w-full rounded-xl bg-surface-container-lowest border border-outline-variant/30 px-4 py-3 text-left text-on-surface hover:bg-primary-container/20 transition-colors">เปลี่ยนรหัสผ่าน</button>
+            <p id="account-password-message" class="hidden px-1 text-xs text-primary" role="status" aria-live="polite"></p>
           </div>
-          <span class="font-label-md text-label-md font-semibold text-on-surface">คำสั่งซื้อของฉัน</span>
-          <span class="text-[11px] text-secondary mt-0.5">ติดตามสถานะพัสดุ</span>
+        </details>
+
+        <a href="/account/orders" class="rounded-2xl bg-surface-container-lowest border border-outline-variant/40 flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-surface-container-low transition-colors">
+            <span class="flex items-center gap-3 min-w-0">
+              <span class="w-9 h-9 shrink-0 rounded-lg bg-surface-container flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[20px]">local_shipping</span></span>
+              <span class="min-w-0"><span class="block font-label-md text-label-lg font-medium text-on-surface">คำสั่งซื้อของฉัน</span><span class="block text-[11px] text-secondary">ดูรายการสั่งซื้อและติดตามสถานะพัสดุ</span></span>
+            </span>
+            <span class="material-symbols-outlined text-[22px] text-primary" aria-hidden="true">chevron_right</span>
         </a>
 
-        <a href="/account/profile" class="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm hover:bg-surface-container-low transition-colors group">
-          <div class="w-11 h-11 rounded-xl bg-tertiary-container/60 text-tertiary flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-            <span class="material-symbols-outlined text-[24px]">person</span>
-          </div>
-          <span class="font-label-md text-label-md font-semibold text-on-surface">ข้อมูลโปรไฟล์</span>
-          <span class="text-[11px] text-secondary mt-0.5">แก้ไขชื่อและเบอร์โทร</span>
-        </a>
-      </section>
-
-      <!-- Account Management Menu List -->
-      <section class="rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm overflow-hidden divide-y divide-outline-variant/20">
-        <a href="/account/profile" class="flex items-center justify-between px-4 py-3.5 hover:bg-surface-container-low transition-colors">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-primary">
-              <span class="material-symbols-outlined text-[20px]">badge</span>
-            </div>
-            <div>
-              <p class="font-label-md text-label-lg font-medium text-on-surface">แก้ไขข้อมูลส่วนตัว</p>
-              <p class="text-[11px] text-secondary">ชื่อ, เบอร์ติดต่อ, รูปโปรไฟล์</p>
-            </div>
-          </div>
-          <span class="material-symbols-outlined text-[20px] text-outline">chevron_right</span>
-        </a>
-
-        <a href="/account/orders" class="flex items-center justify-between px-4 py-3.5 hover:bg-surface-container-low transition-colors">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-primary">
-              <span class="material-symbols-outlined text-[20px]">local_shipping</span>
-            </div>
-            <div>
-              <p class="font-label-md text-label-lg font-medium text-on-surface">ประวัติคำสั่งซื้อ</p>
-              <p class="text-[11px] text-secondary">ดูรายการสั่งซื้อและเลขพัสดุ</p>
-            </div>
-          </div>
-          <span class="material-symbols-outlined text-[20px] text-outline">chevron_right</span>
-        </a>
-
-        <a href="/cart" class="flex items-center justify-between px-4 py-3.5 hover:bg-surface-container-low transition-colors">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-primary">
-              <span class="material-symbols-outlined text-[20px]">shopping_bag</span>
-            </div>
-            <div>
-              <p class="font-label-md text-label-lg font-medium text-on-surface">ตะกร้าสินค้าของฉัน</p>
-              <p class="text-[11px] text-secondary">สินค้าที่เลือกไว้รอสั่งซื้อ</p>
-            </div>
-          </div>
-          <span class="material-symbols-outlined text-[20px] text-outline">chevron_right</span>
+        <a href="/cart" class="rounded-2xl bg-surface-container-lowest border border-outline-variant/40 flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-surface-container-low transition-colors">
+            <span class="flex items-center gap-3 min-w-0">
+              <span class="w-9 h-9 shrink-0 rounded-lg bg-surface-container flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[20px]">shopping_bag</span></span>
+              <span class="min-w-0"><span class="block font-label-md text-label-lg font-medium text-on-surface">ตะกร้าสินค้าของฉัน</span><span class="block text-[11px] text-secondary">สินค้าที่เลือกไว้รอสั่งซื้อ</span></span>
+            </span>
+            <span class="material-symbols-outlined text-[22px] text-primary" aria-hidden="true">chevron_right</span>
         </a>
       </section>
 
       <!-- Support & Help Section -->
-      <section class="rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm overflow-hidden divide-y divide-outline-variant/20">
-        <a href="/" class="flex items-center justify-between px-4 py-3.5 hover:bg-surface-container-low transition-colors">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-lg bg-surface-container flex items-center justify-center text-secondary">
-              <span class="material-symbols-outlined text-[20px]">storefront</span>
-            </div>
-            <p class="font-label-md text-label-lg font-medium text-on-surface">เลือกชมสินค้าหน้าร้าน</p>
-          </div>
-          <span class="material-symbols-outlined text-[20px] text-outline">chevron_right</span>
-        </a>
-
+      <section class="rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-sm overflow-hidden">
         <button type="button" id="btn-logout" class="w-full flex items-center justify-between px-4 py-3.5 hover:bg-error-container/20 transition-colors text-left text-error group">
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg bg-error-container/40 flex items-center justify-center text-error">

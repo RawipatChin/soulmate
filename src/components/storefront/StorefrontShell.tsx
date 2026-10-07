@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getCartSnapshot } from '../../services/cartService';
+import { useAuth } from '../../context/AuthContext';
+import { canAccessAdmin } from '../../utils/accountAccess';
 import './storefront.css';
 
 type StorefrontShellProps = {
@@ -21,6 +23,8 @@ export function StorefrontShell({
   contentClassName = '',
 }: StorefrontShellProps) {
   const location = useLocation();
+  const { customerProfile, profileLoading } = useAuth();
+  const showAdminLink = !profileLoading && canAccessAdmin(customerProfile);
   const [cartCount, setCartCount] = useState(() => getCartSnapshot().itemCount);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -70,6 +74,7 @@ export function StorefrontShell({
           </nav>
 
           <div className="storefront-header-actions">
+            {showAdminLink && <Link className="storefront-admin-link" to="/admin/dashboard"><span className="material-symbols-outlined">space_dashboard</span><span>หลังบ้าน</span></Link>}
             <Link aria-label={`ตะกร้าสินค้า ${cartCount} ชิ้น`} className="storefront-icon-link storefront-cart-link" to="/cart">
               <span className="material-symbols-outlined">shopping_bag</span>
               <span className="storefront-action-label">ตะกร้า</span>
