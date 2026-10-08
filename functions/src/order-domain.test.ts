@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { findPriceChanges, inventoryChanges, priceOrderItems } from './order-domain.ts';
+import {
+  findPriceChanges,
+  getChargeOutcome,
+  getOrderExpiryTime,
+  getPaymentReferenceId,
+  inventoryChanges,
+  isOrderPastExpiry,
+  ORDER_HOLD_MILLISECONDS,
+  priceOrderItems,
+} from './order-domain.ts';
 
 test('a guest order prices the catalog items and adds one 30 baht shipping fee', () => {
   const priced = priceOrderItems(
@@ -73,4 +82,23 @@ test('inventory changes aggregate selected variants and can be reversed exactly'
   assert.deepEqual(reserved.variants?.map(({ stock }) => stock), [3, 2]);
   const restored = inventoryChanges({ ...product, ...reserved }, lines, 1);
   assert.deepEqual(restored.variants?.map(({ stock }) => stock), [5, 3]);
+});
+
+test('an order hold expires 30 minutes after creation and uses a stable Omise reference', () => {
+  const createdAt = Date.UTC(2026, 0, 1);
+  const expiresAt = getOrderExpiryTime(createdAt);
+
+  assert.equal(ORDER_HOLD_MILLISECONDS, 30 * 60 * 1000);
+  assert.equal(expiresAt, createdAt + 30 * 60 * 1000);
+  assert.equal(isOrderPastExpiry(expiresAt, expiresAt - 1), false);
+  assert.equal(isOrderPastExpiry(expiresAt, expiresAt), true);
+  assert.equal(getPaymentReferenceId('order-123'), 'soulmate-order-123');
+});
+
+test('Omise charge statuses resolve to safe order outcomes', () => {
+  assert.equal(getChargeOutcome('successful'), 'paid');
+  assert.equal(getChargeOutcome('failed'), 'failed');
+  assert.equal(getChargeOutcome('expired'), 'expired');
+  assert.equal(getChargeOutcome('pending'), 'pending');
+  assert.equal(getChargeOutcome('unknown-provider-status'), 'pending');
 });

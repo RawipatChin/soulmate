@@ -6,7 +6,7 @@
 
 **Status:** needs-info
 
-**Needs info:** บัญชี Omise Test Mode และ test secret key; ต้องขอเปิดใช้ PromptPay กับ Omise และตั้งปลายทางรับผลการชำระเงิน
+**Needs info:** ต้องตั้ง `OMISE_SECRET_KEY` และ `OMISE_WEBHOOK_SECRET` ใน Firebase Secret Manager, เปิด PromptPay กับ Omise, และลงทะเบียน webhook URL; คีย์ใน web `.env` ยังไม่ทำให้ Cloud Functions ใช้งานได้ และระบบจะไม่สร้าง QR หาก webhook secret ยังไม่พร้อม
 
 - [ ] การเริ่มชำระเงินใช้ยอดที่ฝั่งที่เชื่อถือได้อ่านจาก Order ไม่รับยอดที่หน้าเว็บแก้เอง
 - [ ] สร้าง PromptPay charge จากฝั่ง backend ด้วยยอดของ Order และเก็บ QR reference; secret key ไม่ปรากฏในหน้าเว็บหรือ Git

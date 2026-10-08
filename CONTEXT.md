@@ -29,6 +29,15 @@ The temporary exchange in which a visitor states product goals, refines preferen
 **Order**:
 A confirmed record of a customer's selected products and purchase details, retained by SOULMATE whether the customer has a permanent account or checks out as a guest.
 
+**Pending order**:
+An Order that has been recorded and has stock reserved while waiting for payment. It is not a completed sale.
+
+**Payment attempt**:
+A request to a payment provider associated with an Order. Its result is tracked separately from the Order so a failed or uncertain request cannot be treated as a successful sale.
+
+**Stock reservation**:
+The quantity temporarily withheld from other orders while a Pending order can still be paid. It is released when that Order is paid, fails, or expires.
+
 **Guest checkout**:
 Placing an order without first signing in to or creating a permanent customer account. The buyer still provides the contact and delivery details needed to fulfil the order.
 

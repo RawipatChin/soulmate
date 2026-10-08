@@ -3,14 +3,15 @@
 .admin-order-logo { height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid #f6f3f2; }
 .admin-order-logo img { display: block; height: 32px; width: auto; }
 .admin-order-close, .admin-order-menu { display: none; }
-.admin-order-nav-label { margin: 0; padding: 12px 24px 8px; color: #404945; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.admin-order-nav-label { box-sizing: border-box; height: 40px; margin: 0; padding: 8px 24px; color: #404945; font-size: 11px; line-height: 24px; text-transform: uppercase; letter-spacing: .04em; }
 .admin-order-sidebar nav { display: flex; flex-direction: column; gap: 4px; padding: 0 16px; }
-.admin-order-nav-link { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 16px; border-radius: 12px; color: #404945; font-size: 14px; text-decoration: none; transition: background .18s, color .18s; }
+.admin-order-nav-link { box-sizing: border-box; display: flex; align-items: center; gap: 8px; width: 100%; height: 40px; padding: 8px 16px; border-radius: 12px; color: #404945; font-size: 14px; line-height: 20px; text-decoration: none; transition: background .18s, color .18s; }
+.admin-order-nav-link .material-symbols-outlined { font-size: 20px; line-height: 20px; }
 .admin-order-nav-link:hover { background: #eae7e7; color: #1c1b1b; }
 .admin-order-nav-link.is-active { background: #a8e5cf; color: #2d6857; font-weight: 600; box-shadow: 0 1px 2px #0000000a; }
 .admin-order-nav-link:focus-visible, .admin-order-logout:focus-visible, .admin-order-menu:focus-visible, .admin-order-close:focus-visible { outline: 2px solid #2d6857; outline-offset: 2px; }
 .admin-order-sidebar-bottom { display: flex; flex-direction: column; gap: 16px; padding: 16px; border-top: 1px solid #f6f3f2; }
-.admin-order-profile { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 12px; background: #f6f3f2; }
+.admin-order-profile { display: flex; flex-direction: column; gap: 3px; padding: 16px; border-radius: 12px; background: #f6f3f2; }
 .admin-order-role { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: #404945; text-transform: uppercase; }
 .admin-order-role strong { padding: 4px 8px; border-radius: 999px; background: #a8e5cf; color: #2d6857; font-size: 11px; font-weight: 600; text-transform: none; }
 .admin-order-user { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -18,7 +19,7 @@
 .admin-order-user strong { overflow: hidden; color: #1c1b1b; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .admin-order-user small { overflow: hidden; color: #404945; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .admin-order-avatar { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; border-radius: 50%; background: #2d6857; color: #fff; }
-.admin-order-logout { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; border: 0; border-radius: 12px; background: transparent; color: #ba1a1a; font: inherit; font-size: 12px; cursor: pointer; }
+.admin-order-logout { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 34px; border: 0; border-radius: 12px; background: transparent; color: #ba1a1a; font: inherit; font-size: 12px; cursor: pointer; }
 .admin-order-logout:hover { background: #ffdad6; }
 .admin-order-content { min-height: 100vh; padding: 64px 0 0 260px; }
 .admin-order-topbar { position: fixed; top: 0; right: 0; left: 260px; z-index: 30; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid #f6f3f2; background: #ffffffea; box-shadow: 0 1px 8px #00000005; backdrop-filter: blur(12px); }

@@ -1,15 +1,22 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { initializeApp } from 'firebase-admin/app';
-import { FieldValue, getFirestore } from 'firebase-admin/firestore';
-import { defineSecret } from 'firebase-functions/params';
-import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
+import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { defineString } from 'firebase-functions/params';
+import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
-import { findPriceChanges, inventoryChanges, priceOrderItems, type CatalogProduct, type OrderLineRequest } from './order-domain.js';
+import {
+  findPriceChanges,
+  getOrderExpiryTime,
+  inventoryChanges,
+  isOrderPastExpiry,
+  priceOrderItems,
+  type CatalogProduct,
+  type OrderLineRequest,
+} from './order-domain.js';
 
 initializeApp();
 const db = getFirestore();
-const omiseSecretKey = defineSecret('OMISE_SECRET_KEY');
-const omiseWebhookSecret = defineSecret('OMISE_WEBHOOK_SECRET');
+const checkoutMode = defineString('CHECKOUT_MODE', { default: 'disabled' });
 const isEmulator = process.env.FUNCTIONS_EMULATOR === 'true';
 
 function requireIdentity(request: { auth?: { uid: string; token: Record<string, unknown> } | null }) {
@@ -23,7 +30,7 @@ function isAnonymous(token: Record<string, unknown>) {
 
 async function requireCustomer(uid: string, anonymous: boolean) {
   if (anonymous) return;
-  const user = await db.doc(`users/${uid}`).get();
+  const user = await db.doc('users/' + uid).get();
   if (!user.exists || user.data()?.status !== 'active' || user.data()?.role !== 'customer') {
     throw new HttpsError('permission-denied', 'An active customer account is required.');
   }
@@ -40,34 +47,100 @@ function cleanContact(raw: unknown) {
   return contact;
 }
 
-function requireOmise() {
-  const secret = omiseSecretKey.value();
-  if (isEmulator || !secret || !secret.startsWith('skey_test_')) {
-    throw new HttpsError('failed-precondition', 'ยังไม่ได้ตั้งค่า Omise Test Mode จึงยังเริ่มชำระเงินไม่ได้');
+function requireTestCheckout() {
+  if (!isEmulator && checkoutMode.value() !== 'test') {
+    throw new HttpsError('failed-precondition', 'การรับคำสั่งซื้อยังไม่เปิดใน Firebase โปรเจกต์นี้');
   }
-  return secret;
 }
 
-async function omiseRequest(path: string, key: string, body?: Record<string, unknown>) {
-  const form = body ? new URLSearchParams(Object.entries(body).map(([name, value]) => [name, String(value)])) : undefined;
-  const response = await fetch(`https://api.omise.co${path}`, {
-    method: body ? 'POST' : 'GET',
-      headers: {
-      Authorization: `Basic ${Buffer.from(`${key}:`).toString('base64')}`,
-      ...(form ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
-    },
-    body: form,
+function orderExpiryMilliseconds(order: Record<string, any>) {
+  if (typeof order.expiresAt?.toMillis === 'function') return order.expiresAt.toMillis() as number;
+  if (typeof order.createdAt?.toMillis === 'function') return getOrderExpiryTime(order.createdAt.toMillis());
+  return Number.POSITIVE_INFINITY;
+}
+
+async function expireOrderIfDue(orderId: string) {
+  const orderRef = db.doc('orders/' + orderId);
+  const orderSnapshot = await orderRef.get();
+  if (!orderSnapshot.exists) return false;
+  const order = orderSnapshot.data()!;
+  if (order.status !== 'pending_payment' || !isOrderPastExpiry(orderExpiryMilliseconds(order), Date.now())) return false;
+
+  return db.runTransaction(async (transaction) => {
+    const currentSnapshot = await transaction.get(orderRef);
+    if (!currentSnapshot.exists) return false;
+    const current = currentSnapshot.data()!;
+    if (current.status !== 'pending_payment' || !isOrderPastExpiry(orderExpiryMilliseconds(current), Date.now())) return false;
+    // A charge created by an older payment build must be reconciled before its stock is released.
+    if (current.payment?.chargeId) return false;
+    const attemptSnapshot = await transaction.get(db.doc('orderPaymentAttempts/' + orderId));
+    if (attemptSnapshot.exists && ['creating', 'unknown', 'started'].includes(String(attemptSnapshot.data()?.status ?? ''))) return false;
+
+    const productIds: string[] = current.inventoryRestored === true
+      ? []
+      : [...new Set<string>((current.items ?? []).map((item: { productId: string }) => item.productId))];
+    const productRefs = productIds.map((id) => db.doc('products/' + id));
+    const productSnapshots = await Promise.all(productRefs.map((ref) => transaction.get(ref)));
+    transaction.update(orderRef, {
+      status: 'expired',
+      'payment.status': 'expired',
+      inventoryRestored: true,
+      expiredAt: Timestamp.now(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    productSnapshots.forEach((snapshot, index) => {
+      if (!snapshot.exists) return;
+      const productId = productIds[index];
+      const lines = (current.items ?? []).filter((item: { productId: string }) => item.productId === productId);
+      transaction.update(productRefs[index], {
+        ...inventoryChanges({ id: productId, ...snapshot.data() } as CatalogProduct, lines, 1),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    });
+    return true;
   });
-  const data = await response.json() as Record<string, any>;
-  if (!response.ok) {
-    logger.error('Omise request failed', { status: response.status, code: data.code });
-    throw new HttpsError(response.status >= 500 ? 'unavailable' : 'failed-precondition', 'Omise ยังไม่สามารถเริ่มรายการชำระเงินได้');
-  }
-  return data;
 }
 
-export const createPendingOrder = onCall({ secrets: [omiseSecretKey] }, async (request) => {
-  if (!isEmulator) requireOmise();
+async function expireDueOrders() {
+  const snapshot = await db.collection('orders').where('status', '==', 'pending_payment').get();
+  const now = Date.now();
+  for (const item of snapshot.docs) {
+    if (!isOrderPastExpiry(orderExpiryMilliseconds(item.data()), now)) continue;
+    try {
+      await expireOrderIfDue(item.id);
+    } catch (error) {
+      logger.warn('Could not expire an order during checkout', { orderId: item.id, error });
+    }
+  }
+}
+
+export const reconcileOrderExpirations = onCall(async (request) => {
+  const identity = requireIdentity(request);
+  const anonymous = isAnonymous(identity.token);
+  const profile = anonymous ? null : await db.doc('users/' + identity.uid).get();
+  const isAdmin = profile?.exists === true
+    && profile.data()?.status === 'active'
+    && ['admin', 'super_admin'].includes(String(profile.data()?.role ?? ''));
+  if (!anonymous && !isAdmin) await requireCustomer(identity.uid, false);
+  const requestedIds = (request.data as { orderIds?: unknown } | undefined)?.orderIds;
+  if (!Array.isArray(requestedIds) || requestedIds.length > 50) {
+    throw new HttpsError('invalid-argument', 'At most 50 order IDs can be reconciled at once.');
+  }
+  const orderIds = [...new Set(requestedIds.map((value) => String(value ?? '')).filter(Boolean))];
+  for (const orderId of orderIds) {
+    const snapshot = await db.doc('orders/' + orderId).get();
+    if (!snapshot.exists) continue;
+    if (!isAdmin && snapshot.data()?.ownerUid !== identity.uid) {
+      throw new HttpsError('permission-denied', 'You cannot reconcile another customer’s order.');
+    }
+    await expireOrderIfDue(orderId);
+  }
+  return { processed: orderIds.length };
+});
+
+// This endpoint persists an Order before any payment provider is involved.
+export const createPendingOrder = onCall(async (request) => {
+  requireTestCheckout();
   const identity = requireIdentity(request);
   const anonymous = isAnonymous(identity.token);
   await requireCustomer(identity.uid, anonymous);
@@ -80,18 +153,29 @@ export const createPendingOrder = onCall({ secrets: [omiseSecretKey] }, async (r
   if (input.some((item) => !Number.isSafeInteger(Number(item?.expectedPriceSatang)) || Number(item.expectedPriceSatang) < 0)) {
     throw new HttpsError('invalid-argument', 'Current cart prices are required for review.');
   }
+  await expireDueOrders();
   const productIds = [...new Set(input.map((item) => String(item?.productId ?? '')))].filter(Boolean);
-  const orderId = createHash('sha256').update(`${identity.uid}:${key}`).digest('hex');
-  const orderRef = db.doc(`orders/${orderId}`);
-  const requestHash = createHash('sha256').update(JSON.stringify({ contact, items: input.map(({ productId, variantId, quantity }) => ({ productId, variantId: variantId || null, quantity })) })).digest('hex');
+  const orderId = createHash('sha256').update(identity.uid + ':' + key).digest('hex');
+  const orderRef = db.doc('orders/' + orderId);
+  const requestHash = createHash('sha256').update(JSON.stringify({
+    contact,
+    items: input.map(({ productId, variantId, quantity }) => ({ productId, variantId: variantId || null, quantity })),
+  })).digest('hex');
 
-  const result = await db.runTransaction(async (transaction) => {
+  return db.runTransaction(async (transaction) => {
     const previous = await transaction.get(orderRef);
     if (previous.exists) {
-      if (previous.data()?.requestHash !== requestHash) throw new HttpsError('failed-precondition', 'ข้อมูลตะกร้าหรือที่อยู่เปลี่ยน กรุณาส่งคำสั่งซื้อใหม่');
-      return { orderId, orderNumber: previous.data()?.orderNumber as string, ownerType: previous.data()?.ownerType as 'guest' | 'customer', replay: true };
+      if (previous.data()?.requestHash !== requestHash) {
+        throw new HttpsError('failed-precondition', 'ข้อมูลตะกร้าหรือที่อยู่เปลี่ยน กรุณาส่งคำสั่งซื้อใหม่');
+      }
+      return {
+        orderId,
+        orderNumber: previous.data()?.orderNumber as string,
+        ownerType: previous.data()?.ownerType as 'guest' | 'customer',
+        replay: true,
+      };
     }
-    const productRefs = productIds.map((id) => db.doc(`products/${id}`));
+    const productRefs = productIds.map((id) => db.doc('products/' + id));
     const productDocs = await Promise.all(productRefs.map((ref) => transaction.get(ref)));
     const catalog: CatalogProduct[] = productDocs.map((snapshot) => ({ id: snapshot.id, ...(snapshot.data() ?? {}) }) as CatalogProduct);
     let priced;
@@ -103,15 +187,18 @@ export const createPendingOrder = onCall({ secrets: [omiseSecretKey] }, async (r
     const changedPrices = findPriceChanges(priced, input);
     if (changedPrices.length) {
       throw new HttpsError('failed-precondition', 'ราคาสินค้าเปลี่ยนแล้ว กรุณาตรวจสอบตะกร้าอีกครั้ง', {
-        currentItems: priced.items.map(({ productId, variantId, unitPriceSatang, productName, variantName }) => ({ productId, variantId, unitPriceSatang, productName, variantName })),
+        currentItems: priced.items.map(({ productId, variantId, unitPriceSatang, productName, variantName }) => ({
+          productId, variantId, unitPriceSatang, productName, variantName,
+        })),
       });
     }
-    const orderNumber = `SM-${Date.now().toString(36).toUpperCase()}-${orderId.slice(0, 6).toUpperCase()}`;
-    for (const id of productIds) {
-      const index = productIds.indexOf(id);
+    const orderNumber = 'SM-' + Date.now().toString(36).toUpperCase() + '-' + orderId.slice(0, 6).toUpperCase();
+    for (let index = 0; index < productIds.length; index += 1) {
       const product = catalog[index];
-      const ref = productRefs[index];
-      transaction.update(ref, { ...inventoryChanges(product, priced.reservations, -1), updatedAt: FieldValue.serverTimestamp() });
+      transaction.update(productRefs[index], {
+        ...inventoryChanges(product, priced.reservations, -1),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
     }
     transaction.create(orderRef, {
       orderNumber,
@@ -124,138 +211,13 @@ export const createPendingOrder = onCall({ secrets: [omiseSecretKey] }, async (r
       totalSatang: priced.totalSatang,
       currency: 'THB',
       status: 'pending_payment',
-      payment: { method: 'promptpay', status: 'pending', provider: 'omise', chargeId: null, qrUrl: null },
+      payment: { method: null, status: 'pending', provider: null, chargeId: null, qrUrl: null },
       inventoryRestored: false,
       requestHash,
+      expiresAt: Timestamp.fromMillis(getOrderExpiryTime(Date.now())),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
     return { orderId, orderNumber, ownerType: anonymous ? 'guest' : 'customer', replay: false };
   });
-  return result;
-});
-
-export const startPromptPay = onCall({ secrets: [omiseSecretKey] }, async (request) => {
-  const identity = requireIdentity(request);
-  await requireCustomer(identity.uid, isAnonymous(identity.token));
-  const orderId = String((request.data as Record<string, unknown> | undefined)?.orderId ?? '');
-  const orderRef = db.doc(`orders/${orderId}`);
-  const key = requireOmise();
-  const attemptRef = db.doc(`orderPaymentAttempts/${orderId}`);
-  const claim = await db.runTransaction(async (transaction) => {
-    const [orderSnapshot, attemptSnapshot] = await Promise.all([transaction.get(orderRef), transaction.get(attemptRef)]);
-    if (!orderSnapshot.exists || orderSnapshot.data()?.ownerUid !== identity.uid) throw new HttpsError('not-found', 'ไม่พบคำสั่งซื้อ');
-    const order = orderSnapshot.data()!;
-    if (order.payment?.chargeId && order.payment?.qrUrl) return { existing: { chargeId: order.payment.chargeId as string, qrUrl: order.payment.qrUrl as string } };
-    if (order.status !== 'pending_payment' || order.payment?.status !== 'pending') throw new HttpsError('failed-precondition', 'คำสั่งซื้อนี้เริ่มชำระเงินไม่ได้');
-    const attempt = attemptSnapshot.data();
-    if (attempt?.status === 'creating' || attempt?.status === 'unknown') {
-      throw new HttpsError('aborted', 'กำลังตรวจสอบรายการชำระเงินนี้อยู่ กรุณารอสักครู่และอย่าส่งซ้ำ');
-    }
-    transaction.set(attemptRef, { orderId, ownerUid: identity.uid, status: 'creating', createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-    return { order };
-  });
-  if ('existing' in claim) return claim.existing;
-  const order = claim.order;
-  let charge: Record<string, any>;
-  try {
-    // Omise supports creating a PromptPay source and charge in one request.
-    // A Firestore attempt lock prevents concurrent submits from charging twice.
-    charge = await omiseRequest('/charges', key, {
-      amount: order.totalSatang,
-      currency: 'THB',
-      'source[type]': 'promptpay',
-      'metadata[order_id]': orderId,
-    });
-  } catch (error) {
-    const code = (error as HttpsError).code;
-    await attemptRef.update({ status: code === 'failed-precondition' ? 'failed' : 'unknown', updatedAt: FieldValue.serverTimestamp() });
-    throw error;
-  }
-  if (charge.livemode !== false || charge.amount !== order.totalSatang || String(charge.currency).toUpperCase() !== 'THB' || charge.source?.type !== 'promptpay' || charge.metadata?.order_id !== orderId) {
-    await attemptRef.update({ status: 'unknown', chargeId: charge.id, updatedAt: FieldValue.serverTimestamp() });
-    throw new HttpsError('failed-precondition', 'ตรวจสอบข้อมูล PromptPay จาก Omise ไม่ผ่าน จึงยังไม่แสดง QR');
-  }
-  const qrUrl = charge.source?.scannable_code?.image?.download_uri ?? null;
-  if (!qrUrl) {
-    await attemptRef.update({ status: 'unknown', chargeId: charge.id, updatedAt: FieldValue.serverTimestamp() });
-    throw new HttpsError('unavailable', 'Omise ไม่ได้ส่ง QR PromptPay กลับมา; รายการถูกล็อกไว้เพื่อป้องกันการสร้าง charge ซ้ำ');
-  }
-  await db.runTransaction(async (transaction) => {
-    transaction.update(orderRef, { 'payment.chargeId': charge.id, 'payment.qrUrl': qrUrl, updatedAt: FieldValue.serverTimestamp() });
-    transaction.update(attemptRef, { status: 'started', chargeId: charge.id, qrUrl, updatedAt: FieldValue.serverTimestamp() });
-  });
-  return { chargeId: charge.id, qrUrl };
-});
-
-function isValidOmiseSignature(rawBody: Buffer, timestamp: string, signature: string, secret: string) {
-  const timestampSeconds = Number(timestamp);
-  if (!Number.isInteger(timestampSeconds) || Math.abs(Date.now() / 1000 - timestampSeconds) > 300) return false;
-  const secretBytes = Buffer.from(secret, 'base64');
-  if (secretBytes.length === 0) return false;
-  const expected = createHmac('sha256', secretBytes).update(`${timestamp}.`).update(rawBody).digest();
-  return signature.split(',').some((entry) => {
-    const candidate = Buffer.from(entry.trim(), 'hex');
-    return candidate.length === expected.length && timingSafeEqual(candidate, expected);
-  });
-}
-
-export const omiseWebhook = onRequest({ secrets: [omiseSecretKey, omiseWebhookSecret] }, async (request, response) => {
-  if (request.method !== 'POST') { response.status(405).send('Method not allowed'); return; }
-  try {
-    const timestamp = request.get('Omise-Signature-Timestamp') ?? '';
-    const signature = request.get('Omise-Signature') ?? '';
-    const rawBody = (request as typeof request & { rawBody?: Buffer }).rawBody;
-    if (!omiseWebhookSecret.value() || !rawBody || !isValidOmiseSignature(rawBody, timestamp, signature, omiseWebhookSecret.value())) {
-      response.status(401).send('Invalid Omise webhook signature');
-      return;
-    }
-    const key = requireOmise();
-    const event = request.body as Record<string, any>;
-    const chargeId = event?.key?.startsWith('charge.') && event?.data?.object === 'charge' ? event.data.id : null;
-    if (!chargeId) { response.status(200).send('Ignored'); return; }
-    const charge = await omiseRequest(`/charges/${encodeURIComponent(String(chargeId))}`, key);
-    const orderId = String(charge.metadata?.order_id ?? '');
-    const orderRef = db.doc(`orders/${orderId}`);
-    await db.runTransaction(async (transaction) => {
-      const orderSnapshot = await transaction.get(orderRef);
-      if (!orderSnapshot.exists) return;
-      const order = orderSnapshot.data()!;
-      if (charge.amount !== order.totalSatang || String(charge.currency).toUpperCase() !== 'THB' || charge.source?.type !== 'promptpay') return;
-      if (order.payment?.chargeId && order.payment.chargeId !== charge.id) return;
-      const succeeded = charge.status === 'successful';
-      const failed = ['failed', 'expired'].includes(charge.status);
-      const restock = failed && order.payment.status === 'pending' && !order.inventoryRestored;
-      const productIds = restock ? [...new Set(order.items.map((item: { productId: string }) => item.productId))] : [];
-      const productSnapshots = restock
-        ? await Promise.all(productIds.map((id) => transaction.get(db.doc(`products/${id}`))))
-        : [];
-      if (succeeded && order.payment.status === 'pending') {
-        transaction.update(orderRef, { status: 'paid', 'payment.status': 'successful', 'payment.chargeId': charge.id, updatedAt: FieldValue.serverTimestamp() });
-        return;
-      }
-      if (succeeded && order.payment.status !== 'successful') {
-        logger.warn('Ignoring paid charge for an order already marked terminal', { orderId, chargeId: charge.id, status: order.payment.status });
-        return;
-      }
-      if (restock) {
-        transaction.update(orderRef, { status: 'payment_failed', 'payment.status': charge.status, inventoryRestored: true, updatedAt: FieldValue.serverTimestamp() });
-        for (const productId of productIds) {
-          const productRef = db.doc(`products/${productId}`);
-          const productSnapshot = productSnapshots[productIds.indexOf(productId)];
-          if (!productSnapshot.exists) continue;
-          const product = productSnapshot.data()!;
-          const productLines = order.items.filter((item: { productId: string }) => item.productId === productId);
-          transaction.update(productRef, {
-            ...inventoryChanges({ id: productId, ...product } as CatalogProduct, productLines, 1),
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-        }
-      }
-    });
-    response.status(200).send('OK');
-  } catch (error) {
-    logger.error('Omise webhook reconciliation failed', error);
-    response.status(500).send('Unable to verify charge');
-  }
 });

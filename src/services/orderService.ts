@@ -11,6 +11,7 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '../lib/firebase';
 import type { StorefrontCartItem } from './cartService';
+import { logOrderFailure } from './orderFailure';
 
 export interface OrderContact {
   firstName: string;
@@ -42,13 +43,18 @@ export interface StoreOrder extends DocumentData {
   subtotalSatang: number;
   shippingFeeSatang: number;
   totalSatang: number;
-  status: 'pending_payment' | 'paid' | 'payment_failed';
-  payment: { method: 'promptpay'; status: string; chargeId: string | null; qrUrl: string | null };
+  status: 'pending_payment' | 'paid' | 'payment_failed' | 'expired';
+  expiresAt?: { toMillis: () => number; toDate?: () => Date };
+  payment: { method: 'promptpay' | null; status: string; chargeId: string | null; qrUrl: string | null };
   createdAt?: { toDate: () => Date };
 }
 
 export class OrderReviewError extends Error {
   currentItems?: Array<{ productId: string; variantId: string | null; unitPriceSatang: number; productName: string; variantName: string | null }>;
+}
+
+export function clearPendingOrderRequestKey() {
+  sessionStorage.removeItem('soulmate_order_request_key_v1');
 }
 
 function requireServices() {
@@ -60,8 +66,23 @@ function newestFirst(orders: StoreOrder[]) {
   return orders.sort((a, b) => (b.createdAt?.toDate?.().getTime() ?? 0) - (a.createdAt?.toDate?.().getTime() ?? 0));
 }
 
+async function reconcileOrderIds(orderIds: string[]) {
+  if (!orderIds.length) return;
+  const { functions } = requireServices();
+  const callable = httpsCallable(functions, 'reconcileOrderExpirations');
+  for (let index = 0; index < orderIds.length; index += 50) {
+    const batch = { orderIds: orderIds.slice(index, index + 50) };
+    await callable(batch);
+  }
+}
+
+async function reconcilePendingOrders(orders: StoreOrder[]) {
+  await reconcileOrderIds(orders.filter((order) => order.status === 'pending_payment').map((order) => order.id));
+}
+
 export async function ensureCheckoutIdentity(): Promise<User> {
   const { auth } = requireServices();
+  await auth.authStateReady();
   if (auth.currentUser) return auth.currentUser;
   return (await signInAnonymously(auth)).user;
 }
@@ -89,9 +110,9 @@ export async function createPendingOrder(items: StorefrontCartItem[], contact: O
       contact,
       items: requestItems,
     });
-    sessionStorage.removeItem(storageKey);
     return response.data as { orderId: string; orderNumber: string; ownerType: 'guest' | 'customer'; replay: boolean };
   } catch (cause) {
+    logOrderFailure('createPendingOrder', cause);
     const error = cause as Error & {
       details?: { currentItems?: OrderReviewError['currentItems'] };
       customData?: { details?: { currentItems?: OrderReviewError['currentItems'] } };
@@ -115,7 +136,18 @@ export async function startPromptPay(orderId: string) {
 
 export async function getOrder(orderId: string): Promise<StoreOrder | null> {
   const { db } = requireServices();
-  const snapshot = await getDoc(doc(db, 'orders', orderId));
+  const orderRef = doc(db, 'orders', orderId);
+  let snapshot = await getDoc(orderRef);
+  if (!snapshot.exists()) return null;
+  if (snapshot.data().status === 'pending_payment') {
+    try {
+      await reconcileOrderIds([orderId]);
+      snapshot = await getDoc(orderRef);
+    } catch (cause) {
+      logOrderFailure('reconcileOrderExpirations', cause);
+      // An unavailable reconciliation function must not hide a saved Order.
+    }
+  }
   return snapshot.exists() ? ({ id: snapshot.id, ...snapshot.data() } as StoreOrder) : null;
 }
 
@@ -123,12 +155,26 @@ export async function listMyOrders(): Promise<StoreOrder[]> {
   const { auth, db } = requireServices();
   const user = auth.currentUser;
   if (!user || user.isAnonymous) return [];
-  const snapshot = await getDocs(query(collection(db, 'orders'), where('ownerUid', '==', user.uid)));
+  const ordersQuery = query(collection(db, 'orders'), where('ownerUid', '==', user.uid));
+  let snapshot = await getDocs(ordersQuery);
+  try {
+    await reconcilePendingOrders(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as StoreOrder)));
+    snapshot = await getDocs(ordersQuery);
+  } catch (cause) {
+    logOrderFailure('reconcileMyOrders', cause);
+  }
   return newestFirst(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as StoreOrder)));
 }
 
 export async function listAdminOrders(): Promise<StoreOrder[]> {
   const { db } = requireServices();
-  const snapshot = await getDocs(query(collection(db, 'orders')));
+  const ordersQuery = query(collection(db, 'orders'));
+  let snapshot = await getDocs(ordersQuery);
+  try {
+    await reconcilePendingOrders(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as StoreOrder)));
+    snapshot = await getDocs(ordersQuery);
+  } catch (cause) {
+    logOrderFailure('reconcileAdminOrders', cause);
+  }
   return newestFirst(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as StoreOrder)));
 }

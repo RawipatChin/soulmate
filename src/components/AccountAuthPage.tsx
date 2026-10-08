@@ -66,7 +66,7 @@ export function AccountAuthPage({ mode }: { mode: AuthMode }) {
         setNotice('หากอีเมลนี้มีบัญชี ระบบจะส่งลิงก์ตั้งรหัสผ่านใหม่ให้');
       } else if (mode === 'register') {
         await auth.register(email, password, { firstName, lastName, phone });
-        navigate('/account', { replace: true });
+        navigate(returnPath, { replace: true });
       } else if (mode === 'admin') {
         const result = await auth.adminLogin(email, password);
         if (!result.authorized) {
@@ -101,6 +101,7 @@ export function AccountAuthPage({ mode }: { mode: AuthMode }) {
         <div className="account-auth-intro">
           <h1 id="account-auth-heading">{title}</h1>
           <p>{resetMode ? 'ระบุอีเมลที่ใช้กับบัญชีของคุณ' : isAdmin ? 'จัดการร้านด้วยบัญชี SOULMATE ของคุณ' : mode === 'register' ? 'สร้างบัญชีเพื่อจัดการข้อมูลส่วนตัว' : 'ยินดีต้อนรับกลับสู่ SOULMATE'}</p>
+          {!isAdmin && !resetMode && <p>ซื้อสินค้าแบบ guest ได้โดยไม่ต้องสมัครสมาชิก</p>}
         </div>
         <form className="account-auth-form" onSubmit={submit} noValidate>
           {mode === 'register' && !resetMode && (
@@ -134,7 +135,7 @@ export function AccountAuthPage({ mode }: { mode: AuthMode }) {
           </button>
         )}
         <div className="account-auth-footer">
-          {isAdmin ? <Link to="/">กลับไปหน้าร้าน</Link> : mode === 'register' ? <span>มีบัญชีอยู่แล้ว? <Link to="/login">เข้าสู่ระบบ</Link></span> : <span>ยังไม่มีบัญชี? <Link to="/register">สมัครสมาชิก</Link></span>}
+          {isAdmin ? <Link to="/">กลับไปหน้าร้าน</Link> : mode === 'register' ? <span>มีบัญชีอยู่แล้ว? <Link state={{ from: returnPath }} to="/login">เข้าสู่ระบบ</Link></span> : <span>ยังไม่มีบัญชี? <Link state={{ from: returnPath }} to="/register">สมัครสมาชิก</Link></span>}
         </div>
       </section>
     </div>

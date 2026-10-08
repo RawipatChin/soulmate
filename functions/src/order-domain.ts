@@ -28,6 +28,27 @@ export interface InventoryLine {
   quantity: number;
 }
 
+export const ORDER_HOLD_MILLISECONDS = 30 * 60 * 1000;
+
+export function getOrderExpiryTime(createdAtMilliseconds: number) {
+  return createdAtMilliseconds + ORDER_HOLD_MILLISECONDS;
+}
+
+export function isOrderPastExpiry(expiresAtMilliseconds: number, nowMilliseconds: number) {
+  return expiresAtMilliseconds <= nowMilliseconds;
+}
+
+export function getPaymentReferenceId(orderId: string) {
+  return `soulmate-${orderId}`;
+}
+
+export function getChargeOutcome(status: string): 'paid' | 'failed' | 'expired' | 'pending' {
+  if (status === 'successful') return 'paid';
+  if (status === 'failed') return 'failed';
+  if (status === 'expired') return 'expired';
+  return 'pending';
+}
+
 export function inventoryChanges(
   product: CatalogProduct,
   lines: InventoryLine[],

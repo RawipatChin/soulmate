@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ScreenDefinition, CustomerProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -45,7 +45,8 @@ import { mountVariantManager } from '../utils/productVariantManager';
 import { StorefrontShell } from './storefront/StorefrontShell';
 import { canAccessAdmin } from '../utils/accountAccess';
 import { renderStorefrontProductCard } from './storefront/StorefrontProductCard';
-import { createPendingOrder, listAdminOrders, OrderReviewError } from '../services/orderService';
+import { clearPendingOrderRequestKey, createPendingOrder, listAdminOrders, OrderReviewError } from '../services/orderService';
+import { orderFailureMessage } from '../services/orderFailure';
 
 function installStorefrontDesktopStyles(doc: Document) {
   if (doc.getElementById('soulmate-desktop-storefront-styles')) return;
@@ -591,6 +592,35 @@ async function installDashboardAdminShell(doc: Document, pathname: string) {
   targetHeader.replaceWith(header);
 }
 
+function normalizeAdminShellSizing(doc: Document) {
+  const sidebar = doc.body.querySelector('aside');
+  const header = doc.body.querySelector('header');
+  if (!sidebar || !header) return;
+
+  sidebar.id = 'soulmate-admin-sidebar';
+  header.id = 'soulmate-admin-header';
+  if (doc.getElementById('soulmate-admin-shell-sizing')) return;
+
+  const style = doc.createElement('style');
+  style.id = 'soulmate-admin-shell-sizing';
+  style.textContent = `
+    #soulmate-admin-sidebar { width: 260px !important; font-size: 14px !important; line-height: 20px !important; }
+    #soulmate-admin-sidebar > div:first-child > div:first-child { height: 64px !important; padding: 0 24px !important; }
+    #soulmate-admin-sidebar > div:first-child > div:nth-child(2) { height: 40px !important; padding: 8px 24px !important; }
+    #soulmate-admin-sidebar nav { gap: 4px !important; padding: 0 16px !important; }
+    #soulmate-admin-sidebar nav a { box-sizing: border-box !important; display: flex !important; align-items: center !important; gap: 8px !important; width: 100% !important; height: 40px !important; padding: 8px 16px !important; font-size: 14px !important; line-height: 20px !important; }
+    #soulmate-admin-sidebar nav a .material-symbols-outlined { font-size: 20px !important; line-height: 20px !important; }
+    #soulmate-admin-sidebar > div:last-child { padding: 16px !important; gap: 16px !important; }
+    #soulmate-admin-sidebar > div:last-child > div:first-child { padding: 16px !important; gap: 4px !important; }
+    #soulmate-admin-header { height: 64px !important; padding-left: 24px !important; padding-right: 24px !important; }
+    #soulmate-admin-header h1 { font-size: 18px !important; line-height: 24px !important; }
+    @media (max-width: 767px) {
+      #soulmate-admin-header { padding-left: 16px !important; padding-right: 16px !important; }
+    }
+  `;
+  doc.head.appendChild(style);
+}
+
 function configureAdminTopbar(doc: Document) {
   const header = doc.body.querySelector('header');
   if (!header) return;
@@ -613,15 +643,49 @@ function configureAdminTopbar(doc: Document) {
   link.id = 'admin-storefront-link';
   link.href = '/';
   link.setAttribute('aria-label', 'กลับไปหน้าร้าน');
-  link.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span><span>กลับไปหน้าร้าน</span>';
+  link.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">storefront</span><span>กลับไปหน้าร้าน</span>';
   actions.insertBefore(link, actions.firstChild);
 
   const style = doc.createElement('style');
   style.textContent = `
-    #admin-storefront-link { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 14px; border-radius: 999px; background: #d1f2e7; color: #2d6857; font-size: 13px; font-weight: 600; white-space: nowrap; text-decoration: none; transition: background-color 150ms ease; }
+    #admin-storefront-link { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 8px 14px; border: 1px solid #a8e5cf; border-radius: 999px; background: #e8f8f2; color: #1d5a46; font-size: 13px; font-weight: 700; white-space: nowrap; text-decoration: none; cursor: pointer; transition: background-color 150ms ease; }
     #admin-storefront-link:hover { background: #a8e5cf; }
     #admin-storefront-link:focus-visible { outline: 2px solid #2d6857; outline-offset: 2px; }
     #admin-storefront-link .material-symbols-outlined { font-size: 18px; }
+  `;
+  doc.head.appendChild(style);
+}
+
+function syncStorefrontAdminMobileTab(doc: Document, showAdminTab: boolean) {
+  const existing = doc.getElementById('storefront-admin-nav-link');
+  if (!showAdminTab) {
+    existing?.remove();
+    return;
+  }
+
+  // The imported storefront screens own their mobile navbar inside the iframe.
+  // Add the admin destination there so it follows the same fixed navigation.
+  const nav = doc.querySelector<HTMLElement>('nav[class~="fixed"][class~="bottom-0"]');
+  const items = nav?.querySelector<HTMLElement>(':scope > div');
+  if (!items || existing) return;
+
+  const link = doc.createElement('a');
+  link.id = 'storefront-admin-nav-link';
+  link.href = '/admin/dashboard';
+  link.dataset.route = '/admin/dashboard';
+  link.setAttribute('aria-label', 'ไปหลังบ้าน');
+  link.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">space_dashboard</span><span>หลังบ้าน</span>';
+  items.appendChild(link);
+
+  if (doc.getElementById('storefront-admin-nav-style')) return;
+  const style = doc.createElement('style');
+  style.id = 'storefront-admin-nav-style';
+  style.textContent = `
+    #storefront-admin-nav-link { box-sizing: border-box; display: flex; flex: 1 1 0; min-width: 0; height: 48px; padding: 2px 4px; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 12px; background: #e8f8f2; color: #1d5a46; font-size: 10px; line-height: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+    #storefront-admin-nav-link .material-symbols-outlined { font-size: 22px; line-height: 24px; }
+    #storefront-admin-nav-link:active { background: #c9eedf; }
+    #storefront-admin-nav-link:focus-visible { outline: 2px solid #2d6857; outline-offset: -2px; }
+    @media (min-width: 769px) { #storefront-admin-nav-link { display: none !important; } }
   `;
   doc.head.appendChild(style);
 }
@@ -1249,7 +1313,7 @@ function configureCheckoutPaymentMethods(doc: Document) {
   const codRow = findPaymentRow('เก็บเงินปลายทาง');
   if (codRow) codRow.remove();
 
-  // PromptPay is the only payment option in the test plan.
+  // Payment selection is deferred; this checkout only saves an Order.
   const promptPayRadio =
     Array.from(
       doc.querySelectorAll<HTMLInputElement>('input[type="radio"]')
@@ -1260,15 +1324,15 @@ function configureCheckoutPaymentMethods(doc: Document) {
     null;
 
   if (promptPayRadio) {
-    doc
-      .querySelectorAll<HTMLInputElement>('input[type="radio"]')
-      .forEach((radio) => {
-        radio.checked = radio === promptPayRadio;
-      });
-
-    promptPayRadio.checked = true;
-    promptPayRadio.dispatchEvent(new Event('input', { bubbles: true }));
-    promptPayRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    const paymentSection = promptPayRadio.closest('section');
+    promptPayRadio.closest('label')?.remove();
+    if (paymentSection && !paymentSection.querySelector('#checkoutPaymentPendingNotice')) {
+      const note = doc.createElement('p');
+      note.id = 'checkoutPaymentPendingNotice';
+      note.className = 'rounded-xl bg-amber-50 p-3 text-xs text-amber-900';
+      note.textContent = 'ระบบทดสอบจะบันทึกออเดอร์เป็นรอชำระเงิน ยังไม่เปิดการจ่ายผ่าน PromptPay';
+      paymentSection.appendChild(note);
+    }
   }
 }
 
@@ -1910,12 +1974,14 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
     if (routeType === 'storefront') {
       installStorefrontDesktopStyles(doc);
+      syncStorefrontAdminMobileTab(doc, !auth.profileLoading && canAccessAdmin(auth.customerProfile));
       if (location.pathname === '/') mountHomeGuidancePanel(doc);
       mountAccountNavigation(doc, location.pathname);
 
       const syncIframeHeight = () => {
         if (window.matchMedia('(max-width: 768px)').matches) {
-          iframe.style.height = '100dvh';
+          const frameTop = iframe.getBoundingClientRect().top + window.scrollY;
+          iframe.style.height = `${Math.max(window.innerHeight - frameTop, 1)}px`;
           return;
         }
         if (location.pathname.startsWith('/products/') || location.pathname.startsWith('/product/')) {
@@ -2008,11 +2074,15 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       } catch (error) {
         console.error('[SOULMATE Admin] Dashboard navigation failed to load:', error);
       }
+      normalizeAdminShellSizing(doc);
       configureAdminTopbar(doc);
     }
 
     // Ensure search icon is placed before profile icon in header
-    if (routeType === 'storefront') ensureHeaderSearchIcon(doc, navigate);
+    if (routeType === 'storefront') {
+      ensureHeaderSearchIcon(doc, navigate);
+      syncStorefrontAdminMobileTab(doc, !auth.profileLoading && canAccessAdmin(auth.customerProfile));
+    }
 
     // Fix stale imported Admin sidebar routes before any clicks are handled.
     if (routeType === 'admin' || location.pathname.startsWith('/admin')) {
@@ -2022,6 +2092,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       logoLink?.setAttribute('data-path', 'admin-dashboard');
       logoLink?.setAttribute('data-route', '/admin/dashboard');
     }
+    if (routeType === 'admin') iframe.style.visibility = 'visible';
 
     // Do not expose Stitch/dev test-state controls on real storefront pages.
     if (routeType === 'storefront') {
@@ -2038,8 +2109,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       const pathAttr = target.getAttribute('data-path');
       const routeAttr = target.getAttribute('data-route');
       const href = target.getAttribute('href');
-      const isAside = !!target.closest('aside, nav[data-admin-nav], .admin-sidebar');
-      const isAdminContext = routeType === 'admin' || location.pathname.startsWith('/admin') || isAside;
+      const isAdminRoute = routeType === 'admin' || location.pathname.startsWith('/admin');
+      // Storefront checkout also uses an <aside> for its sticky submit bar.
+      // Only treat an aside as admin navigation when we're already on an admin route.
+      const isAside = isAdminRoute && !!target.closest('aside, nav[data-admin-nav], .admin-sidebar');
+      const isAdminContext = isAdminRoute;
 
       // ===============================================================
       // CUSTOMER CART — ONE REAL CART DESTINATION ON EVERY STOREFRONT PAGE
@@ -2907,25 +2981,19 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       attachCheckoutEditListeners(doc);
       populateCheckoutFromDoc(doc, auth.customerProfile, auth.user?.email);
       const demoOrdersEnabled = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
-      const paymentEnabled = import.meta.env.VITE_OMISE_TEST_MODE_ENABLED === 'true';
-      const orderSubmitEnabled = demoOrdersEnabled || paymentEnabled;
+      const checkoutTestEnabled = import.meta.env.VITE_CHECKOUT_TEST_MODE_ENABLED === 'true';
+      const orderSubmitEnabled = demoOrdersEnabled || checkoutTestEnabled;
       const checkoutNotice = doc.createElement('p');
       checkoutNotice.id = 'checkoutPaymentUnavailable';
       checkoutNotice.className = 'text-[11px] text-amber-800 text-center px-3 pb-2';
-      checkoutNotice.textContent = demoOrdersEnabled
-        ? 'โหมดทดสอบจะบันทึกคำสั่งซื้อเป็นรอชำระเงินเท่านั้น'
-        : 'ยังไม่เปิดรับคำสั่งซื้อ: ต้องตั้งค่า Omise Test Mode และเปิดใช้ PromptPay ก่อน';
+      checkoutNotice.textContent = 'โหมดทดสอบจะบันทึกคำสั่งซื้อเป็นรอชำระเงินเท่านั้น ยังไม่เปิดการจ่ายเงิน';
       const existingCheckoutNotice = doc.getElementById('checkoutPaymentUnavailable');
-      if (demoOrdersEnabled || !paymentEnabled) {
-        if (existingCheckoutNotice) existingCheckoutNotice.textContent = checkoutNotice.textContent;
-        else doc.getElementById('stickyCheckoutBar')?.prepend(checkoutNotice);
-      } else {
-        existingCheckoutNotice?.remove();
-      }
+      if (existingCheckoutNotice) existingCheckoutNotice.textContent = checkoutNotice.textContent;
+      else doc.getElementById('stickyCheckoutBar')?.prepend(checkoutNotice);
       const orderSubmitButton = doc.getElementById('btnSubmitOrder') as HTMLButtonElement | null;
       if (orderSubmitButton && !orderSubmitEnabled) {
         orderSubmitButton.disabled = true;
-        orderSubmitButton.title = 'ยังไม่ได้ตั้งค่า Omise Test Mode';
+        orderSubmitButton.title = 'ยังไม่เปิดการบันทึกคำสั่งซื้อทดสอบ';
       }
       const showCheckoutMessage = (message: string) => {
         const toast = doc.getElementById('toastNotification');
@@ -2939,7 +3007,9 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           toast.classList.remove('opacity-100', 'translate-y-0');
         }, 3500);
       };
+      let placingOrder = false;
       win.handlePlaceOrder = async () => {
+        if (placingOrder) return;
         const effectiveCart = createEffectiveCart(cart);
         const read = (id: string) => (doc.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)?.value.trim() || '';
         const contact = {
@@ -2972,16 +3042,19 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         }
         if (effectiveCart.items.length === 0) return;
         if (!orderSubmitEnabled) {
-          showCheckoutMessage('ยังไม่เปิดรับคำสั่งซื้อจนกว่าจะตั้งค่า Omise Test Mode');
+          showCheckoutMessage('ยังไม่เปิดการบันทึกคำสั่งซื้อทดสอบ');
           return;
         }
+        placingOrder = true;
         const submit = doc.getElementById('btnSubmitOrder') as HTMLButtonElement | null;
         const submitText = doc.getElementById('submitText');
+        doc.getElementById('checkoutSubmissionError')?.remove();
         if (submit) submit.disabled = true;
         if (submitText) submitText.textContent = 'กำลังบันทึกคำสั่งซื้อ…';
         try {
           const result = await createPendingOrder(effectiveCart.items, contact);
           replaceCartItems([]);
+          clearPendingOrderRequestKey();
           if (result.ownerType === 'guest' && !result.replay) {
             sessionStorage.setItem('soulmate_email_demo_order', result.orderId);
           }
@@ -2996,10 +3069,19 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             renderCheckoutSummary(doc, win, createEffectiveCart(cart));
             showCheckoutMessage('ราคาสินค้าเปลี่ยนแล้ว ปรับยอดใหม่ให้ตรวจสอบก่อนยืนยันอีกครั้ง');
           } else {
-            showCheckoutMessage((error as Error)?.message || 'บันทึกคำสั่งซื้อไม่สำเร็จ กรุณาลองอีกครั้ง');
+            const message = orderFailureMessage(error);
+            const inlineError = doc.createElement('p');
+            inlineError.id = 'checkoutSubmissionError';
+            inlineError.setAttribute('role', 'alert');
+            inlineError.className = 'rounded-xl bg-red-50 p-3 text-center text-xs text-red-800';
+            inlineError.textContent = message;
+            doc.getElementById('stickyCheckoutBar')?.prepend(inlineError);
+            showCheckoutMessage(message);
           }
           if (submit) submit.disabled = false;
           if (submitText) submitText.textContent = 'ยืนยันคำสั่งซื้อ';
+        } finally {
+          placingOrder = false;
         }
       };
     }
@@ -3715,6 +3797,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
     // --- Storefront Catalog Wiring (/products) ---
     if (location.pathname === '/products') {
+      const initialGrid = doc.getElementById('state-grid');
+      const initialList = doc.getElementById('state-list');
+      if (initialGrid) initialGrid.innerHTML = '';
+      if (initialList) initialList.innerHTML = '';
       const countLabel = doc.getElementById('product-count-label');
       if (countLabel) countLabel.textContent = 'กำลังโหลดสินค้า…';
       const loadingSec = doc.getElementById('state-loading');
@@ -4998,6 +5084,25 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
     // --- Storefront Home Wiring (/) ---
     if (location.pathname === '/') {
+      // Clear imported sample products before the first asynchronous request.
+      const initialProductGrid = doc.getElementById('product-grid-view');
+      if (initialProductGrid) initialProductGrid.textContent = 'กำลังโหลดสินค้า…';
+      doc.getElementById('toggle-state-btn')?.remove();
+      doc.getElementById('product-empty-view')?.remove();
+      const homeSearch = doc.getElementById('home-search-input') as HTMLInputElement | null;
+      if (homeSearch) {
+        const submitSearch = () => {
+          const query = homeSearch.value.trim();
+          navigate(query ? `/products?search=${encodeURIComponent(query)}` : '/products');
+        };
+        homeSearch.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            submitSearch();
+          }
+        });
+        homeSearch.parentElement?.querySelector('button')?.addEventListener('click', submitSearch);
+      }
       try {
         // Storefront must show ONLY real published/active products from Firestore.
         // Never keep Stitch sample/mock cards on the production homepage.
@@ -5030,6 +5135,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         // Prefer the exact parent grid that currently contains the Stitch mock cards.
         // Fall back to known storefront product containers if the imported markup changed.
         let productGrid =
+          initialProductGrid ||
           (sampleCard?.parentElement as HTMLElement | null) ||
           (doc.querySelector(
             '.product-grid, [data-purpose="product-grid"], [data-products-grid], section:has(.product-card)'
@@ -5268,6 +5374,39 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           });
       } catch (err) {
         console.error('[Home Page] Error:', err);
+        if (initialProductGrid) {
+          initialProductGrid.innerHTML = '<p class="col-span-full py-10 text-center text-error">ไม่สามารถโหลดสินค้าได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง</p>';
+        }
+      }
+    }
+  };
+
+  const showHydratedIframe = async () => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    try {
+      // The homepage and catalog clear sample cards synchronously before their
+      // first data request. Reveal their navigation, banner and search at once.
+      const hydration = handleIframeLoaded();
+      if (routeType === 'storefront' && ['/', '/products'].includes(location.pathname)) {
+        iframe.dataset.ready = 'true';
+        iframe.style.visibility = 'visible';
+      }
+      await hydration;
+    } catch (error) {
+      console.error('[ScreenRenderer] Failed to prepare storefront screen:', error);
+      if (routeType === 'storefront' && iframe.contentDocument) {
+        const main = iframe.contentDocument.querySelector('main') || iframe.contentDocument.body;
+        main.replaceChildren();
+        const message = iframe.contentDocument.createElement('p');
+        message.className = 'p-8 text-center text-error';
+        message.textContent = 'ไม่สามารถโหลดข้อมูลได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง';
+        main.appendChild(message);
+      }
+    } finally {
+      if (iframeRef.current === iframe) {
+        iframe.dataset.ready = 'true';
+        iframe.style.visibility = 'visible';
       }
     }
   };
@@ -5313,6 +5452,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
   }, [
     location.pathname,
     auth.customerProfile,
+    auth.profileLoading,
   ]);
 
   const iframe = (
@@ -5322,7 +5462,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       src={screen.htmlPath}
       title={screen.title}
       className="w-full border-0"
-      onLoad={handleIframeLoaded}
+      style={routeType === 'admin' ? { visibility: 'hidden' } : undefined}
+      onLoad={showHydratedIframe}
     />
   );
 
@@ -5332,8 +5473,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         contentClassName={`storefront-embedded-content ${location.pathname.startsWith('/products/') || location.pathname.startsWith('/product/') ? 'storefront-content--product-detail' : ''}`}
         mobileChrome={false}
       >
-        {!auth.profileLoading && canAccessAdmin(auth.customerProfile) && <div className="storefront-admin-mobile"><Link to="/admin/dashboard">ไปหลังบ้าน</Link></div>}
-        <div className="storefront-frame">{iframe}</div>
+        <div className="storefront-frame">
+          <div className="storefront-frame-loading" role="status">กำลังโหลดข้อมูล…</div>
+          {iframe}
+        </div>
       </StorefrontShell>
     );
   }

@@ -18,7 +18,7 @@ export const CustomerProtectedRoute: React.FC<{ children: React.ReactNode }> = (
     );
   }
 
-  if (!user) {
+  if (!user || user.isAnonymous) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 

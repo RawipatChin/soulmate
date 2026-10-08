@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Bell, GalleryHorizontal, LayoutDashboard, LogOut, Menu, Package, Settings, ShoppingBag, TicketPercent, UserRound, UsersRound, X } from 'lucide-react';
+import { ArrowLeft, Bell, LogOut, Menu, UserRound, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   getOrder,
   listAdminOrders,
   listMyOrders,
-  startPromptPay,
   type StoreOrder,
 } from '../services/orderService';
 import './order-pages.css';
 
 const money = (satang: number) => `฿${(satang / 100).toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
 const dateText = (order: StoreOrder) => order.createdAt?.toDate?.().toLocaleString('th-TH') ?? 'กำลังบันทึกเวลา';
+const expiryText = (order: StoreOrder) => order.expiresAt?.toDate?.().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) ?? '';
 const paymentText = (order: StoreOrder) => order.payment?.status === 'successful'
   ? 'ชำระแล้ว'
   : order.payment?.status === 'expired'
@@ -22,13 +22,13 @@ const paymentText = (order: StoreOrder) => order.payment?.status === 'successful
       : 'รอชำระเงิน';
 
 const adminNavigation = [
-  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/admin/products', label: 'Products', icon: Package },
-  { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
-  { to: '/admin/customers', label: 'Customers', icon: UsersRound },
-  { to: '/admin/banners', label: 'Banners', icon: GalleryHorizontal },
-  { to: '/admin/coupons', label: 'Coupons', icon: TicketPercent },
-  { to: '/admin/settings', label: 'Settings', icon: Settings },
+  { to: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { to: '/admin/products', label: 'Products', icon: 'inventory_2' },
+  { to: '/admin/orders', label: 'Orders', icon: 'shopping_bag' },
+  { to: '/admin/customers', label: 'Customers', icon: 'group' },
+  { to: '/admin/banners', label: 'Banners', icon: 'view_carousel' },
+  { to: '/admin/coupons', label: 'Coupons', icon: 'confirmation_number' },
+  { to: '/admin/settings', label: 'Settings', icon: 'settings' },
 ];
 
 function AdminOrderShell({ children }: { children: ReactNode }) {
@@ -46,7 +46,7 @@ function AdminOrderShell({ children }: { children: ReactNode }) {
       <div>
         <div className="admin-order-logo"><Link to="/admin/dashboard" onClick={() => setDrawerOpen(false)}><img src="/logo-soulmate.png" alt="SOULMATE" /></Link><button className="admin-order-close" aria-label="ปิดเมนู" onClick={() => setDrawerOpen(false)}><X size={20} /></button></div>
         <p className="admin-order-nav-label">Navigation</p>
-        <nav aria-label="เมนูแอดมิน">{adminNavigation.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} onClick={() => setDrawerOpen(false)} className={({ isActive }) => `admin-order-nav-link${isActive ? ' is-active' : ''}`}><Icon size={20} /><span>{label}</span></NavLink>)}</nav>
+        <nav aria-label="เมนูแอดมิน">{adminNavigation.map(({ to, label, icon }) => <NavLink key={to} to={to} onClick={() => setDrawerOpen(false)} className={({ isActive }) => `admin-order-nav-link${isActive ? ' is-active' : ''}`}><span className="material-symbols-outlined" aria-hidden="true">{icon}</span><span>{label}</span></NavLink>)}</nav>
       </div>
       <div className="admin-order-sidebar-bottom"><div className="admin-order-profile"><div className="admin-order-role"><span>Role</span><strong>Super Admin</strong></div><div className="admin-order-user"><span className="admin-order-avatar"><UserRound size={18} /></span><span><strong>Admin User</strong><small>{auth.customerProfile?.email || ''}</small></span></div></div><button className="admin-order-logout" onClick={logout}><LogOut size={18} />ออกจากระบบ</button></div>
     </aside>
@@ -106,10 +106,6 @@ export function OrderConfirmationPage() {
   const [order, setOrder] = useState<StoreOrder | null>(null);
   const [error, setError] = useState('');
   const [showEmailDemo, setShowEmailDemo] = useState(false);
-  const [payBusy, setPayBusy] = useState(false);
-  const [payError, setPayError] = useState('');
-  const isEmulator = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
-  const omiseEnabled = import.meta.env.VITE_OMISE_TEST_MODE_ENABLED === 'true';
   useEffect(() => {
     if (!orderId) return;
     const demoOrderId = sessionStorage.getItem('soulmate_email_demo_order');
@@ -123,26 +119,13 @@ export function OrderConfirmationPage() {
     let alive = true;
     const refresh = () => getOrder(orderId).then((value) => {
       if (!alive) return;
-      value ? setOrder(value) : setError('ไม่พบคำสั่งซื้อใน session นี้');
+      if (value) { setOrder(value); setError(''); }
+      else setError('ไม่พบคำสั่งซื้อใน session นี้');
     })
       .catch(() => { if (alive) setError('ไม่สามารถเปิดคำสั่งซื้อนี้ได้จาก session ปัจจุบัน'); });
     void refresh();
-    const shouldPoll = order?.payment?.status === 'pending';
-    const poll = shouldPoll ? window.setInterval(() => {
-      if (document.visibilityState === 'visible') void refresh();
-    }, 5000) : undefined;
-    return () => { alive = false; if (poll) window.clearInterval(poll); };
-  }, [orderId, order?.payment?.status]);
-  const beginPayment = async () => {
-    if (!order) return;
-    setPayBusy(true); setPayError('');
-    try {
-      const result = await startPromptPay(order.id);
-      setOrder({ ...order, payment: { ...order.payment, chargeId: result.chargeId, qrUrl: result.qrUrl } });
-    } catch (cause) {
-      setPayError((cause as Error).message || 'ยังเริ่มชำระผ่าน PromptPay ไม่ได้');
-    } finally { setPayBusy(false); }
-  };
+    return () => { alive = false; };
+  }, [orderId]);
   if (error) return <main className="order-page"><section className="order-panel"><h1>เปิดคำสั่งซื้อไม่ได้</h1><p>{error}</p><Link className="order-primary" to="/products">กลับไปเลือกสินค้า</Link></section></main>;
   if (!order) return <main className="order-page"><p className="order-empty">กำลังโหลดคำสั่งซื้อ…</p></main>;
   return <main className="order-page order-confirmation">
@@ -152,10 +135,11 @@ export function OrderConfirmationPage() {
       <h1>ขอบคุณที่สั่งซื้อ</h1>
       <p>เลขคำสั่งซื้อ <strong>{order.orderNumber}</strong></p>
       <div className="order-status"><span>สถานะคำสั่งซื้อ</span><strong>{paymentText(order)}</strong></div>
+      {order.payment?.status === 'pending' && expiryText(order) && <p className="order-demo-note">ออเดอร์ทดสอบนี้จะหมดเวลารอชำระเวลา {expiryText(order)} น. หลังจากนั้นระบบจะปิดคำสั่งซื้อและคืนสต็อกเมื่อมีการเรียกใช้งานครั้งถัดไป</p>}
       <p className="order-payment-note">{order.payment?.status === 'successful'
         ? 'Omise ยืนยันการชำระเงินสำเร็จแล้ว'
         : order.payment?.status === 'expired'
-          ? 'QR PromptPay หมดอายุแล้ว กรุณาสร้างคำสั่งซื้อใหม่'
+          ? 'คำสั่งซื้อหมดอายุแล้ว กรุณาสร้างคำสั่งซื้อใหม่'
           : order.payment?.status === 'failed'
             ? 'การชำระเงินไม่สำเร็จ กรุณาสร้างคำสั่งซื้อใหม่'
             : 'บันทึกคำสั่งซื้อแล้ว แต่ยังไม่ถือว่าชำระเงินสำเร็จ'}</p>
@@ -164,13 +148,10 @@ export function OrderConfirmationPage() {
         ? <p className="order-paid-note">ชำระเงินเรียบร้อยแล้ว</p>
         : order.payment?.status === 'expired' || order.payment?.status === 'failed'
           ? null
-          : order.payment?.qrUrl
-            ? <div className="order-qr"><img src={order.payment.qrUrl} alt="QR สำหรับชำระเงิน PromptPay"/><p>สแกน QR เพื่อชำระผ่าน Omise Test Mode</p></div>
-            : <><button className="order-primary" disabled={payBusy || !omiseEnabled || isEmulator} onClick={beginPayment}>{payBusy ? 'กำลังเชื่อมต่อ…' : 'ชำระผ่าน PromptPay'}</button><p className="order-demo-note">{isEmulator ? 'Emulator บันทึกออเดอร์ทดสอบได้ แต่ยังไม่เชื่อมการชำระเงินจริง' : !omiseEnabled ? 'ยังไม่ได้ตั้งค่า Omise Test Mode และยังไม่สามารถเปิด QR PromptPay ได้' : ''}</p></>}
-      {payError && <p className="order-error">{payError}</p>}
+          : <p className="order-demo-note">บันทึกออเดอร์แล้ว ระบบทดสอบยังไม่เปิดการชำระเงิน</p>}
       <Link className="order-secondary" to="/products">เลือกซื้อสินค้าต่อ</Link>
     </section>
-    {showEmailDemo && <div className="order-modal-backdrop" role="presentation"><section aria-labelledby="email-demo-title" aria-modal="true" className="order-modal" role="dialog"><button aria-label="ปิด" className="order-modal-close" onClick={() => setShowEmailDemo(false)}>×</button><span className="order-mail-icon">✉</span><p className="order-eyebrow">ตัวอย่างการแจ้งเตือน</p><h2 id="email-demo-title">เตรียมข้อมูลอีเมลไว้แล้ว</h2><p>อีเมลติดต่อ: <strong>{order.contact.email}</strong></p><p>เลขคำสั่งซื้อ: <strong>{order.orderNumber}</strong></p><p className="order-demo-note">นี่เป็นเพียงป๊อปอัปสาธิต ระบบยังไม่ได้ส่งอีเมลจริง{order.payment?.status === 'successful' ? ' และได้รับการชำระเงินแล้ว' : order.payment?.status === 'expired' ? ' และ QR หมดอายุแล้ว' : order.payment?.status === 'failed' ? ' และการชำระเงินไม่สำเร็จ' : ' และคำสั่งซื้อนี้ยังรอชำระเงิน'}</p><button className="order-primary" onClick={() => setShowEmailDemo(false)}>รับทราบ</button></section></div>}
+    {showEmailDemo && <div className="order-modal-backdrop" role="presentation"><section aria-labelledby="email-demo-title" aria-modal="true" className="order-modal" role="dialog"><button aria-label="ปิด" className="order-modal-close" onClick={() => setShowEmailDemo(false)}>×</button><span className="order-mail-icon">✉</span><p className="order-eyebrow">ตัวอย่างการแจ้งเตือน</p><h2 id="email-demo-title">เตรียมข้อมูลอีเมลไว้แล้ว</h2><p>อีเมลติดต่อ: <strong>{order.contact.email}</strong></p><p>เลขคำสั่งซื้อ: <strong>{order.orderNumber}</strong></p><p className="order-demo-note">นี่เป็นเพียงป๊อปอัปสาธิต ระบบยังไม่ได้ส่งอีเมลจริง{order.payment?.status === 'successful' ? ' และได้รับการชำระเงินแล้ว' : order.payment?.status === 'expired' ? ' และคำสั่งซื้อหมดอายุแล้ว' : order.payment?.status === 'failed' ? ' และการชำระเงินไม่สำเร็จ' : ' และคำสั่งซื้อนี้ยังรอชำระเงิน'}</p><button className="order-primary" onClick={() => setShowEmailDemo(false)}>รับทราบ</button></section></div>}
   </main>;
 }
 
