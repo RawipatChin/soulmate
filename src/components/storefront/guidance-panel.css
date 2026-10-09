@@ -1,0 +1,27 @@
+#soulmate-guidance-panel { min-width: 0; justify-content: flex-start !important; }
+#soulmate-guidance-panel .guidance-intro { margin-bottom: 16px !important; }
+#soulmate-guidance-panel .guidance-form label { display: block; color: #1b4d3e; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+#soulmate-guidance-panel textarea { min-height: 84px !important; color: #1b4d3e; font: inherit; caret-color: #1b4d3e; }
+#soulmate-guidance-panel textarea::placeholder { color: #53615d; }
+#soulmate-guidance-panel .guidance-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+#soulmate-guidance-panel button { opacity: 1 !important; width: auto; padding: 10px 20px; min-height: 44px !important; background: #96356d !important; cursor: pointer; font: inherit; font-weight: 600; }
+#soulmate-guidance-panel button:hover { background: #7b2958 !important; }
+#soulmate-guidance-panel button:disabled { opacity: .65 !important; cursor: wait; }
+#soulmate-guidance-panel .guidance-reset { background: transparent !important; color: #1b4d3e !important; border: 1px solid #689482 !important; }
+#soulmate-guidance-panel .guidance-reset:hover { background: #d8eee4 !important; }
+#soulmate-guidance-panel :focus-visible { outline: 3px solid #1b4d3e; outline-offset: 3px; }
+#soulmate-guidance-panel ::selection { background: #a8e5cf; color: #1b4d3e; }
+#soulmate-guidance-panel .guidance-transcript { max-height: 460px; overflow-y: auto; overflow-wrap: anywhere; scrollbar-color: #689482 #e8f8f2; margin-bottom: 18px; padding-right: 6px; }
+#soulmate-guidance-panel .guidance-message { padding: 14px 0; border-top: 1px solid #bfd9ce; line-height: 1.7; font-size: 14px; color: #234a3c; }
+#soulmate-guidance-panel .guidance-message > strong { display: block; margin-bottom: 4px; }
+#soulmate-guidance-panel .guidance-message-text { white-space: pre-wrap; }
+#soulmate-guidance-panel .guidance-product { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid #bfd9ce; }
+#soulmate-guidance-panel .guidance-product img { width: 56px; height: 56px; object-fit: contain; background: white; flex-shrink: 0; }
+#soulmate-guidance-panel .guidance-product-details { min-width: 0; }
+#soulmate-guidance-panel h3 { font-size: 15px; font-weight: 700; margin: 0; color: #1b4d3e; }
+#soulmate-guidance-panel .guidance-price { font-weight: 600; font-variant-numeric: tabular-nums; margin: 4px 0; }
+#soulmate-guidance-panel .guidance-evidence { font-size: 13px; margin: 4px 0; }
+#soulmate-guidance-panel a { display: inline-block; padding: 8px 0; color: #1b4d3e; text-decoration: underline; text-underline-offset: 3px; }
+#soulmate-guidance-panel .guidance-status { margin-top: 10px; color: #583344; font-size: 14px; line-height: 1.7; }
+#soulmate-guidance-panel [hidden] { display: none !important; }
+@media (max-width: 768px) { #soulmate-guidance-panel .guidance-transcript { max-height: 55dvh; } }

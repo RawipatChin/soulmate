@@ -43,6 +43,7 @@ import {
 } from '../services/productImageService';
 import { mountVariantManager } from '../utils/productVariantManager';
 import { StorefrontShell } from './storefront/StorefrontShell';
+import { mountGuidancePanel } from './storefront/guidancePanel';
 import { canAccessAdmin } from '../utils/accountAccess';
 import { renderStorefrontProductCard } from './storefront/StorefrontProductCard';
 import { clearPendingOrderRequestKey, createPendingOrder, listAdminOrders, OrderReviewError } from '../services/orderService';
@@ -144,7 +145,9 @@ function installStorefrontDesktopStyles(doc: Document) {
 
 function mountHomeGuidancePanel(doc: Document) {
   const hero = doc.querySelector<HTMLElement>('[data-cms-slot="hero_banner_1"]');
-  if (!hero || doc.getElementById('soulmate-guidance-panel')) return;
+  if (!hero) return;
+  const existing = doc.getElementById('soulmate-guidance-panel');
+  if (existing) return mountGuidancePanel(existing);
 
   const featureGrid = doc.createElement('div');
   featureGrid.className = 'soulmate-home-feature-grid';
@@ -152,16 +155,9 @@ function mountHomeGuidancePanel(doc: Document) {
   panel.id = 'soulmate-guidance-panel';
   panel.className = 'soulmate-guidance-panel';
   panel.setAttribute('aria-labelledby', 'soulmate-guidance-heading');
-  panel.innerHTML = `
-    <h2 id="soulmate-guidance-heading">ให้ SOULMATE ช่วยเลือกสินค้า</h2>
-    <p>พื้นที่ถามตอบจะแนะนำสินค้าจากข้อมูลที่ร้านตรวจสอบแล้ว เมื่อระบบพร้อมใช้งาน</p>
-    <label class="sr-only" for="soulmate-guidance-question">คำถามเกี่ยวกับสินค้า</label>
-    <textarea id="soulmate-guidance-question" placeholder="ระบบถามตอบยังไม่เปิดใช้งาน" disabled></textarea>
-    <button type="button" disabled>ส่งคำถาม</button>
-    <small>ผู้ช่วยนี้ให้ข้อมูลสินค้า ไม่วินิจฉัยหรือแนะนำการรักษาอาการ</small>
-  `;
   hero.parentElement?.insertBefore(featureGrid, hero);
   featureGrid.append(hero, panel);
+  return mountGuidancePanel(panel);
 }
 
 function mountAccountNavigation(doc: Document, pathname: string) {
@@ -1949,6 +1945,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const iframeResizeObserverRef = useRef<ResizeObserver | null>(null);
   const iframeResizeCleanupRef = useRef<(() => void) | null>(null);
+  const guidanceCleanupRef = useRef<(() => void) | null>(null);
   const newProductIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -1975,7 +1972,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     if (routeType === 'storefront') {
       installStorefrontDesktopStyles(doc);
       syncStorefrontAdminMobileTab(doc, !auth.profileLoading && canAccessAdmin(auth.customerProfile));
-      if (location.pathname === '/') mountHomeGuidancePanel(doc);
+      guidanceCleanupRef.current?.();
+      guidanceCleanupRef.current = location.pathname === '/' ? mountHomeGuidancePanel(doc) ?? null : null;
       mountAccountNavigation(doc, location.pathname);
 
       const syncIframeHeight = () => {
@@ -5412,6 +5410,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
   };
 
   useEffect(() => () => {
+    guidanceCleanupRef.current?.();
     iframeResizeCleanupRef.current?.();
     iframeResizeObserverRef.current?.disconnect();
   }, []);

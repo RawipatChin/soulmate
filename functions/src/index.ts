@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+export { productGuidanceChat } from './guidance.js';
 import { initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { defineString } from 'firebase-functions/params';

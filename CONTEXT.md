@@ -5,7 +5,7 @@ Vocabulary for SOULMATE product guidance, orders, and customer accounts.
 ## Language
 
 **Product guidance assistant**:
-A customer-facing conversational assistant that helps choose and compare store products using verified product and store information. Its guidance does not diagnose conditions or promise health outcomes.
+A customer-facing conversational assistant that helps choose and compare products using information recorded in the store's published product catalog. Its guidance does not diagnose conditions or promise health outcomes.
 _Avoid_: Medical adviser
 
 **Recommendable product**:
@@ -15,10 +15,10 @@ A published product with a purchasable option currently in stock. An out-of-stoc
 A customer request for which no recommendable product meets all stated conditions. The assistant identifies the unmet conditions and asks which one the customer is willing to relax.
 
 **Product goal**:
-A customer's desired shopping outcome, such as increasing protein intake, that can be matched against verified product facts without treating a reported symptom as a diagnosis.
+A customer's desired shopping outcome, such as increasing protein intake, that can be matched against catalog facts without treating a reported symptom as a diagnosis.
 
-**Verified product fact**:
-A product attribute confirmed by the store for customer-facing guidance. If an attribute has not been confirmed, the assistant cannot use it to justify a recommendation or comparison.
+**Catalog fact**:
+A value directly recorded in a product field. Its presence does not independently prove that the value is correct; a missing or placeholder value is unknown and cannot support a recommendation.
 
 **Symptom request**:
 A customer message describing a health symptom. The assistant does not match products to the symptom as a treatment and redirects the conversation toward general product goals when appropriate.

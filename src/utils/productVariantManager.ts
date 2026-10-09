@@ -66,6 +66,16 @@ export function computeCartesianCombinations(
     tuples = nextTuples;
   }
 
+  // A saved product can contain duplicate variant IDs. Each rendered row must
+  // have its own ID because the editor uses it to route input events.
+  const usedIds = new Set<string>();
+  const uniqueVariantId = (preferred?: string): string => {
+    let id = preferred?.trim() || generateVariantId();
+    while (usedIds.has(id)) id = generateVariantId();
+    usedIds.add(id);
+    return id;
+  };
+
   // Map to ProductVariant objects, matching existing variants to preserve entered data
   const result: ProductVariant[] = tuples.map((opts, index) => {
     const displayName = opts.map((o) => o.valueName).join(' / ');
@@ -89,7 +99,7 @@ export function computeCartesianCombinations(
 
     if (matched) {
       return {
-        id: matched.id || generateVariantId(),
+        id: uniqueVariantId(matched.id),
         options: opts,
         displayName,
         price: typeof matched.price === 'number' && !isNaN(matched.price) ? matched.price : defaultPrice,
@@ -101,7 +111,7 @@ export function computeCartesianCombinations(
     }
 
     return {
-      id: generateVariantId(),
+      id: uniqueVariantId(),
       options: opts,
       displayName,
       price: defaultPrice,
@@ -916,7 +926,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
       const v = variants.find((item) => item.id === varPriceId);
       if (v) {
         v.price = parseFloat(target.value) || 0;
-        doc.querySelectorAll(`[data-var-price="${varPriceId}"]`).forEach((inp) => {
+        tableContainer?.querySelectorAll(`[data-var-price="${varPriceId}"]`).forEach((inp) => {
           if (inp !== target) (inp as HTMLInputElement).value = target.value;
         });
       }
@@ -929,7 +939,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
       const v = variants.find((item) => item.id === varStockId);
       if (v) {
         v.stock = parseInt(target.value, 10) || 0;
-        doc.querySelectorAll(`[data-var-stock="${varStockId}"]`).forEach((inp) => {
+        tableContainer?.querySelectorAll(`[data-var-stock="${varStockId}"]`).forEach((inp) => {
           if (inp !== target) (inp as HTMLInputElement).value = target.value;
         });
         syncMainStockField(hasVariants);
@@ -944,7 +954,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
       const v = variants.find((item) => item.id === varSkuId);
       if (v) {
         v.sku = target.value.trim().toUpperCase();
-        doc.querySelectorAll(`[data-var-sku="${varSkuId}"]`).forEach((inp) => {
+        tableContainer?.querySelectorAll(`[data-var-sku="${varSkuId}"]`).forEach((inp) => {
           if (inp !== target) (inp as HTMLInputElement).value = target.value;
         });
       }
