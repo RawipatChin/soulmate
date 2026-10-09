@@ -1,6 +1,7 @@
 import { spawn, execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { chromium } from 'playwright';
@@ -22,6 +23,8 @@ let emulator;
 let vite;
 let browser;
 let adminApp;
+let emulatorConfigPath;
+let firestorePort;
 let stopRequested = false;
 let signalStop;
 const stopped = new Promise((resolveStop) => { signalStop = resolveStop; });
@@ -61,7 +64,22 @@ function javaEnvironment() {
   return env;
 }
 
-async function waitFor(url, label, timeoutMs = 120000, ready = () => true, method = 'GET') {
+async function findFirestorePort() {
+  for (const port of Array.from({ length: 10 }, (_, index) => 8081 + index)) {
+    const server = createServer();
+    const available = await new Promise((resolvePort, rejectPort) => {
+      server.once('error', (error) => {
+        if (error.code === 'EADDRINUSE') resolvePort(false);
+        else rejectPort(error);
+      });
+      server.listen(port, '127.0.0.1', () => server.close(() => resolvePort(true)));
+    });
+    if (available) return port;
+  }
+  throw new Error('Ports 8081-8090 are all in use. Free one and run the checkout demo again.');
+}
+
+async function waitFor(url, label, timeoutMs = 300000, ready = () => true, method = 'GET') {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end && !stopRequested) {
     if (emulator?.exitCode !== null && emulator?.exitCode !== undefined) {
@@ -78,7 +96,7 @@ async function waitFor(url, label, timeoutMs = 120000, ready = () => true, metho
 
 async function seed() {
   process.env.GCLOUD_PROJECT = projectId;
-  process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+  process.env.FIRESTORE_EMULATOR_HOST = `127.0.0.1:${firestorePort}`;
   process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
   adminApp = initializeApp({ projectId }, 'checkout-interactive-demo');
   const db = getFirestore(adminApp);
@@ -131,7 +149,13 @@ async function main() {
   if (stopRequested) return;
 
   const [cli, cliArgs] = firebaseCli();
-  emulator = spawn(cli, [...cliArgs, 'emulators:start', '--project', projectId, '--only', 'auth,firestore,functions,storage'], {
+  firestorePort = await findFirestorePort();
+  console.log(`Using Firestore Emulator port ${firestorePort}.`);
+  const firebaseConfig = JSON.parse(readFileSync(join(root, 'firebase.json'), 'utf8'));
+  firebaseConfig.emulators.firestore.port = firestorePort;
+  emulatorConfigPath = join(root, `.firebase-demo-${process.pid}.json`);
+  writeFileSync(emulatorConfigPath, JSON.stringify(firebaseConfig, null, 2));
+  emulator = spawn(cli, [...cliArgs, 'emulators:start', '--config', emulatorConfigPath, '--project', projectId, '--only', 'auth,firestore,functions,storage'], {
     cwd: root, env: javaEnvironment(), stdio: 'inherit',
   });
   emulator.once('error', (error) => { console.error(error); requestStop(); });
@@ -143,9 +167,9 @@ async function main() {
     }
   });
   await waitFor('http://127.0.0.1:9099/', 'Auth Emulator');
-  await waitFor('http://127.0.0.1:8080/', 'Firestore Emulator');
+  await waitFor(`http://127.0.0.1:${firestorePort}/`, 'Firestore Emulator');
   await waitFor('http://127.0.0.1:9199/', 'Storage Emulator');
-  await waitFor(`http://127.0.0.1:5001/${projectId}/us-central1/createPendingOrder`, 'createPendingOrder', 120000, (response) => response.status !== 404, 'OPTIONS');
+  await waitFor(`http://127.0.0.1:5001/${projectId}/us-central1/createPendingOrder`, 'createPendingOrder', 300000, (response) => response.status !== 404, 'OPTIONS');
   await waitFor(emulatorUi, 'Emulator UI');
   if (stopRequested) return;
 
@@ -161,6 +185,7 @@ async function main() {
       VITE_FIREBASE_APP_ID: '1:123:web:checkout-demo',
       VITE_FIREBASE_MESSAGING_SENDER_ID: '123',
       VITE_USE_FIREBASE_EMULATORS: 'true',
+      VITE_FIRESTORE_EMULATOR_PORT: String(firestorePort),
       VITE_CHECKOUT_TEST_MODE_ENABLED: 'true',
       VITE_OMISE_TEST_MODE_ENABLED: 'false',
       DISABLE_HMR: 'true',
@@ -207,4 +232,5 @@ try {
   await stopProcess(vite);
   await stopProcess(emulator);
   if (adminApp) await deleteApp(adminApp);
+  if (emulatorConfigPath) rmSync(emulatorConfigPath, { force: true });
 }

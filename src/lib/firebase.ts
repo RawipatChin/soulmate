@@ -115,7 +115,11 @@ if (isFirebaseConfigured) {
     functionsInstance = getFunctions(appInstance);
     if (import.meta.env?.VITE_USE_FIREBASE_EMULATORS === 'true') {
       connectAuthEmulator(authInstance, 'http://127.0.0.1:9099', { disableWarnings: true });
-      connectFirestoreEmulator(dbInstance, '127.0.0.1', 8080);
+      connectFirestoreEmulator(
+        dbInstance,
+        '127.0.0.1',
+        Number(import.meta.env?.VITE_FIRESTORE_EMULATOR_PORT) || 8081,
+      );
       connectStorageEmulator(storageInstance, '127.0.0.1', 9199);
       connectFunctionsEmulator(functionsInstance, '127.0.0.1', 5001);
     }

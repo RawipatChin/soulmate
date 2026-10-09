@@ -3085,66 +3085,148 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     }
 
     if (location.pathname === '/admin/dashboard') {
-      void listAdminOrders().then((orders) => {
-        const label = Array.from(doc.querySelectorAll<HTMLElement>('span, p'))
-          .find((element) => element.textContent?.trim() === 'คำสั่งซื้อ');
-        let card = label?.parentElement ?? null;
-        while (card && !card.querySelector('.font-headline-xl')) card = card.parentElement;
-        const count = card?.querySelector<HTMLElement>('.font-headline-xl');
-        if (count) {
-          const unit = count.querySelector('span');
-          count.textContent = `${orders.length} `;
-          if (unit) count.appendChild(unit);
-        }
-        const paidCount = card?.querySelector<HTMLElement>('.font-label-sm');
-        if (paidCount) paidCount.textContent = `ชำระแล้ว ${orders.filter((order) => order.payment?.status === 'successful').length} รายการ`;
+      const dashboardState = doc.getElementById('dashboard-state');
+      const dashboardContent = doc.getElementById('dashboard-content');
+      const periodSelect = doc.querySelector<HTMLSelectElement>('#dashboard-period');
+      const paidSales = doc.getElementById('dashboard-paid-sales');
+      const pendingCount = doc.getElementById('dashboard-pending-count');
+      const orderCount = doc.getElementById('dashboard-order-count');
+      const chart = doc.getElementById('dashboard-chart');
+      const ordersBody = doc.getElementById('dashboard-orders-body');
+      let dashboardOrders: Awaited<ReturnType<typeof listAdminOrders>> = [];
 
-        const table = Array.from(doc.querySelectorAll('table')).find((element) => element.textContent?.includes('เลขที่คำสั่งซื้อ'));
-        const tbody = table?.querySelector('tbody');
-        if (!tbody) return;
-        tbody.replaceChildren();
-        if (orders.length === 0) {
-          const row = doc.createElement('tr');
-          const cell = doc.createElement('td');
-          cell.colSpan = 8;
-          cell.className = 'py-space-xl px-space-md text-center';
-          cell.textContent = 'ยังไม่มีคำสั่งซื้อ';
-          row.appendChild(cell);
-          tbody.appendChild(row);
-          return;
-        }
-        [...orders].sort((a, b) => (b.createdAt?.toDate?.().getTime() ?? 0) - (a.createdAt?.toDate?.().getTime() ?? 0)).slice(0, 8).forEach((order) => {
-          const row = doc.createElement('tr');
-          row.className = 'border-b border-surface-container-low';
-          const values = [
-            order.orderNumber,
-            order.createdAt?.toDate?.().toLocaleDateString('th-TH') ?? '—',
-            `${order.contact?.firstName ?? ''} ${order.contact?.lastName ?? ''}`.trim() || 'Guest',
-            `฿${(order.totalSatang / 100).toLocaleString('th-TH')}`,
-            'PromptPay',
-            order.payment?.status === 'successful' ? 'ชำระแล้ว' : order.payment?.status === 'failed' ? 'ชำระไม่สำเร็จ' : order.payment?.status === 'expired' ? 'หมดอายุ' : 'รอชำระ',
-            order.status === 'paid' ? 'ชำระแล้ว' : order.payment?.status === 'expired' ? 'หมดอายุ' : order.status === 'payment_failed' ? 'ชำระไม่สำเร็จ' : 'รอชำระเงิน',
-          ];
-          values.forEach((value, index) => {
-            const cell = doc.createElement('td');
-            cell.className = 'px-space-md py-space-sm';
-            cell.textContent = value;
-            if (index === 0) {
-              const link = doc.createElement('a');
-              link.href = `/admin/orders/${encodeURIComponent(order.id)}`;
-              link.textContent = value;
-              link.className = 'text-primary font-semibold';
-              cell.replaceChildren(link);
-            }
-            row.appendChild(cell);
-          });
-          const action = doc.createElement('td');
-          action.className = 'px-space-md py-space-sm text-right';
-          action.textContent = 'ดูรายละเอียด';
-          row.appendChild(action);
-          tbody.appendChild(row);
+      const dateForOrder = (order: (typeof dashboardOrders)[number]) => {
+        try { return order.createdAt?.toDate?.() ?? null; } catch { return null; }
+      };
+      const isPaid = (order: (typeof dashboardOrders)[number]) =>
+        order.status === 'paid' || order.payment?.status === 'successful';
+      const getPeriod = () => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const period = periodSelect?.value ?? 'today';
+        if (period === '7d') start.setDate(start.getDate() - 6);
+        if (period === '30d') start.setDate(start.getDate() - 29);
+        if (period === 'month') start.setDate(1);
+        const days = Math.max(1, Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - start.getTime()) / 86400000) + 1);
+        const labels: Record<string, string> = { today: 'วันนี้', '7d': '7 วันล่าสุด', '30d': '30 วันล่าสุด', month: 'เดือนนี้' };
+        return { start, days, label: labels[period] ?? labels.today };
+      };
+      const formatMoney = (satang: number) => `฿${(satang / 100).toLocaleString('th-TH', { maximumFractionDigits: 2 })}`;
+      const formatDate = (date: Date | null) => date ? date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '—';
+
+      const renderDashboard = () => {
+        if (!paidSales || !pendingCount || !orderCount || !chart || !ordersBody) return;
+        const { start, days, label } = getPeriod();
+        const end = new Date();
+        const withinPeriod = dashboardOrders.filter((order) => {
+          const date = dateForOrder(order);
+          return !!date && date >= start && date <= end;
         });
-      }).catch((error) => console.error('[SOULMATE Orders] Dashboard orders failed:', error));
+        const paidOrders = withinPeriod.filter(isPaid);
+        const waitingOrders = withinPeriod.filter((order) => order.status === 'pending_payment' && !isPaid(order));
+        paidSales.textContent = formatMoney(paidOrders.reduce((total, order) => total + (order.totalSatang || 0), 0));
+        pendingCount.textContent = waitingOrders.length.toLocaleString('th-TH');
+        orderCount.textContent = withinPeriod.length.toLocaleString('th-TH');
+        const periodLabel = doc.getElementById('dashboard-period-label');
+        if (periodLabel) periodLabel.textContent = label;
+
+        const dailySales = Array.from({ length: days }, () => 0);
+        paidOrders.forEach((order) => {
+          const date = dateForOrder(order);
+          if (!date) return;
+          const index = Math.floor((new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() - start.getTime()) / 86400000);
+          if (index >= 0 && index < dailySales.length) dailySales[index] += order.totalSatang || 0;
+        });
+        const maxValue = Math.max(...dailySales);
+        if (!maxValue) {
+          chart.innerHTML = '<div class="dashboard-chart-empty">ยังไม่มีรายการชำระในช่วงนี้</div>';
+        } else {
+          const left = 14, right = 586, top = 18, bottom = 166;
+          const points = dailySales.map((value, index) => {
+            const x = days === 1 ? (left + right) / 2 : left + index * (right - left) / (days - 1);
+            const y = bottom - value / maxValue * (bottom - top);
+            return `${x},${y}`;
+          });
+          const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('viewBox', '0 0 600 190');
+          svg.setAttribute('role', 'img');
+          svg.setAttribute('aria-label', `ยอดขาย ${label} ${formatMoney(paidOrders.reduce((total, order) => total + (order.totalSatang || 0), 0))}`);
+          [top, (top + bottom) / 2, bottom].forEach((y) => {
+            const line = doc.createElementNS(svg.namespaceURI, 'line');
+            line.setAttribute('x1', String(left)); line.setAttribute('x2', String(right));
+            line.setAttribute('y1', String(y)); line.setAttribute('y2', String(y));
+            line.setAttribute('stroke', '#edf1ed'); line.setAttribute('stroke-width', '1');
+            svg.appendChild(line);
+          });
+          const path = doc.createElementNS(svg.namespaceURI, 'polyline');
+          path.setAttribute('points', points.join(' ')); path.setAttribute('fill', 'none');
+          path.setAttribute('stroke', '#3d8063'); path.setAttribute('stroke-width', '3');
+          path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
+          svg.appendChild(path);
+          dailySales.forEach((value, index) => {
+            if (!value) return;
+            const [cx, cy] = points[index].split(',');
+            const dot = doc.createElementNS(svg.namespaceURI, 'circle');
+            dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', '4');
+            dot.setAttribute('fill', '#3d8063'); dot.setAttribute('stroke', '#fff'); dot.setAttribute('stroke-width', '2');
+            svg.appendChild(dot);
+          });
+          chart.replaceChildren(svg);
+        }
+
+        ordersBody.replaceChildren();
+        [...withinPeriod].sort((a, b) => (dateForOrder(b)?.getTime() ?? 0) - (dateForOrder(a)?.getTime() ?? 0)).slice(0, 8).forEach((order) => {
+          const row = doc.createElement('tr');
+          const orderCell = doc.createElement('td');
+          const orderLink = doc.createElement('a');
+          orderLink.href = `/admin/orders/${encodeURIComponent(order.id)}`;
+          orderLink.textContent = order.orderNumber || order.id;
+          orderCell.appendChild(orderLink); row.appendChild(orderCell);
+          const customer = `${order.contact?.firstName ?? ''} ${order.contact?.lastName ?? ''}`.trim() || 'ลูกค้าทั่วไป';
+          [formatDate(dateForOrder(order)), customer, formatMoney(order.totalSatang || 0)].forEach((value) => {
+            const cell = doc.createElement('td'); cell.textContent = value; row.appendChild(cell);
+          });
+          const statusCell = doc.createElement('td');
+          const badge = doc.createElement('span'); badge.className = 'dashboard-status';
+          if (isPaid(order)) { badge.textContent = 'ชำระแล้ว'; badge.dataset.status = 'paid'; }
+          else if (order.status === 'pending_payment') { badge.textContent = 'รอชำระ'; badge.dataset.status = 'pending'; }
+          else if (order.status === 'expired' || order.payment?.status === 'expired') { badge.textContent = 'หมดอายุ'; badge.dataset.status = 'failed'; }
+          else { badge.textContent = 'ไม่สำเร็จ'; badge.dataset.status = 'failed'; }
+          statusCell.appendChild(badge); row.appendChild(statusCell); ordersBody.appendChild(row);
+        });
+        if (!withinPeriod.length) {
+          const row = doc.createElement('tr'); const cell = doc.createElement('td');
+          cell.colSpan = 5; cell.textContent = 'ไม่มีออเดอร์ในช่วงนี้';
+          cell.style.cssText = 'padding:28px 12px;text-align:center;color:#78827c';
+          row.appendChild(cell); ordersBody.appendChild(row);
+        }
+      };
+
+      if (dashboardState && dashboardContent) {
+        const loadDashboard = async () => {
+          dashboardState.hidden = false;
+          dashboardState.dataset.kind = '';
+          dashboardState.textContent = 'กำลังโหลดข้อมูล…';
+          dashboardContent.hidden = true;
+          try {
+            dashboardOrders = await listAdminOrders();
+            dashboardState.hidden = true;
+            dashboardContent.hidden = false;
+            renderDashboard();
+          } catch (error) {
+            console.error('[SOULMATE Orders] Dashboard orders failed:', error);
+            dashboardState.dataset.kind = 'error';
+            dashboardState.replaceChildren(doc.createTextNode('โหลดข้อมูลไม่สำเร็จ '));
+            const retry = doc.createElement('button');
+            retry.type = 'button'; retry.textContent = 'ลองอีกครั้ง';
+            retry.className = 'dashboard-link';
+            retry.addEventListener('click', () => void loadDashboard());
+            dashboardState.appendChild(retry);
+          }
+        };
+        periodSelect?.addEventListener('change', renderDashboard);
+        void loadDashboard();
+      }
     }
 
     // =========================================================================

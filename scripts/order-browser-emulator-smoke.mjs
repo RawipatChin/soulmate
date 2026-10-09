@@ -15,6 +15,8 @@ const adminApp = initializeAdminApp({ projectId }, 'browser-smoke-admin');
 const productId = `browser-smoke-${randomUUID()}`;
 const port = 3100;
 const origin = `http://127.0.0.1:${port}`;
+const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8081';
+const firestorePort = Number(firestoreHost.slice(firestoreHost.lastIndexOf(':') + 1));
 const chromePath = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const cartItem = {
   id: `${productId}::base`, productId, productName: 'Browser smoke product',
@@ -69,6 +71,7 @@ async function main() {
       VITE_FIREBASE_API_KEY: 'fake-api-key', VITE_FIREBASE_AUTH_DOMAIN: `${projectId}.firebaseapp.com`,
       VITE_FIREBASE_PROJECT_ID: projectId, VITE_FIREBASE_APP_ID: '1:123:web:smoke',
       VITE_USE_FIREBASE_EMULATORS: 'true', VITE_CHECKOUT_TEST_MODE_ENABLED: 'true',
+      VITE_FIRESTORE_EMULATOR_PORT: String(firestorePort),
       VITE_OMISE_TEST_MODE_ENABLED: 'false',
     },
   });
@@ -91,7 +94,7 @@ async function main() {
     const customerAuth = getAuth(customerApp);
     connectAuthEmulator(customerAuth, 'http://127.0.0.1:9099', { disableWarnings: true });
     const customerDb = getFirestore(customerApp);
-    connectFirestoreEmulator(customerDb, '127.0.0.1', 8080);
+    connectFirestoreEmulator(customerDb, '127.0.0.1', firestorePort);
     const customerUser = (await createUserWithEmailAndPassword(customerAuth, customerEmail, password)).user;
     await setDoc(doc(customerDb, 'users', customerUser.uid), {
       email: customerEmail, role: 'customer', status: 'active', completedOrderCount: 0, lifetimeSpend: 0,

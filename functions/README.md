@@ -26,6 +26,8 @@ The CLI account must be allowed to set Cloud Run service IAM policies so Firebas
 
 From the repository root, run `npm run demo:checkout`. This builds Functions, starts the Auth, Firestore, Functions and Storage Emulators under the isolated `demo-soulmate` project, seeds two test products plus a customer account, starts the web app at `http://127.0.0.1:3100/products`, and opens Chrome. Use the catalog to add a product and finish checkout as a guest. To try a member, sign in as `demo.customer@example.test` with password `DemoCheckout123!`. Orders appear in the Emulator UI at `http://127.0.0.1:4000/firestore` under `orders`; they remain visible while the command is running and disappear after Ctrl+C. The demo does not use the real Firebase project or collect payment. `CHECKOUT_DEMO_NO_BROWSER=1` skips opening Chrome when running automated checks; `FIREBASE_CLI_PATH` can point to an installed `firebase.js` if the CLI is not in the local npm cache.
 
+The interactive demo picks the first free Firestore port from `8081` through `8090`, then passes it to the Emulator, seed step, and web client. It allows five minutes for the first download and startup of Firebase emulators; keep the terminal open until the products page is ready. Smoke scripts read the port supplied by `firebase emulators:exec`. Firebase CLI 15.33 requires Java 21 or newer; check `java -version` in the terminal running the demo.
+
 ### Automated checks
 
 Run `npm run build --prefix functions`, then use Firebase Emulator Suite with Java on `PATH`:

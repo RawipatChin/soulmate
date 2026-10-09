@@ -239,442 +239,86 @@
 </div>
 </header>
 <!-- Main Content Area -->
-<main class="w-full pt-16 flex-1 bg-background">
-<div class="flex flex-col w-full pb-space-xl">
-<!-- Welcome Banner -->
-<section class="px-margin md:px-margin-md pt-space-md pb-space-xs">
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-md bg-surface-container-lowest p-space-md rounded-xl shadow-xs border border-surface-container-low">
-<div class="flex items-center gap-space-md">
-<div class="w-10 h-10 rounded-xl bg-primary-container/40 flex items-center justify-center text-primary shrink-0">
-<span class="material-symbols-outlined text-[24px]">storefront</span>
-</div>
-<div class="flex flex-col">
-<div class="flex items-center gap-space-sm flex-wrap">
-<h1 class="font-headline-md text-headline-md text-on-surface">ยินดีต้อนรับสู่ระบบจัดการร้านค้า SOULMATE</h1>
-<span class="px-space-sm py-0.5 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm">Super Admin / Admin</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant">ระบบหลังบ้านภาพรวมสถานะสินค้า รายได้ และคำสั่งซื้อประจำวัน</p>
-</div>
-</div>
-<div class="flex items-center gap-space-md shrink-0 self-end md:self-auto">
-<div class="flex items-center gap-space-xs px-space-sm py-1 rounded-lg bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm">
-<span class="w-2 h-2 rounded-full bg-primary"></span>
-<span>Firebase Sync: เชื่อมต่อสำเร็จ (0 รายการ)</span>
-</div>
-</div>
-</div>
-</section>
-<!-- Quick Actions Panel -->
-<section class="px-margin md:px-margin-md py-space-xs">
-<div class="flex flex-wrap items-center justify-between gap-space-sm p-space-md bg-surface-container-low rounded-xl border border-surface-container">
-<div class="flex items-center gap-space-xs">
-<span class="material-symbols-outlined text-on-surface-variant text-[20px]">bolt</span>
-<span class="font-label-lg text-label-lg text-on-surface">การดำเนินการด่วน</span>
-</div>
-<div class="flex items-center gap-space-sm flex-wrap w-full sm:w-auto">
-<a class="flex-1 sm:flex-none flex items-center justify-center gap-space-xs px-space-md py-space-sm rounded-xl bg-tertiary text-on-tertiary font-label-lg text-label-lg shadow-sm hover:opacity-90 active:scale-[0.98] transition-all" href="/admin/products/new">
-<span class="material-symbols-outlined text-[20px]">add_circle</span>
-<span>+ เพิ่มสินค้า</span>
-</a>
-<a class="flex-1 sm:flex-none flex items-center justify-center gap-space-xs px-space-md py-space-sm rounded-xl bg-surface-container-lowest text-on-surface font-label-lg text-label-lg shadow-xs hover:bg-surface-container-high active:scale-[0.98] transition-all border border-surface-container" href="/admin/orders">
-<span class="material-symbols-outlined text-[20px]">receipt_long</span>
-<span>ดูคำสั่งซื้อ</span>
-</a>
-<a class="flex-1 sm:flex-none flex items-center justify-center gap-space-xs px-space-md py-space-sm rounded-xl bg-surface-container-lowest text-on-surface font-label-lg text-label-lg shadow-xs hover:bg-surface-container-high active:scale-[0.98] transition-all border border-surface-container" href="/admin/banners">
-<span class="material-symbols-outlined text-[20px]">view_carousel</span>
-<span>จัดการ Banner</span>
-</a>
-</div>
-</div>
-</section>
-<!-- STEP 10: GLOBAL DATE FILTER & GROUPING BAR -->
-<section class="px-margin md:px-margin-md py-space-sm">
-<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-container p-space-md flex flex-col gap-space-md">
-<!-- Active Period Status Banner -->
-<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm pb-space-sm border-b border-surface-container-low">
-<div class="flex items-center gap-space-sm flex-wrap">
-<span class="inline-flex items-center gap-1.5 px-space-sm py-1 rounded-full bg-primary-container/80 text-on-primary-container font-label-md text-label-md">
-<span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
-<span class="font-semibold" id="active-period-label">กำลังดู: วันนี้</span>
-</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
-<span class="material-symbols-outlined text-[16px] text-outline">compare_arrows</span>
-<span>เปรียบเทียบกับ เมื่อวาน: <span class="text-on-surface font-medium">ไม่มีข้อมูลเปรียบเทียบ</span></span>
-</span>
-</div>
-<!-- Mobile Toggle Button for Date Controls -->
-<div class="sm:hidden w-full">
-<button class="w-full flex items-center justify-center gap-space-xs px-space-md py-space-sm rounded-xl bg-surface-container-low text-on-surface font-label-md border border-surface-container" onclick="document.getElementById('mobile-date-controls').classList.toggle('hidden')" type="button">
-<span class="material-symbols-outlined text-[18px]">calendar_month</span>
-<span>ช่วงเวลา &amp; มุมมอง</span>
-<span class="material-symbols-outlined text-[18px]">expand_more</span>
-</button>
-</div>
-</div>
-<!-- Toolbar Controls (Presets + Grouping + Pickers) -->
-<div class="hidden sm:flex flex-col lg:flex-row lg:items-center justify-between gap-space-md" id="desktop-date-controls">
-<!-- Preset Period Pills -->
-<div class="flex items-center gap-1 flex-wrap" id="period-preset-pills">
-<button class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md bg-primary-container text-on-primary-container font-bold shadow-xs transition-all period-pill active" data-period="today" type="button">
-                  วันนี้
-                </button>
-<button class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all period-pill" data-period="7d" type="button">
-                  7 วันล่าสุด
-                </button>
-<button class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all period-pill" data-period="30d" type="button">
-                  30 วันล่าสุด
-                </button>
-<button class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all period-pill" data-period="this_week" type="button">
-                  สัปดาห์นี้
-                </button>
-<button class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all period-pill" data-period="this_month" type="button">
-                  เดือนนี้
-                </button>
-<button class="px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all period-pill" data-period="this_year" type="button">
-                  ปีนี้
-                </button>
-<button class="flex items-center gap-1 px-space-sm py-1.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all border border-dashed border-outline-variant" id="btn-custom-range" onclick="toggleCustomRange()" type="button">
-<span>เลือกช่วงวันที่</span>
-<span class="material-symbols-outlined text-[16px]">calendar_month</span>
-</button>
-</div>
-<!-- Grouping & Selectors -->
-<div class="flex items-center gap-space-sm flex-wrap lg:justify-end">
-<!-- Grouping ("มุมมอง") -->
-<div class="flex items-center gap-1.5 bg-surface-container-low p-1 rounded-xl border border-surface-container">
-<span class="font-label-sm text-label-sm text-on-surface-variant pl-1.5">มุมมอง:</span>
-<button class="px-space-sm py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface font-semibold shadow-xs transition-all grouping-btn" data-group="daily" type="button">
-                    รายวัน
-                  </button>
-<button class="px-space-sm py-1 rounded-lg font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-all grouping-btn" data-group="weekly" type="button">
-                    รายสัปดาห์
-                  </button>
-<button class="px-space-sm py-1 rounded-lg font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-all grouping-btn" data-group="monthly" type="button">
-                    รายเดือน
-                  </button>
-</div>
-<!-- Month & Year Pickers -->
-<div class="flex items-center gap-1.5">
-<select class="text-label-sm font-label-sm bg-surface-container-low border border-surface-container text-on-surface rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-<option value="1">มกราคม</option>
-<option value="2">กุมภาพันธ์</option>
-<option value="3">มีนาคม</option>
-<option value="4">เมษายน</option>
-<option value="5">พฤษภาคม</option>
-<option value="6">มิถุนายน</option>
-<option value="7">กรกฎาคม</option>
-<option value="8">สิงหาคม</option>
-<option selected="" value="9">กันยายน</option>
-<option value="10">ตุลาคม</option>
-<option value="11">พฤศจิกายน</option>
-<option value="12">ธันวาคม</option>
-</select>
-<select class="text-label-sm font-label-sm bg-surface-container-low border border-surface-container text-on-surface rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-<option selected="" value="2026">2026</option>
-<option value="2025">2025</option>
-<option value="2024">2024</option>
-</select>
-</div>
-</div>
-</div>
-<!-- Mobile Collapsible Date Controls -->
-<div class="hidden sm:hidden flex flex-col gap-space-sm pt-space-xs border-t border-surface-container-low" id="mobile-date-controls">
-<div class="flex flex-wrap gap-1">
-<button class="px-space-sm py-1 rounded-lg font-label-sm bg-primary-container text-on-primary-container font-bold" type="button">วันนี้</button>
-<button class="px-space-sm py-1 rounded-lg font-label-sm bg-surface-container-low text-on-surface-variant" type="button">7 วันล่าสุด</button>
-<button class="px-space-sm py-1 rounded-lg font-label-sm bg-surface-container-low text-on-surface-variant" type="button">30 วันล่าสุด</button>
-<button class="px-space-sm py-1 rounded-lg font-label-sm bg-surface-container-low text-on-surface-variant" type="button">เดือนนี้</button>
-<button class="px-space-sm py-1 rounded-lg font-label-sm bg-surface-container-low text-on-surface-variant" type="button">ปีนี้</button>
-</div>
-<div class="flex items-center gap-2">
-<select class="w-1/2 text-label-sm bg-surface-container-low border border-surface-container rounded-lg px-2 py-1.5">
-<option selected="">กันยายน</option>
-</select>
-<select class="w-1/2 text-label-sm bg-surface-container-low border border-surface-container rounded-lg px-2 py-1.5">
-<option selected="">2026</option>
-</select>
-</div>
-</div>
-<!-- Custom Date Range Popover / Collapsible Bar -->
-<div class="hidden p-space-md bg-surface-container-low rounded-xl border border-surface-container flex flex-wrap items-center justify-between gap-space-md" id="custom-range-bar">
-<div class="flex items-center gap-space-sm flex-wrap w-full md:w-auto">
-<span class="material-symbols-outlined text-primary text-[20px]">date_range</span>
-<span class="font-label-md text-label-md text-on-surface font-medium">กำหนดช่วงวันที่เอง:</span>
-<div class="flex items-center gap-space-xs flex-wrap">
-<label class="font-label-sm text-label-sm text-on-surface-variant">วันที่เริ่มต้น</label>
-<input class="px-space-sm py-1 text-label-sm rounded-lg border border-surface-container bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-1 focus:ring-primary" placeholder="วว/ดด/ปปปป" type="date"/>
-<span class="text-on-surface-variant text-label-sm">ถึง</span>
-<label class="font-label-sm text-label-sm text-on-surface-variant">วันที่สิ้นสุด</label>
-<input class="px-space-sm py-1 text-label-sm rounded-lg border border-surface-container bg-surface-container-lowest text-on-surface focus:outline-none focus:ring-1 focus:ring-primary" placeholder="วว/ดด/ปปปป" type="date"/>
-</div>
-</div>
-<div class="flex items-center gap-space-sm w-full md:w-auto justify-end">
-<button class="px-space-sm py-1 rounded-lg text-label-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface" onclick="toggleCustomRange()" type="button">ยกเลิก</button>
-<button class="px-space-md py-1.5 rounded-xl bg-tertiary text-on-tertiary font-label-md text-label-md shadow-xs hover:opacity-90 active:scale-[0.98] transition-all" onclick="applyCustomRange()" type="button">นำไปใช้</button>
-</div>
-</div>
-</div>
-</section>
-<!-- STEP 10: 5 MAIN SUMMARY KPI CARDS (Strict Zero Data Rule 100%) -->
-<section class="px-margin md:px-margin-md py-space-xs">
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-space-md">
-<!-- 1) ยอดขาย (Total Revenue) -->
-<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-xs border border-surface-container flex flex-col justify-between gap-space-md hover:shadow-md transition-shadow">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">ยอดขาย</span>
-<div class="w-9 h-9 rounded-xl bg-primary-container/50 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-[20px]">payments</span>
-</div>
-</div>
-<div>
-<div class="font-headline-xl text-headline-xl text-on-surface leading-tight">฿0</div>
-<div class="flex items-center gap-1 mt-1 text-on-surface-variant">
-<span class="font-label-sm text-label-sm">ไม่มีข้อมูลเปรียบเทียบ</span>
-</div>
-</div>
-</div>
-<!-- 2) คำสั่งซื้อ (Total Orders) -->
-<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-xs border border-surface-container flex flex-col justify-between gap-space-md hover:shadow-md transition-shadow">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">คำสั่งซื้อ</span>
-<div class="w-9 h-9 rounded-xl bg-secondary-container/60 flex items-center justify-center text-secondary">
-<span class="material-symbols-outlined text-[20px]">shopping_cart</span>
-</div>
-</div>
-<div>
-<div class="font-headline-xl text-headline-xl text-on-surface leading-tight">0 <span class="text-base font-normal text-on-surface-variant">รายการ</span></div>
-<div class="flex items-center gap-1 mt-1 text-on-surface-variant">
-<span class="font-label-sm text-label-sm">คำสั่งซื้อสำเร็จ 0 รายการ</span>
-</div>
-</div>
-</div>
-<!-- 3) ลูกค้าใหม่ (New Customers) -->
-<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-xs border border-surface-container flex flex-col justify-between gap-space-md hover:shadow-md transition-shadow">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">ลูกค้าใหม่</span>
-<div class="w-9 h-9 rounded-xl bg-surface-container flex items-center justify-center text-on-surface-variant">
-<span class="material-symbols-outlined text-[20px]">person_add</span>
-</div>
-</div>
-<div>
-<div class="font-headline-xl text-headline-xl text-on-surface leading-tight">0 <span class="text-base font-normal text-on-surface-variant">คน</span></div>
-<div class="flex items-center gap-1 mt-1 text-on-surface-variant">
-<span class="font-label-sm text-label-sm">ลงทะเบียนในช่วงเวลานี้</span>
-</div>
-</div>
-</div>
-<!-- 4) สินค้าที่ขาย (Units Sold) -->
-<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-xs border border-surface-container flex flex-col justify-between gap-space-md hover:shadow-md transition-shadow">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">สินค้าที่ขาย</span>
-<div class="w-9 h-9 rounded-xl bg-tertiary-container/50 flex items-center justify-center text-tertiary">
-<span class="material-symbols-outlined text-[20px]">sell</span>
-</div>
-</div>
-<div>
-<div class="font-headline-xl text-headline-xl text-on-surface leading-tight">0 <span class="text-base font-normal text-on-surface-variant">ชิ้น</span></div>
-<div class="flex items-center gap-1 mt-1 text-on-surface-variant">
-<span class="font-label-sm text-label-sm">จำนวนชิ้นทั้งหมด</span>
-</div>
-</div>
-</div>
-<!-- 5) มูลค่าเฉลี่ยต่อออเดอร์ (AOV) -->
-<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-xs border border-surface-container flex flex-col justify-between gap-space-md hover:shadow-md transition-shadow">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">มูลค่าเฉลี่ยต่อออเดอร์ (AOV)</span>
-<div class="w-9 h-9 rounded-xl bg-primary-container/30 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-[20px]">price_check</span>
-</div>
-</div>
-<div>
-<div class="font-headline-xl text-headline-xl text-on-surface leading-tight">฿0</div>
-<div class="flex items-center gap-1 mt-1 text-on-surface-variant">
-<span class="font-label-sm text-label-sm">ยอดขายเฉลี่ย / ออเดอร์</span>
-</div>
-</div>
-</div>
-</div>
-</section>
-<!-- ORDER STATUS FLOW SECTION (Respecting Active Period) -->
-<section class="px-margin md:px-margin-md py-space-sm">
-<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-xs border border-surface-container">
-<div class="flex items-center justify-between pb-space-sm border-b border-surface-container-low mb-space-sm">
-<div class="flex items-center gap-space-xs">
-<span class="material-symbols-outlined text-primary text-[20px]">tune</span>
-<h2 class="font-headline-sm text-headline-sm text-on-surface">สถานะคำสั่งซื้อ (Order Pipeline)</h2>
-</div>
-<span class="font-label-sm text-label-sm text-on-surface-variant">อัปเดตตามช่วงเวลาที่เลือก</span>
-</div>
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-space-sm">
-<!-- รอยืนยัน -->
-<div class="p-space-sm rounded-xl bg-surface-container-low flex flex-col gap-space-xs border border-surface-container">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">รอยืนยัน</span>
-<span class="material-symbols-outlined text-[18px] text-outline">hourglass_empty</span>
-</div>
-<div class="font-headline-md text-headline-md text-on-surface">0</div>
-<span class="font-label-sm text-label-sm text-on-surface-variant">รอตรวจสอบชำระ</span>
-</div>
-<!-- กำลังเตรียมสินค้า -->
-<div class="p-space-sm rounded-xl bg-surface-container-low flex flex-col gap-space-xs border border-surface-container">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">กำลังเตรียมสินค้า</span>
-<span class="material-symbols-outlined text-[18px] text-outline">package_2</span>
-</div>
-<div class="font-headline-md text-headline-md text-on-surface">0</div>
-<span class="font-label-sm text-label-sm text-on-surface-variant">รอแพ็กสินค้า</span>
-</div>
-<!-- จัดส่งแล้ว -->
-<div class="p-space-sm rounded-xl bg-surface-container-low flex flex-col gap-space-xs border border-surface-container">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">จัดส่งแล้ว</span>
-<span class="material-symbols-outlined text-[18px] text-outline">local_shipping</span>
-</div>
-<div class="font-headline-md text-headline-md text-on-surface">0</div>
-<span class="font-label-sm text-label-sm text-on-surface-variant">อยู่ระหว่างขนส่ง</span>
-</div>
-<!-- สำเร็จ -->
-<div class="p-space-sm rounded-xl bg-surface-container-low flex flex-col gap-space-xs border border-surface-container">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">สำเร็จ</span>
-<span class="material-symbols-outlined text-[18px] text-primary">task_alt</span>
-</div>
-<div class="font-headline-md text-headline-md text-on-surface">0</div>
-<span class="font-label-sm text-label-sm text-on-surface-variant">จัดส่งถึงผู้รับแล้ว</span>
-</div>
-<!-- ยกเลิก -->
-<div class="p-space-sm rounded-xl bg-surface-container-low flex flex-col gap-space-xs col-span-2 sm:col-span-1 border border-surface-container">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">ยกเลิก</span>
-<span class="material-symbols-outlined text-[18px] text-error">cancel</span>
-</div>
-<div class="font-headline-md text-headline-md text-on-surface">0</div>
-<span class="font-label-sm text-label-sm text-on-surface-variant">รายการที่ยกเลิก</span>
-</div>
-</div>
-</div>
-</section>
-<!-- SALES OVERVIEW & LOW STOCK SECTION -->
-<section class="px-margin md:px-margin-md py-space-sm grid grid-cols-1 lg:grid-cols-3 gap-space-md">
-<!-- Left 2 Cols: Sales Overview Graphic State -->
-<div class="lg:col-span-2 bg-surface-container-lowest p-space-md rounded-xl shadow-xs border border-surface-container flex flex-col justify-between">
-<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm pb-space-md border-b border-surface-container-low">
-<div>
-<h2 class="font-headline-sm text-headline-sm text-on-surface" id="sales-overview-title">ภาพรวมยอดขาย (มุมมอง: รายวัน)</h2>
-<p class="font-body-sm text-body-sm text-on-surface-variant">สถิติและแนวโน้มคำสั่งซื้อในช่วงเวลาที่เลือก</p>
-</div>
-<div class="inline-flex p-1 bg-surface-container-low rounded-xl gap-1 border border-surface-container" id="sales-overview-quick-pills">
-<button class="px-space-sm py-1 rounded-lg font-label-sm text-label-sm bg-surface-container-lowest text-on-surface shadow-xs transition-all font-semibold" data-quick="today" type="button">วันนี้</button>
-<button class="px-space-sm py-1 rounded-lg font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-all" data-quick="7d" type="button">7 วันล่าสุด</button>
-<button class="px-space-sm py-1 rounded-lg font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-all" data-quick="30d" type="button">30 วันล่าสุด</button>
-</div>
-</div>
-<!-- Empty State Area (NO fake curves or arbitrary lines) -->
-<div class="relative w-full h-64 md:h-72 bg-surface-container-low/50 rounded-xl flex flex-col items-center justify-center p-space-lg text-center overflow-hidden my-space-sm border border-dashed border-surface-container">
-<svg class="absolute inset-0 w-full h-full opacity-30 pointer-events-none text-outline-variant" xmlns="http://www.w3.org/2000/svg">
-<defs>
-<pattern height="40" id="grid-pattern" patternunits="userSpaceOnUse" width="40">
-<path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" stroke-dasharray="3 3" stroke-width="0.5"></path>
-</pattern>
-</defs>
-<rect fill="url(#grid-pattern)" height="100%" width="100%"></rect>
-</svg>
-<div class="relative z-10 flex flex-col items-center max-w-sm">
-<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center text-outline mb-space-sm">
-<span class="material-symbols-outlined text-[32px]">query_stats</span>
-</div>
-<h3 class="font-headline-sm text-headline-sm text-on-surface mb-1">ยังไม่มีข้อมูลยอดขายในช่วงเวลานี้</h3>
-<p class="font-body-sm text-body-sm text-on-surface-variant">ข้อมูลและกราฟสรุปจะแสดงผลโดยอัตโนมัติเมื่อมีคำสั่งซื้อในช่วงเวลาที่เลือก</p>
-</div>
-</div>
-</div>
-<!-- Right 1 Col: Low Stock Warnings -->
-<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-xs border border-surface-container flex flex-col justify-between">
-<div class="flex items-center justify-between pb-space-md border-b border-surface-container-low">
-<div>
-<h2 class="font-headline-sm text-headline-sm text-on-surface">สินค้าใกล้หมด</h2>
-<p class="font-body-sm text-body-sm text-on-surface-variant">(สถานะคลังสินค้าแบบ Real-time ณ ปัจจุบัน ไม่อิงตามช่วงเวลาของยอดขาย)</p>
-</div>
-<a class="font-label-sm text-label-sm text-primary hover:underline flex items-center gap-0.5 shrink-0" href="/admin/products">
-<span>จัดการคลัง</span>
-<span class="material-symbols-outlined text-[16px]">chevron_right</span>
-</a>
-</div>
-<!-- Low Stock Empty State Container -->
-<div class="h-64 md:h-72 bg-surface-container-low/50 rounded-xl flex flex-col items-center justify-center p-space-md text-center my-space-sm border border-dashed border-surface-container">
-<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center text-outline mb-space-sm">
-<span class="material-symbols-outlined text-[28px]">inventory</span>
-</div>
-<h3 class="font-headline-sm text-headline-sm text-on-surface mb-1">ยังไม่มีข้อมูลสินค้า</h3>
-<p class="font-body-sm text-body-sm text-on-surface-variant max-w-xs mb-space-sm">เพิ่มรายการสินค้าลงในคลังเพื่อให้ระบบเริ่มตรวจเช็กสต็อกคงเหลือ</p>
-<a class="font-label-sm text-label-sm text-primary hover:underline font-semibold" href="/admin/products">ไปที่หน้าจัดการคลังสินค้า</a>
-</div>
-</div>
-</section>
-<!-- RECENT ORDERS SECTION (Table Structure with Specified Columns & Zero State) -->
-<section class="px-margin md:px-margin-md py-space-sm">
-<div class="bg-surface-container-lowest rounded-xl shadow-xs border border-surface-container overflow-hidden">
-<!-- Table Header Bar -->
-<div class="p-space-md flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm bg-surface-container-lowest border-b border-surface-container-low">
-<div>
-<h2 class="font-headline-sm text-headline-sm text-on-surface">คำสั่งซื้อล่าสุด</h2>
-<p class="font-body-sm text-body-sm text-on-surface-variant">รายการธุรกรรมที่เข้ามาล่าสุดในระบบแบบเรียลไทม์</p>
-</div>
-<div class="flex items-center gap-space-sm">
-<a class="px-space-md py-space-xs rounded-xl bg-surface-container-high text-on-surface font-label-md text-label-md hover:bg-surface-container-highest transition-all flex items-center gap-space-xs border border-surface-container" href="/admin/orders">
-<span>ดูคำสั่งซื้อทั้งหมด</span>
-<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
-</a>
-</div>
-</div>
-<!-- Table Columns matching spec -->
-<div class="w-full overflow-x-auto">
-<table class="w-full text-left min-w-[760px]">
-<thead>
-<tr class="bg-surface-container-low font-label-md text-label-md text-on-surface-variant border-b border-surface-container">
-<th class="px-space-md py-space-sm">เลขที่คำสั่งซื้อ</th>
-<th class="px-space-md py-space-sm">วันที่</th>
-<th class="px-space-md py-space-sm">ลูกค้า</th>
-<th class="px-space-md py-space-sm">ยอดรวม</th>
-<th class="px-space-md py-space-sm">วิธีชำระเงิน</th>
-<th class="px-space-md py-space-sm">สถานะการชำระ</th>
-<th class="px-space-md py-space-sm">สถานะคำสั่งซื้อ</th>
-<th class="px-space-md py-space-sm text-right">การจัดการ</th>
-</tr>
-</thead>
-<tbody>
-<!-- Zero State Row spanning all 8 columns -->
-<tr>
-<td class="py-space-xl px-space-md text-center" colspan="8">
-<div class="flex flex-col items-center justify-center max-w-md mx-auto py-space-lg">
-<div class="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center text-outline mb-space-md">
-<span class="material-symbols-outlined text-[36px]">receipt_long</span>
-</div>
-<h3 class="font-headline-md text-headline-md text-on-surface mb-space-xs">ยังไม่มีคำสั่งซื้อในช่วงเวลานี้</h3>
-<p class="font-body-md text-body-md text-on-surface-variant mb-space-md">เมื่อลูกค้าทำรายการสั่งซื้อสำเร็จ ข้อมูลจะปรากฏที่นี่โดยอัตโนมัติ</p>
-<a class="px-space-md py-space-sm rounded-xl bg-primary text-on-primary font-label-md text-label-md shadow-sm hover:opacity-95 transition-all flex items-center gap-space-xs" href="/admin/orders">
-<span class="material-symbols-outlined text-[18px]">shopping_bag</span>
-<span>ดูคำสั่งซื้อทั้งหมด</span>
-</a>
-</div>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-<!-- Table Footer -->
-<div class="px-space-md py-space-sm bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs text-on-surface-variant font-label-sm text-label-sm border-t border-surface-container">
-<div class="flex items-center gap-space-xs">
-<span class="material-symbols-outlined text-[16px] text-primary">verified_user</span>
-<span>สิทธิ์การเข้าถึงและการแสดงผลข้อมูลจะถูกตรวจสอบผ่าน Firebase Authentication &amp; Firestore Role Rules</span>
-</div>
-<div class="flex items-center gap-space-xs">
-<span>แสดง 0 ถึง 0 จากทั้งหมด 0 รายการ</span>
-</div>
-</div>
-</div>
-</section>
-</div>
+<main class="soulmate-dashboard">
+  <style>
+    .soulmate-dashboard { min-height: 100vh; padding: 88px 28px 36px; background: #fbfaf8; color: #202521; font: 14px/1.5 system-ui, sans-serif; }
+    .soulmate-dashboard * { box-sizing: border-box; }
+    .dashboard-inner { width: min(100%, 1440px); margin: 0 auto; }
+    .dashboard-top { display:flex; justify-content:space-between; align-items:center; gap:16px; margin:0 0 22px; }
+    .dashboard-top h2 { margin:0; font-size:22px; line-height:1.2; letter-spacing:-.025em; font-weight:650; }
+    .dashboard-top p { margin:5px 0 0; color:#68726c; font-size:13px; }
+    .dashboard-tools { display:flex; align-items:center; gap:10px; }
+    .dashboard-select,.dashboard-link { min-height:40px; border:1px solid #e2e7e3; border-radius:11px; padding:0 13px; background:#fff; color:#294f41; font:600 13px system-ui,sans-serif; text-decoration:none; }
+    .dashboard-select { cursor:pointer; }
+    .dashboard-link { display:inline-flex; align-items:center; justify-content:center; }
+    .dashboard-link:hover { background:#f1f7f3; }
+    .dashboard-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-bottom:16px; }
+    .dashboard-kpi,.dashboard-panel { background:#fff; border:1px solid #e8ece9; border-radius:16px; }
+    .dashboard-kpi { padding:17px 19px; }
+    .dashboard-kpi-label { color:#68726c; font-size:12px; font-weight:550; }
+    .dashboard-kpi-value { margin-top:8px; font-size:28px; line-height:1.15; letter-spacing:-.03em; font-weight:650; font-variant-numeric:tabular-nums; }
+    .dashboard-kpi[data-tone="sage"] .dashboard-kpi-value { color:#28624d; }
+    .dashboard-panel { padding:18px 20px; margin-bottom:16px; }
+    .dashboard-panel-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .dashboard-panel-head h3 { margin:0; font-size:15px; font-weight:650; letter-spacing:-.01em; }
+    .dashboard-chart { min-height:210px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .dashboard-chart svg { display:block; width:100%; height:210px; overflow:visible; }
+    .dashboard-chart-empty,.dashboard-state { color:#78827c; text-align:center; }
+    .dashboard-state { padding:28px 14px; border:1px solid #e8ece9; border-radius:14px; background:#fff; margin-bottom:16px; }
+    .dashboard-state[data-kind="error"] { color:#9e3838; }
+    .dashboard-orders-wrap { overflow:auto; }
+    .dashboard-orders { width:100%; border-collapse:collapse; text-align:left; }
+    .dashboard-orders th { padding:10px 12px; color:#68726c; background:#f7f8f6; font-size:11px; font-weight:600; white-space:nowrap; }
+    .dashboard-orders td { padding:12px; border-top:1px solid #edf0ed; font-size:13px; white-space:nowrap; }
+    .dashboard-orders a { color:#28624d; font-weight:650; text-decoration:none; }
+    .dashboard-orders a:hover { text-decoration:underline; }
+    .dashboard-status { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; color:#53625a; background:#f0f3f0; font-size:11px; font-weight:600; }
+    .dashboard-status[data-status="paid"] { color:#246046; background:#e9f5ed; }
+    .dashboard-status[data-status="pending"] { color:#79591e; background:#fbf3df; }
+    .dashboard-status[data-status="failed"] { color:#963d3d; background:#faeaea; }
+    @media(max-width:700px) {
+      .soulmate-dashboard { padding:80px 15px 24px; }
+      .dashboard-top { align-items:flex-start; flex-direction:column; gap:12px; margin-bottom:15px; }
+      .dashboard-top h2 { font-size:20px; }
+      .dashboard-tools { width:100%; }
+      .dashboard-select,.dashboard-link { flex:1; }
+      .dashboard-kpis { grid-template-columns:1fr; gap:9px; margin-bottom:12px; }
+      .dashboard-kpi { padding:14px 16px; }
+      .dashboard-kpi-value { margin-top:4px; font-size:24px; }
+      .dashboard-panel { padding:15px 13px; border-radius:14px; margin-bottom:12px; }
+      .dashboard-chart,.dashboard-chart svg { min-height:180px; height:180px; }
+      .dashboard-orders { min-width:620px; }
+    }
+    @media(prefers-reduced-motion:reduce) { .dashboard-link { scroll-behavior:auto; } }
+  </style>
+  <div class="dashboard-inner">
+    <div class="dashboard-top">
+      <div><h2>ภาพรวม</h2><p id="dashboard-period-label">วันนี้</p></div>
+      <div class="dashboard-tools">
+        <select class="dashboard-select" id="dashboard-period" aria-label="ช่วงเวลา">
+          <option value="today">วันนี้</option><option value="7d">7 วัน</option><option value="30d">30 วัน</option><option value="month">เดือนนี้</option>
+        </select>
+      </div>
+    </div>
+    <div class="dashboard-state" id="dashboard-state" role="status" aria-live="polite">กำลังโหลดข้อมูล…</div>
+    <div id="dashboard-content" hidden>
+      <section class="dashboard-kpis" aria-label="สรุปคำสั่งซื้อ">
+        <article class="dashboard-kpi" data-tone="sage"><div class="dashboard-kpi-label">ยอดขายที่ชำระแล้ว</div><div class="dashboard-kpi-value" id="dashboard-paid-sales">฿0</div></article>
+        <article class="dashboard-kpi"><div class="dashboard-kpi-label">ออเดอร์รอชำระ</div><div class="dashboard-kpi-value" id="dashboard-pending-count">0</div></article>
+        <article class="dashboard-kpi"><div class="dashboard-kpi-label">ออเดอร์ทั้งหมด</div><div class="dashboard-kpi-value" id="dashboard-order-count">0</div></article>
+      </section>
+      <section class="dashboard-panel" aria-labelledby="dashboard-chart-title">
+        <div class="dashboard-panel-head"><h3 id="dashboard-chart-title">ยอดขาย</h3></div>
+        <div class="dashboard-chart" id="dashboard-chart" role="img" aria-label="กราฟยอดขาย"></div>
+      </section>
+      <section class="dashboard-panel" aria-labelledby="dashboard-orders-title">
+        <div class="dashboard-panel-head"><h3 id="dashboard-orders-title">ออเดอร์ล่าสุด</h3><a class="dashboard-link" href="/admin/orders">ดูทั้งหมด</a></div>
+        <div class="dashboard-orders-wrap">
+          <table class="dashboard-orders"><thead><tr><th>เลขออเดอร์</th><th>วันที่</th><th>ลูกค้า</th><th>ยอดรวม</th><th>สถานะ</th></tr></thead><tbody id="dashboard-orders-body"></tbody></table>
+        </div>
+      </section>
+    </div>
+  </div>
 </main>
 </div>
 <script>

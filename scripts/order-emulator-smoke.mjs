@@ -13,6 +13,8 @@ const { getFirestore: getAdminFirestore } = requireFunctions('firebase-admin/fir
 const { Timestamp } = requireFunctions('firebase-admin/firestore');
 const adminApp = initializeAdminApp({ projectId }, 'smoke-admin');
 const host = '127.0.0.1';
+const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST || `${host}:8081`;
+const firestorePort = Number(firestoreHost.slice(firestoreHost.lastIndexOf(':') + 1));
 const productId = `smoke-${randomUUID()}`;
 const unitPriceSatang = 12950;
 const contact = {
@@ -29,7 +31,7 @@ function client(name) {
   const auth = getAuth(app);
   connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
   const db = getFirestore(app);
-  connectFirestoreEmulator(db, host, 8080);
+  connectFirestoreEmulator(db, host, firestorePort);
   const functions = getFunctions(app);
   connectFunctionsEmulator(functions, host, 5001);
   return {
