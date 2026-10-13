@@ -100,7 +100,7 @@ export function AccountAuthPage({ mode }: { mode: AuthMode }) {
         {isAdmin && <Link className="account-auth-brand" to="/"><img src="/logo-soulmate.png" alt="SOULMATE" /></Link>}
         <div className="account-auth-intro">
           <h1 id="account-auth-heading">{title}</h1>
-          <p>{resetMode ? 'ระบุอีเมลที่ใช้กับบัญชีของคุณ' : isAdmin ? 'จัดการร้านด้วยบัญชี SOULMATE ของคุณ' : mode === 'register' ? 'สร้างบัญชีเพื่อจัดการข้อมูลส่วนตัว' : 'ยินดีต้อนรับกลับสู่ SOULMATE'}</p>
+          <p>{resetMode ? 'ระบุอีเมลที่ใช้กับบัญชีของคุณ' : isAdmin ? 'เข้าสู่ระบบเพื่อจัดการออเดอร์ การชำระเงิน และสินค้า' : mode === 'register' ? 'สร้างบัญชีเพื่อจัดการข้อมูลส่วนตัว' : 'ยินดีต้อนรับกลับสู่ SOULMATE'}</p>
           {!isAdmin && !resetMode && <p>ซื้อสินค้าแบบ guest ได้โดยไม่ต้องสมัครสมาชิก</p>}
         </div>
         <form className="account-auth-form" onSubmit={submit} noValidate>

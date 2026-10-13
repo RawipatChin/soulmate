@@ -12,5 +12,21 @@ service firebase.storage {
       allow read: if true;
       allow write, delete: if request.auth != null;
     }
+
+    // Admin-managed homepage banners. Visitors can view public images;
+    // only active administrators may upload or remove files.
+    match /banners/{bannerId}/{slot}/{fileName} {
+      function isAdmin() {
+        return request.auth != null &&
+          firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'] &&
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active';
+      }
+      allow read: if true;
+      allow write: if isAdmin() && slot in ['mobile', 'desktop'] &&
+        request.resource.size <= 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if isAdmin();
+    }
   }
 }

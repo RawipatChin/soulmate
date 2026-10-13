@@ -83,6 +83,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Public storefront reads only banners explicitly enabled by an admin.
+    // Public list queries must include where('active', '==', true).
+    match /banners/{bannerId} {
+      allow get, list: if resource.data.active == true || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
     // Admins collection: managed administrative accounts
     match /admins/{adminId} {
       allow read: if isAdmin();

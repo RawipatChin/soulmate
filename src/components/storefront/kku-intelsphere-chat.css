@@ -1,0 +1,20 @@
+.kku-chat-fallback {
+  position: fixed;
+  right: 18px;
+  bottom: 24px;
+  z-index: 1000;
+  max-width: min(360px, calc(100vw - 32px));
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid #d7e6de;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgb(24 54 39 / 14%);
+  color: #315d48;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .kku-chat-fallback { right: 12px; bottom: 82px; }
+}

@@ -33,10 +33,9 @@ The first version does not need embeddings, a vector database, or a dedicated RA
 - Product records are in Firestore. The storefront already requests `active` products; public Firestore reads are limited to active products. On 2026-10-09 the test catalog had four active products when checked online.
 - Product fields include descriptions, highlights, ingredients, usage instructions, price, stock, and variants. The current product model has no structured protein-per-serving or allergen fields.
 - The repository does not contain a separate approval state for bot guidance. The assistant reads the existing fields directly and ignores missing, generic placeholder, or health claim text as evidence.
-- The repository does not yet contain a working chat or AI service. A Gemini package and API key instruction exist in the scaffold, but no model call is present in the application source.
+- The storefront does not call a product-guidance model. The previous server-side Gemini experiment was disconnected from the storefront and has been removed; KKU IntelSphere is a separate widget integration.
 - No working, verified store policy/FAQ source or store contact destination was found. These need to be supplied before the assistant can cite policies or link to a handoff channel.
 - Live catalog access worked for this implementation. The published records include placeholder descriptions and health-related marketing claims; the assistant filters these out and will return insufficient-information responses where nothing usable remains.
-- Firebase project `soulmate-web-bd695` does not yet have a `GEMINI_API_KEY` secret. Real model calls and deployment remain unavailable until the owner adds it.
 
 ## Release checks
 

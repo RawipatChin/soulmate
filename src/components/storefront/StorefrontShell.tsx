@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { getCartSnapshot } from '../../services/cartService';
 import { useAuth } from '../../context/AuthContext';
 import { canAccessAdmin } from '../../utils/accountAccess';
+import { KkuIntelsphereChat } from './KkuIntelsphereChat';
 import './storefront.css';
 
 type StorefrontShellProps = {
@@ -91,6 +92,8 @@ export function StorefrontShell({
       {menuOpen && <button aria-label="ปิดเมนู" className="storefront-menu-backdrop" onClick={() => setMenuOpen(false)} type="button" />}
 
       <main className={`storefront-content ${contentClassName}`}>{children}</main>
+
+      {location.pathname === '/' && <KkuIntelsphereChat />}
 
       <nav aria-label="เมนูด้านล่าง" className="storefront-mobile-tabs">
         <Link aria-current={active('/') ? 'page' : undefined} to="/">

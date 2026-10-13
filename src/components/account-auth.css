@@ -10,10 +10,12 @@
 
 .account-auth--admin {
   width: 100%;
+  max-width: 100%;
   min-height: 100vh;
-  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.85fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(420px, 0.95fr);
   padding: 0;
-  background: #fcf9f8;
+  background: #f5f8f6;
+  overflow-x: clip;
 }
 
 .account-auth-visual {
@@ -45,6 +47,16 @@
 }
 
 .account-auth--admin .account-auth-main { width: min(calc(100% - 48px), 470px); }
+.account-auth--admin .account-auth-main { border: 1px solid #e1ebe5; box-shadow: 0 12px 32px -24px rgba(19, 46, 39, .32); }
+.account-auth--admin .account-auth-intro h1 { font-size: 28px; letter-spacing: -.02em; }
+.account-auth--admin .account-auth-form { gap: 18px; }
+.account-auth--admin .account-auth-form input { height: 48px; border-radius: 9px; transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease; }
+.account-auth--admin .account-auth-form input:focus { border-color: #2d6857; box-shadow: 0 0 0 3px rgba(45, 104, 87, .15); }
+.account-auth--admin .account-auth-submit { min-height: 48px; border-radius: 9px; box-shadow: 0 5px 14px -9px rgba(113, 19, 72, .55); transition: background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
+.account-auth--admin .account-auth-submit:active { transform: scale(.985); box-shadow: 0 2px 7px -5px rgba(113, 19, 72, .5); }
+.account-auth--admin .account-auth-text-action { transition: color 150ms ease; }
+.account-auth--admin .account-auth-visual { background: #173e30; }
+.account-auth--admin .account-auth-visual-image { border: 1px solid rgba(230, 245, 238, .18); border-radius: 16px; }
 .account-auth-brand { display: inline-flex; margin-bottom: 32px; }
 .account-auth-brand img { width: 150px; height: auto; max-height: 50px; object-fit: contain; }
 .account-auth-intro { margin-bottom: 32px; }
@@ -83,4 +95,13 @@
 @media (max-width: 420px) {
   .account-auth-main { padding: 26px 18px; }
   .account-auth-name-row { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-auth--admin *, .account-auth--admin *::before, .account-auth--admin *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

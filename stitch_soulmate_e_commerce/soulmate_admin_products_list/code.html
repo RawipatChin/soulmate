@@ -18,7 +18,7 @@
 <span>Firestore Collection:</span>
 <code class="text-primary font-semibold tracking-wide">products</code>
 <span class="text-outline-variant">|</span>
-<span>0 เอกสาร</span>
+<span data-products-document-count>กำลังโหลด…</span>
 </div>
 </div>
 <!-- Page Header & Action Bar -->
@@ -30,7 +30,7 @@
 </div>
 <h1 class="font-headline-xl text-headline-xl text-on-surface tracking-tight flex items-center gap-space-sm">
           สินค้า
-          <span class="px-space-sm py-0.5 text-label-sm font-label-sm rounded-full bg-surface-container-high text-secondary font-medium">0 รายการ</span>
+          <span data-products-total class="px-space-sm py-0.5 text-label-sm font-label-sm rounded-full bg-surface-container-high text-secondary font-medium">กำลังโหลด…</span>
 </h1>
 <p class="font-body-md text-body-md text-secondary max-w-xl">
           จัดการรายการผลิตภัณฑ์เสริมอาหาร ความงาม และสต็อกสินค้าของแบรนด์ SOULMATE ทั้งหมดในที่เดียว
@@ -55,8 +55,8 @@
 <span class="material-symbols-outlined text-[20px] text-primary">storefront</span>
 </div>
 <div class="mt-2 flex items-baseline gap-2">
-<span class="font-headline-lg text-headline-lg text-on-surface font-semibold">0</span>
-<span class="font-label-sm text-label-sm text-secondary">SKUs</span>
+<span data-products-metric="available" class="font-headline-lg text-headline-lg text-on-surface font-semibold">–</span>
+<span class="font-label-sm text-label-sm text-secondary">รายการ</span>
 </div>
 </div>
 <div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
@@ -65,7 +65,7 @@
 <span class="material-symbols-outlined text-[20px] text-secondary">edit_note</span>
 </div>
 <div class="mt-2 flex items-baseline gap-2">
-<span class="font-headline-lg text-headline-lg text-on-surface font-semibold">0</span>
+<span data-products-metric="draft" class="font-headline-lg text-headline-lg text-on-surface font-semibold">–</span>
 <span class="font-label-sm text-label-sm text-secondary">ฉบับ</span>
 </div>
 </div>
@@ -75,7 +75,7 @@
 <span class="material-symbols-outlined text-[20px] text-error">remove_shopping_cart</span>
 </div>
 <div class="mt-2 flex items-baseline gap-2">
-<span class="font-headline-lg text-headline-lg text-on-surface font-semibold">0</span>
+<span data-products-metric="out-of-stock" class="font-headline-lg text-headline-lg text-on-surface font-semibold">–</span>
 <span class="font-label-sm text-label-sm text-secondary">รายการ</span>
 </div>
 </div>
@@ -85,7 +85,7 @@
 <span class="material-symbols-outlined text-[20px] text-tertiary">account_balance_wallet</span>
 </div>
 <div class="mt-2 flex items-baseline gap-2">
-<span class="font-headline-lg text-headline-lg text-on-surface font-semibold">฿0.00</span>
+<span data-products-metric="inventory-value" class="font-headline-lg text-headline-lg text-on-surface font-semibold">กำลังคำนวณ…</span>
 <span class="font-label-sm text-label-sm text-secondary">THB</span>
 </div>
 </div>
@@ -97,20 +97,20 @@
 <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-md">
 <!-- Filter Tabs / Segmented Buttons -->
 <div class="flex items-center overflow-x-auto p-1 rounded-xl bg-surface-container-low max-w-full space-x-1" role="tablist">
-<button class="px-space-md py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-label-md text-label-md font-semibold shadow-sm whitespace-nowrap transition-all" type="button">
-              ทั้งหมด (0)
+<button data-products-filter="all" class="px-space-md py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-label-md text-label-md font-semibold shadow-sm whitespace-nowrap transition-all" type="button">
+              ทั้งหมด (–)
             </button>
-<button class="px-space-md py-1.5 rounded-lg text-secondary hover:text-on-surface font-label-md text-label-md whitespace-nowrap transition-colors" type="button">
-              Draft (0)
+<button data-products-filter="draft" class="px-space-md py-1.5 rounded-lg text-secondary hover:text-on-surface font-label-md text-label-md whitespace-nowrap transition-colors" type="button">
+              Draft (–)
             </button>
-<button class="px-space-md py-1.5 rounded-lg text-secondary hover:text-on-surface font-label-md text-label-md whitespace-nowrap transition-colors" type="button">
-              Published (0)
+<button data-products-filter="active" class="px-space-md py-1.5 rounded-lg text-secondary hover:text-on-surface font-label-md text-label-md whitespace-nowrap transition-colors" type="button">
+              Published (–)
             </button>
-<button class="px-space-md py-1.5 rounded-lg text-secondary hover:text-on-surface font-label-md text-label-md whitespace-nowrap transition-colors" type="button">
-              Inactive (0)
+<button data-products-filter="inactive" class="px-space-md py-1.5 rounded-lg text-secondary hover:text-on-surface font-label-md text-label-md whitespace-nowrap transition-colors" type="button">
+              Inactive (–)
             </button>
-<button class="px-space-md py-1.5 rounded-lg text-secondary hover:text-on-surface font-label-md text-label-md whitespace-nowrap transition-colors" type="button">
-              Out of Stock (0)
+<button data-products-filter="out-of-stock" class="px-space-md py-1.5 rounded-lg text-secondary hover:text-on-surface font-label-md text-label-md whitespace-nowrap transition-colors" type="button">
+              Out of Stock (–)
             </button>
 </div>
 <!-- Search & Secondary Filters -->
@@ -199,7 +199,7 @@
 <!-- Pagination & Data Footprint Bar -->
 <div class="p-space-md bg-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-space-sm font-body-sm text-body-sm text-secondary">
 <div class="flex items-center gap-2">
-<span>แสดง <strong class="text-on-surface font-semibold">0</strong> ถึง <strong class="text-on-surface font-semibold">0</strong> จากทั้งหมด <strong class="text-on-surface font-semibold">0</strong> รายการ</span>
+<span data-products-range>กำลังโหลดรายการสินค้า…</span>
 </div>
 <div class="flex items-center gap-space-xs">
 <button class="p-1.5 rounded-lg text-outline-variant cursor-not-allowed opacity-50 flex items-center justify-center" disabled="" type="button">
