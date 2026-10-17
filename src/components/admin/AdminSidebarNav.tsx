@@ -4,6 +4,7 @@ export const adminSidebarLinks = [
   { path: '/admin/dashboard', key: 'admin-dashboard', label: 'Dashboard', icon: 'dashboard' },
   { path: '/admin/products', key: 'admin-products', label: 'Products', icon: 'inventory_2' },
   { path: '/admin/orders', key: 'admin-orders', label: 'Orders', icon: 'shopping_bag' },
+  { path: '/admin/fulfillment', key: 'admin-fulfillment', label: 'Fulfillment', icon: 'local_shipping' },
   { path: '/admin/customers', key: 'admin-customers', label: 'Customers', icon: 'group' },
   { path: '/admin/banners', key: 'admin-banners', label: 'Banners', icon: 'view_carousel' },
   { path: '/admin/coupons', key: 'admin-coupons', label: 'Coupons', icon: 'confirmation_number' },

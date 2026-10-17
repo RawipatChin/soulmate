@@ -137,17 +137,17 @@
     line-height: 1.3 !important;
   }
   [data-soulmate-admin-view="/admin/settings"] #saveBtnTop > span:last-child { display: none !important; }
-  [data-soulmate-admin-view="/admin/settings"] > aside.fixed.bottom-0 {
+  [data-soulmate-admin-view="/admin/settings"] > #settings-save-bar {
     gap: 8px !important;
     padding: 10px 12px !important;
   }
-  [data-soulmate-admin-view="/admin/settings"] > aside.fixed.bottom-0 > div:last-child {
+  [data-soulmate-admin-view="/admin/settings"] > #settings-save-bar > div:last-child {
     display: grid !important;
     width: 100% !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) !important;
     gap: 8px !important;
   }
-  [data-soulmate-admin-view="/admin/settings"] > aside.fixed.bottom-0 > div:last-child > button {
+  [data-soulmate-admin-view="/admin/settings"] > #settings-save-bar > div:last-child > button {
     min-width: 0 !important;
     justify-content: center !important;
     padding: 8px 9px !important;

@@ -98,7 +98,7 @@
     }
   }
 }</script><style>
-  /* SOULMATE settings workspace: quiet surfaces, clear wayfinding and one task at a time. */
+  /* SOULMATE settings workspace: all store settings stay visible in one page. */
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; color: #202923 !important; background: #f5f7f5 !important; }
   .pl-72 > main { background: #f5f7f5 !important; }
   .pl-72 > main > div:first-child { width: min(100%, 1180px) !important; max-width: 1180px !important; margin: 0 auto !important; padding: 34px 36px 120px !important; gap: 20px !important; }
@@ -106,16 +106,16 @@
   .pl-72 > main > div:first-child > header nav { display: none !important; }
   .pl-72 > main h1 { font-family: inherit !important; font-size: clamp(28px, 3vw, 36px) !important; line-height: 1.12 !important; letter-spacing: -.035em !important; font-weight: 650 !important; color: #1e3027 !important; }
   .pl-72 > main h1 + div > div { background: #e8f2ec !important; border-radius: 999px !important; color: #436a55 !important; }
-  #settingsForm { display: grid !important; grid-template-columns: 220px minmax(0, 1fr) !important; gap: 32px !important; align-items: start !important; }
+  #settingsForm { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 18px !important; align-items: start !important; }
   #settingsForm > div { display: contents !important; }
-  #settingsForm > .settings-section-nav { display: flex !important; grid-column: 1 !important; grid-row: 1 !important; flex-direction: column; gap: 4px; position: sticky; top: 84px; padding: 8px; border: 1px solid #e4e9e5; border-radius: 16px; background: rgb(255 255 255 / 82%); backdrop-filter: blur(18px); }
+  #settingsForm > .settings-section-nav { display: none !important; }
   .settings-section-nav-label { padding: 8px 10px 10px; color: #79857d; font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
   .settings-section-tab { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 42px; padding: 9px 11px; border: 0; border-radius: 10px; background: transparent; color: #506057; text-align: left; font: 500 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; cursor: pointer; transition: color 160ms ease, background-color 160ms ease, transform 100ms ease; }
   .settings-section-tab:hover { background: #f1f5f2; color: #24392d; }
   .settings-section-tab:active { transform: scale(.985); }
   .settings-section-tab[aria-selected="true"] { background: #e8f2ec; color: #28573d; font-weight: 650; }
   .settings-section-tab .material-symbols-outlined { font-size: 18px; }
-  #settingsForm > section { grid-column: 2 !important; grid-row: 1 !important; width: 100%; min-width: 0; padding: 28px !important; gap: 24px !important; border: 1px solid #e4e9e5; border-radius: 18px !important; background: #fff !important; box-shadow: 0 2px 8px rgb(28 52 37 / 3%) !important; }
+  #settingsForm > section { width: 100%; min-width: 0; padding: 28px !important; gap: 24px !important; border: 1px solid #e4e9e5; border-radius: 18px !important; background: #fff !important; box-shadow: 0 2px 8px rgb(28 52 37 / 3%) !important; }
   #settingsForm > section[hidden] { display: none !important; }
   #settingsForm > section > div:first-child { padding-bottom: 16px !important; border-bottom: 1px solid #edf0ed; }
   #settingsForm > section > div:first-child > div:first-child > div:first-child { width: 38px !important; height: 38px !important; border-radius: 12px !important; background: #eff5f0 !important; color: #426c50 !important; }
@@ -136,16 +136,17 @@
   #settingsForm > section > div:last-child > div.p-space-sm { border-radius: 11px !important; background: #f3f7f4 !important; }
   #unsavedBanner { border: 1px solid #e2e9e3; background: #f0f6f1 !important; box-shadow: none !important; }
   #unsavedBanner > div:first-child > div:first-child { background: #e2efe5 !important; color: #466d50 !important; }
-  body > aside.fixed.bottom-0 { padding: 12px 36px !important; border-top: 1px solid #e5eae6; background: rgb(250 252 250 / 88%) !important; box-shadow: 0 -4px 18px rgb(25 52 34 / 4%) !important; backdrop-filter: blur(20px) saturate(160%); }
-  body > aside.fixed.bottom-0 button:last-child { min-height: 42px; padding-inline: 20px !important; border-radius: 11px !important; background: #35734b !important; color: #fff !important; box-shadow: none !important; }
+  #settings-save-bar { padding: 12px 36px !important; border-top: 1px solid #e5eae6; background: rgb(250 252 250 / 88%) !important; box-shadow: 0 -4px 18px rgb(25 52 34 / 4%) !important; backdrop-filter: blur(20px) saturate(160%); }
+  #settings-save-bar[hidden] { display: none !important; }
+  #settings-save-bar button:last-child { min-height: 42px; padding-inline: 20px !important; border-radius: 11px !important; background: #35734b !important; color: #fff !important; box-shadow: none !important; }
   .settings-section-tab:focus-visible, #settingsForm button:focus-visible { outline: 3px solid rgb(53 115 75 / 32%) !important; outline-offset: 2px !important; }
   @media (max-width: 900px) {
     .pl-72 > main > div:first-child { padding: 26px 24px 112px !important; }
     #settingsForm { grid-template-columns: 1fr !important; gap: 14px !important; }
-    #settingsForm > .settings-section-nav { position: sticky; z-index: 10; top: 64px; grid-column: 1 !important; grid-row: 1 !important; flex-direction: row; overflow-x: auto; white-space: nowrap; padding: 6px; border-radius: 13px; }
+    #settingsForm > .settings-section-nav { display: none !important; }
     .settings-section-nav-label { display: none; }
     .settings-section-tab { width: auto; min-width: max-content; min-height: 38px; padding: 8px 12px; }
-    #settingsForm > section { grid-column: 1 !important; grid-row: 2 !important; padding: 22px !important; }
+    #settingsForm > section { padding: 22px !important; }
   }
   @media (max-width: 600px) {
     .pl-72 > main > div:first-child { padding: 20px 14px 102px !important; }
@@ -154,35 +155,36 @@
     #settingsForm [role="tablist"] { width: 100%; overflow-x: auto; flex-wrap: nowrap !important; }
     #settingsForm #addPaymentMethodButton { margin-left: auto !important; min-width: max-content; }
     #settingsForm [data-payment-panel] { padding: 17px !important; }
-    body > aside.fixed.bottom-0 { padding: 10px 14px !important; }
+    #settings-save-bar { padding: 10px 14px !important; }
   }
   @media (prefers-reduced-motion: reduce) {
     .settings-section-tab, #settingsForm *, #settingsForm *::before, #settingsForm *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   }
   @media (prefers-reduced-transparency: reduce) {
-    #settingsForm > .settings-section-nav, body > aside.fixed.bottom-0 { background: #fff !important; backdrop-filter: none !important; }
+    #settings-save-bar { background: #fff !important; backdrop-filter: none !important; }
   }
   @media (prefers-contrast: more) {
-    #settingsForm > .settings-section-nav, #settingsForm > section, #settingsForm [data-payment-panel] { border-color: #68766d !important; }
+    #settingsForm > section, #settingsForm [data-payment-panel] { border-color: #68766d !important; }
     .settings-section-tab[aria-selected="true"] { outline: 1px solid #28573d; }
   }
   /* One-page settings view: keep every category in flow and reduce helper copy. */
-  #settingsForm { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 14px !important; }
-  #settingsForm > section { grid-column: auto !important; grid-row: auto !important; align-self: start; padding: 20px !important; gap: 16px !important; }
-  #settingsForm > section[hidden] { display: none !important; }
-  #settingsForm > section:not(#storeSettingsSection3) > div:first-child { padding-bottom: 10px !important; }
-  #settingsForm > section:not(#storeSettingsSection3) > div:first-child p,
-  #settingsForm > section:not(#storeSettingsSection3) p.font-label-sm,
-  #settingsForm > section:not(#storeSettingsSection3) p.font-body-sm { display: none !important; }
-  #settingsForm > section:not(#storeSettingsSection3) h2 { font-size: 17px !important; }
-  #settingsForm > section:not(#storeSettingsSection3) .mt-space-xs { margin-top: 0 !important; }
-  #settingsForm > section:not(#storeSettingsSection3) .gap-space-md { gap: 12px !important; }
-  #settingsForm > section:not(#storeSettingsSection3) .p-space-sm { padding: 10px !important; }
-  #settingsForm > section:not(#storeSettingsSection3) input:not([type="checkbox"]),
-  #settingsForm > section:not(#storeSettingsSection3) textarea { min-height: 40px; }
-  #settingsForm > section:not(#storeSettingsSection3) [data-payment-panel] { min-height: 116px; padding: 16px !important; }
-  #settingsForm > section:not(#storeSettingsSection3) [data-payment-panel] h3 + p { display: none !important; }
-  #settingsForm > section:not(#storeSettingsSection3) [data-payment-panel] { gap: 10px !important; }
+  #settingsForm { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; grid-template-rows: auto; grid-auto-flow: row; gap: 14px !important; }
+  #settingsForm > .settings-card-column { display: flex !important; min-width: 0; flex-direction: column; gap: 14px; }
+  #settingsForm .settings-card-column > section { width: 100%; min-width: 0; align-self: start; padding: 20px !important; gap: 16px !important; border: 1px solid #e4e9e5; border-radius: 18px !important; background: #fff !important; box-shadow: 0 2px 8px rgb(28 52 37 / 3%) !important; }
+  #settingsForm .settings-card-column > section[hidden] { display: none !important; }
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) > div:first-child { padding-bottom: 10px !important; }
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) > div:first-child p,
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) p.font-label-sm,
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) p.font-body-sm { display: none !important; }
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) h2 { font-size: 17px !important; }
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) .mt-space-xs { margin-top: 0 !important; }
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) .gap-space-md { gap: 12px !important; }
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) .p-space-sm { padding: 10px !important; }
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) input:not([type="checkbox"]),
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) textarea { min-height: 40px; }
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) [data-payment-panel] { min-height: 116px; padding: 16px !important; }
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) [data-payment-panel] h3 + p { display: none !important; }
+  #settingsForm .settings-card-column > section:not(#storeSettingsSection3) [data-payment-panel] { gap: 10px !important; }
   .settings-security-notice { display: none !important; }
   #unsavedBanner > div:first-child > div:nth-child(2) p:last-child { display: none !important; }
   .pl-72 > main > div:first-child > header > div:first-child > p { display: none !important; }
@@ -191,9 +193,9 @@
   .pl-72 > main > div:first-child > header > div:last-child { align-self: flex-end !important; }
   #storeSettingsSection2 > div > .p-space-sm,
   #storeSettingsSection6 > div:nth-last-child(-n+2) { display: none !important; }
-  body > aside.fixed.bottom-0 > div:first-child { display: none !important; }
+  #settings-save-bar > div:first-child { display: none !important; }
   @media (max-width: 900px) {
-    #settingsForm { grid-template-columns: minmax(0, 1fr) !important; }
+    #settingsForm { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: auto; grid-auto-flow: row; }
   }
 </style></head><body class="bg-background font-body-md text-on-surface"><aside class="fixed left-0 top-0 h-screen w-72 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between"><div class="p-space-lg flex flex-col gap-space-md"><div class="flex items-center"><a href="/admin/dashboard" data-path="dashboard" class="flex items-center"><img alt="SOULMATE" class="h-8 w-auto object-contain" src="/logo-soulmate.png"/></a></div><div class="flex items-center justify-between px-space-sm py-space-xs bg-surface-container-low rounded-lg"><div class="flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span><span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Store: Live TH-BKK</span></div><span class="material-symbols-outlined text-outline text-[16px]">store</span></div><nav class="flex flex-col gap-space-xs mt-space-sm" data-active-classes="bg-primary-container text-on-primary-container font-semibold rounded-full"><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span>Dashboard</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="products" href="#"><span class="material-symbols-outlined text-[20px]">inventory_2</span><span>Products</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="orders" href="#"><span class="material-symbols-outlined text-[20px]">shopping_bag</span><span>Orders</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="customers" href="#"><span class="material-symbols-outlined text-[20px]">group</span><span>Customers</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="banners" href="#"><span class="material-symbols-outlined text-[20px]">photo_library</span><span>Banners</span></a><a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-full text-on-surface-variant font-label-lg text-label-lg hover:bg-surface-container hover:text-on-surface transition-colors" data-path="coupons" href="#"><span class="material-symbols-outlined text-[20px]">sell</span><span>Coupons</span></a><a aria-current="page" class="flex items-center justify-between px-space-md py-space-sm transition-colors bg-primary-container text-on-primary-container font-semibold rounded-full" data-path="settings" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">settings</span><span>Settings</span></div><span class="material-symbols-outlined text-[16px] text-on-primary-container">admin_panel_settings</span></a></nav></div><div class="p-space-lg flex flex-col gap-space-md"><div class="p-space-sm bg-surface-container-low rounded-xl flex items-center justify-between"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-primary-fixed flex items-center justify-center"><span class="material-symbols-outlined text-on-primary-fixed-variant text-[18px]">verified_user</span></div><div><p class="font-label-sm text-label-sm text-on-surface-variant font-medium">Role Access</p><p class="font-label-lg text-label-lg font-bold text-on-surface">Super Admin</p></div></div><span class="material-symbols-outlined text-outline text-[18px]">lock</span></div><a class="flex items-center gap-space-xs text-error font-label-md text-label-md px-space-sm py-space-xs hover:bg-error-container hover:text-on-error-container rounded-lg transition-colors" data-path="logout" href="#"><span class="material-symbols-outlined text-[18px]">logout</span><span>Log Out</span></a></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 px-space-lg flex items-center justify-between"><div class="flex items-center gap-space-md flex-1 max-w-lg"><div class="relative w-full"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span><input class="w-full h-10 pl-10 pr-space-md rounded-full bg-surface-container-low text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary" placeholder="ค้นหาการตั้งค่า, ข้อมูลร้านค้า..." type="text"/></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-full bg-secondary-container text-on-secondary-container"><span class="w-2 h-2 rounded-full bg-primary"></span><span class="font-label-sm text-label-sm font-medium">Cloud Firestore Connected</span></div><div class="hidden xl:flex items-center px-space-sm py-space-xs rounded-full bg-surface-container text-secondary font-label-sm text-label-sm font-medium">v2.4 Production</div><button class="relative p-space-xs rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-tertiary"></span></button><div class="flex items-center gap-space-sm pl-space-sm"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden md:flex flex-col text-left"><span class="font-label-md text-label-md font-semibold text-on-surface">Dr. Nicha S.</span><span class="font-label-sm text-label-sm text-secondary">(Super Admin)</span></div></div></div></header><main class="w-full pt-16 px-space-lg min-h-screen bg-background"><div class="flex flex-col w-full pb-24">
 <!-- Unsaved Changes Floating Banner (Interactive State) -->
@@ -345,7 +347,7 @@
 <span class="material-symbols-outlined text-[18px]">receipt_long</span>
 </div>
 <div>
-<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">3. การตั้งค่าคำสั่งซื้อ</h2>
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">การตั้งค่าคำสั่งซื้อ</h2>
 <p class="font-label-sm text-label-sm text-secondary">โครงสร้างและวงจรสถานะคำสั่งซื้อ</p>
 </div>
 </div>
@@ -353,20 +355,17 @@
 </div>
 <div class="flex flex-col gap-space-md mt-space-xs">
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
-<!-- Order Prefix -->
+<!-- Automatic Order Number -->
 <div class="flex flex-col gap-space-xs">
-<label class="font-label-md text-label-md font-semibold text-on-surface">คำนำหน้า / เลขออเดอร์ล่าสุด</label>
-<input class="w-full h-11 px-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-colors font-mono" name="orderPrefix" type="text" value="SM-"/>
-<p id="orderPrefixHint" class="font-label-sm text-label-sm text-secondary">ใส่ตัวเลขล่าสุด เช่น 20260001 แล้วออเดอร์ถัดไปจะเป็น 20260002 หรือใส่คำนำหน้า เช่น SM- เพื่อใช้รหัสสุ่ม</p>
+<label class="font-label-md text-label-md font-semibold text-on-surface">รูปแบบเลขออเดอร์</label>
+<div class="w-full min-h-11 px-space-md py-3 rounded-lg bg-surface-container text-on-surface font-body-md text-body-md font-mono">SM-YYYY0001</div>
 </div>
 <!-- Default Order Status -->
 <div class="flex flex-col gap-space-xs">
 <label class="font-label-md text-label-md font-semibold text-on-surface">สถานะเริ่มต้นของคำสั่งซื้อใหม่</label>
-<div class="h-11 px-space-md rounded-lg bg-surface-container text-secondary font-body-md text-body-md flex items-center justify-between cursor-not-allowed select-none">
-<span id="defaultOrderStatusLabel">รอชำระเงิน (PromptPay)</span>
-<span class="material-symbols-outlined text-[18px]">lock</span>
-</div>
-<p id="defaultOrderStatusHint" class="font-label-sm text-label-sm text-secondary">สถานะนี้คงไว้เพื่อให้ QR และการส่งสลิปทำงานถูกต้อง</p>
+<select id="defaultOrderStatus" name="defaultOrderStatus" class="h-11 w-full px-space-md rounded-lg bg-surface-container text-on-surface font-body-md text-body-md border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary">
+<option value="pending_payment">รอชำระเงิน</option>
+</select>
 </div>
 </div>
 </div>
@@ -555,7 +554,7 @@
 </div>
 </form>
 <!-- Sticky Desktop/Mobile Save Action Bar -->
-<aside class="fixed bottom-0 left-0 lg:left-72 right-0 bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_-2px_10px_rgba(0,0,0,0.05)] p-space-md z-30 flex items-center justify-between">
+<aside id="settings-save-bar" hidden class="fixed bottom-0 left-0 lg:left-72 right-0 bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_-2px_10px_rgba(0,0,0,0.05)] p-space-md z-30 flex items-center justify-between">
 <div class="flex items-center gap-space-sm text-secondary font-label-sm text-label-sm">
 <span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
 <span class="hidden sm:inline" id="saveStatusNote">พร้อมอัปเดตข้อมูลไปยัง Firestore</span>
@@ -702,7 +701,13 @@
         const field = settingsForm.elements.namedItem(name);
         if (field && 'placeholder' in field) field.placeholder = placeholder;
       });
-      settingsForm.replaceChildren(...settingsSections);
+      const storeColumn = document.createElement('div');
+      storeColumn.className = 'settings-card-column';
+      storeColumn.append(settingsSections[0], settingsSections[2], settingsSections[4]);
+      const fulfillmentColumn = document.createElement('div');
+      fulfillmentColumn.className = 'settings-card-column';
+      fulfillmentColumn.append(settingsSections[1], settingsSections[3], settingsSections[5]);
+      settingsForm.replaceChildren(storeColumn, fulfillmentColumn);
       if (settingsForm.previousElementSibling) settingsForm.previousElementSibling.classList.add('settings-security-notice');
       const pageTitle = document.querySelector('.pl-72 > main h1');
       if (pageTitle) pageTitle.textContent = 'ตั้งค่าร้าน';

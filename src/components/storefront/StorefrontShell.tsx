@@ -8,7 +8,7 @@ import './storefront.css';
 
 type StorefrontShellProps = {
   children: React.ReactNode;
-  /** Hide React navigation on mobile when the embedded Stitch screen owns it. */
+  /** Use an embedded Stitch screen while keeping navigation in the shared shell. */
   mobileChrome?: boolean;
   contentClassName?: string;
 };
@@ -24,6 +24,7 @@ export function StorefrontShell({
   contentClassName = '',
 }: StorefrontShellProps) {
   const location = useLocation();
+  const isProductDetail = location.pathname.startsWith('/products/') || location.pathname.startsWith('/product/');
   const { customerProfile, profileLoading } = useAuth();
   const showAdminLink = !profileLoading && canAccessAdmin(customerProfile);
   const isSuperAdmin = customerProfile?.role === 'super_admin';
@@ -42,11 +43,12 @@ export function StorefrontShell({
   }, []);
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
+
   const active = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
   return (
-    <div className={`storefront-shell ${mobileChrome ? 'storefront-shell--mobile' : 'storefront-shell--embedded'}`}>
+    <div className={`storefront-shell ${mobileChrome ? 'storefront-shell--mobile' : 'storefront-shell--embedded'} ${isProductDetail ? 'storefront-shell--product-detail' : ''}`}>
       <header className="storefront-header">
         <div className="storefront-header-inner">
           <button
@@ -90,6 +92,19 @@ export function StorefrontShell({
         </div>
       </header>
 
+      {!mobileChrome && showAdminLink && !isProductDetail && (
+        <Link
+          aria-label={isSuperAdmin ? 'ไปหน้า Super Admin' : 'ไปหน้าหลังบ้าน'}
+          className="storefront-mobile-admin-link"
+          to={isSuperAdmin ? '/admin/settings' : '/admin/dashboard'}
+        >
+          <span className="material-symbols-outlined" aria-hidden="true">
+            {isSuperAdmin ? 'admin_panel_settings' : 'space_dashboard'}
+          </span>
+          <span>{isSuperAdmin ? 'Super Admin' : 'หลังบ้าน'}</span>
+        </Link>
+      )}
+
       {menuOpen && <button aria-label="ปิดเมนู" className="storefront-menu-backdrop" onClick={() => setMenuOpen(false)} type="button" />}
 
       <main className={`storefront-content ${contentClassName}`}>{children}</main>
@@ -104,7 +119,11 @@ export function StorefrontShell({
           <span className="material-symbols-outlined">grid_view</span><span>สินค้า</span>
         </Link>
         <Link aria-current={active('/cart') ? 'page' : undefined} to="/cart">
-          <span className="material-symbols-outlined">shopping_bag</span><span>ตะกร้า</span>
+          <span className="storefront-mobile-tab-icon">
+            <span className="material-symbols-outlined">shopping_bag</span>
+            {cartCount > 0 && <span aria-label={`${cartCount} ชิ้นในตะกร้า`} className="storefront-mobile-cart-count">{cartCount}</span>}
+          </span>
+          <span>{cartCount > 0 ? cartCount : 'ตะกร้า'}</span>
         </Link>
         <Link aria-current={active('/account') ? 'page' : undefined} to="/account">
           <span className="material-symbols-outlined">person</span><span>บัญชี</span>
@@ -113,14 +132,26 @@ export function StorefrontShell({
 
       <footer className="storefront-footer">
         <div className="storefront-footer-inner">
-          <Link className="storefront-footer-brand" to="/">SOULMATE</Link>
-          <nav aria-label="ข้อมูลเพิ่มเติม">
-            <Link to="/about">เกี่ยวกับเรา</Link>
-            <Link to="/contact">ติดต่อเรา</Link>
-            <Link to="/privacy">นโยบายความเป็นส่วนตัว</Link>
-            <Link to="/terms">ข้อกำหนดการใช้งาน</Link>
-          </nav>
-          <span>Health &amp; Beauty</span>
+          <div className="storefront-footer-groups">
+            <details className="storefront-footer-group">
+              <summary>เกี่ยวกับ SOULMATE</summary>
+              <nav aria-label="เกี่ยวกับ SOULMATE">
+                <Link to="/about">เกี่ยวกับเรา</Link>
+                <Link to="/contact">ติดต่อเรา</Link>
+              </nav>
+            </details>
+            <details className="storefront-footer-group">
+              <summary>ข้อมูลและนโยบาย</summary>
+              <nav aria-label="ข้อมูลและนโยบาย">
+                <Link to="/privacy">นโยบายความเป็นส่วนตัว</Link>
+                <Link to="/terms">ข้อกำหนดการใช้งาน</Link>
+              </nav>
+            </details>
+          </div>
+          <div className="storefront-footer-legal">
+            <Link className="storefront-footer-brand" to="/">SOULMATE</Link>
+            <span>© {new Date().getFullYear()} SOULMATE · Health &amp; Beauty</span>
+          </div>
         </div>
       </footer>
     </div>

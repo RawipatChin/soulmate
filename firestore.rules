@@ -22,19 +22,31 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
     }
 
+    function formatOrderNumber(year, sequence) {
+      let value = string(sequence);
+      let padded = sequence < 10 ? '000' + value :
+        sequence < 100 ? '00' + value :
+        sequence < 1000 ? '0' + value : value;
+      return 'SM-' + string(year) + padded;
+    }
+
     function advancesOrderSequence() {
       let data = request.resource.data;
       let orderPath = /databases/$(database)/documents/orders/$(data.orderSequenceOrderId);
       let order = getAfter(orderPath).data;
+      let orderYear = (request.time + duration.value(7, 'h')).year();
+      let previousYear = resource.data.get('orderSequenceYear', 0);
       return isSignedIn() &&
         data.diff(resource.data).affectedKeys().hasOnly([
-          'orderSequence', 'orderSequenceText', 'orderSequenceOrderId'
+          'orderSequenceYear', 'orderSequence', 'orderSequenceText', 'orderSequenceOrderId'
         ]) &&
+        data.orderSequenceYear == orderYear &&
         data.orderSequence is int && data.orderSequence > 0 &&
-        data.orderSequenceText is string && data.orderSequenceText.matches('^[0-9]{8,15}$') &&
+        data.orderSequenceText is string && data.orderSequenceText == formatOrderNumber(orderYear, data.orderSequence) &&
         data.orderSequenceOrderId is string && data.orderSequenceOrderId.size() > 0 &&
-        (!('orderSequence' in resource.data) ||
-          (resource.data.orderSequence is int && data.orderSequence == resource.data.orderSequence + 1)) &&
+        (previousYear == orderYear
+          ? resource.data.orderSequence is int && data.orderSequence == resource.data.orderSequence + 1
+          : data.orderSequence == 1) &&
         !exists(orderPath) && order.ownerUid == request.auth.uid &&
         order.orderNumber == data.orderSequenceText;
     }
@@ -170,22 +182,23 @@ service cloud.firestore {
       let data = request.resource.data;
       let items = data.items;
       let sequence = getAfter(/databases/$(database)/documents/settings/public).data;
-      let isSequentialNumber = data.orderNumber is string && data.orderNumber.matches('^[0-9]{8,15}$');
+      let isSequentialNumber = data.orderNumber is string && data.orderNumber.matches('^SM-[0-9]{8,}$');
       return isSignedIn() && (isGuest() || isActiveCustomer() || isAdmin()) &&
         data.keys().hasOnly([
           'schemaVersion', 'orderNumber', 'ownerUid', 'ownerType', 'contact', 'items',
           'subtotalSatang', 'shippingMethodId', 'shippingFeeSatang', 'totalSatang', 'currency',
-          'status', 'payment', 'slipPath', 'submittedAt', 'review',
+          'status', 'payment', 'fulfillmentStatus', 'codAcceptance', 'shippingRevision', 'slipPath', 'submittedAt', 'review',
           'inventoryRestored', 'createdAt', 'updatedAt'
         ]) &&
         data.schemaVersion == 2 && data.ownerUid == request.auth.uid &&
         data.ownerType == (isGuest() ? 'guest' : 'customer') &&
         data.orderNumber is string && data.contact is map &&
-        (!isSequentialNumber || (
+        isSequentialNumber && (
           sequence.get('orderSequenceText', '') == data.orderNumber &&
           sequence.get('orderSequenceOrderId', '') == orderId &&
-          sequence.get('orderSequence', 0) is int
-        )) &&
+          sequence.get('orderSequence', 0) is int &&
+          sequence.get('orderSequenceYear', 0) is int
+        ) &&
         data.contact.keys().hasAll([
           'firstName', 'lastName', 'phone', 'email', 'addressLine1',
           'subdistrict', 'district', 'province', 'postalCode'
@@ -201,6 +214,8 @@ service cloud.firestore {
         data.totalSatang == data.subtotalSatang + data.shippingFeeSatang &&
         data.currency == 'THB' && data.status == 'pending_payment' &&
         data.payment.status == 'pending' &&
+        data.fulfillmentStatus == (data.payment.method == 'cod' ? 'awaiting_cod_acceptance' : 'awaiting_payment') &&
+        data.codAcceptance == null && data.shippingRevision == 0 &&
         (
           (data.payment.method == 'manual_promptpay' &&
             (paymentEnabledAt('promptpay', 0) || paymentEnabledAt('promptpay', 1) || paymentEnabledAt('promptpay', 2) || paymentEnabledAt('promptpay', 3) || paymentEnabledAt('promptpay', 4) || paymentEnabledAt('promptpay', 5) || paymentEnabledAt('promptpay', 6) || paymentEnabledAt('promptpay', 7) || paymentEnabledAt('promptpay', 8) || paymentEnabledAt('promptpay', 9) || legacyPromptpayEnabled()) &&
@@ -235,7 +250,7 @@ service cloud.firestore {
       return isAdmin() && resource.data.schemaVersion == 2 &&
         resource.data.status in ['pending_payment', 'awaiting_review'] &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'payment', 'review', 'inventoryRestored', 'updatedAt'
+          'status', 'payment', 'review', 'inventoryRestored', 'fulfillmentStatus', 'updatedAt'
         ]) &&
         request.resource.data.review.by == request.auth.uid &&
         request.resource.data.review.at == request.time &&
@@ -245,11 +260,15 @@ service cloud.firestore {
             resource.data.slipPath != null &&
             request.resource.data.status == 'paid' &&
             request.resource.data.payment.status == 'successful' &&
+            resource.data.fulfillmentStatus == 'awaiting_payment' &&
+            request.resource.data.fulfillmentStatus == 'ready_to_prepare' &&
             request.resource.data.inventoryRestored == false &&
             request.resource.data.review.result == 'approved') ||
           (resource.data.status == 'pending_payment' && resource.data.payment.method == 'cod' &&
+            resource.data.codAcceptance != null && resource.data.fulfillmentStatus == 'shipped' &&
             request.resource.data.status == 'paid' &&
             request.resource.data.payment.status == 'successful' &&
+            request.resource.data.fulfillmentStatus == 'shipped' &&
             request.resource.data.inventoryRestored == false &&
             request.resource.data.review.result == 'approved')) ||
           (request.resource.data.status == 'cancelled' &&
@@ -257,6 +276,77 @@ service cloud.firestore {
             request.resource.data.inventoryRestored == true &&
             request.resource.data.review.result == 'cancelled')
         );
+    }
+
+    function canAcceptCodOrder() {
+      return isAdmin() && resource.data.schemaVersion == 2 &&
+        resource.data.status == 'pending_payment' &&
+        resource.data.payment.method == 'cod' && resource.data.payment.status == 'pending' &&
+        resource.data.fulfillmentStatus == 'awaiting_cod_acceptance' &&
+        resource.data.codAcceptance == null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'codAcceptance', 'fulfillmentStatus', 'updatedAt'
+        ]) &&
+        request.resource.data.codAcceptance.by == request.auth.uid &&
+        request.resource.data.codAcceptance.at == request.time &&
+        request.resource.data.fulfillmentStatus == 'ready_to_prepare' &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    function canAdvanceFulfillment() {
+      return isAdmin() && resource.data.schemaVersion == 2 &&
+        resource.data.status in ['pending_payment', 'paid'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fulfillmentStatus', 'updatedAt']) &&
+        request.resource.data.updatedAt == request.time &&
+        (
+          (resource.data.fulfillmentStatus == 'ready_to_prepare' &&
+            request.resource.data.fulfillmentStatus == 'ready_to_ship' &&
+            (resource.data.payment.method == 'cod'
+              ? resource.data.codAcceptance != null
+              : resource.data.status == 'paid' && resource.data.payment.status == 'successful')) ||
+          (resource.data.fulfillmentStatus == 'ready_to_ship' &&
+            request.resource.data.fulfillmentStatus == 'shipped' &&
+            (resource.data.payment.method == 'cod'
+              ? resource.data.codAcceptance != null
+              : resource.data.status == 'paid' && resource.data.payment.status == 'successful'))
+        );
+    }
+
+    function canCorrectOrderContact() {
+      return isAdmin() && resource.data.schemaVersion == 2 &&
+        resource.data.status in ['pending_payment', 'awaiting_review', 'paid'] &&
+        resource.data.fulfillmentStatus != 'shipped' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'contact', 'shippingRevision', 'shippingContactUpdatedBy', 'shippingContactUpdatedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.contact is map &&
+        request.resource.data.contact.keys().hasOnly([
+          'firstName', 'lastName', 'phone', 'email', 'addressLine1',
+          'subdistrict', 'district', 'province', 'postalCode'
+        ]) &&
+        request.resource.data.contact.keys().hasAll([
+          'firstName', 'lastName', 'phone', 'email', 'addressLine1',
+          'subdistrict', 'district', 'province', 'postalCode'
+        ]) &&
+        request.resource.data.shippingRevision == resource.data.get('shippingRevision', 0) + 1 &&
+        request.resource.data.shippingContactUpdatedBy == request.auth.uid &&
+        request.resource.data.shippingContactUpdatedAt == request.time &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    function canUpdateOrderTrackingNumber() {
+      return isAdmin() && resource.data.schemaVersion == 2 &&
+        resource.data.status in ['pending_payment', 'awaiting_review', 'paid'] &&
+        resource.data.fulfillmentStatus in ['ready_to_prepare', 'ready_to_ship', 'shipped'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'trackingNumber', 'trackingUpdatedBy', 'trackingUpdatedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.trackingNumber is string &&
+        request.resource.data.trackingNumber.size() <= 80 &&
+        request.resource.data.trackingNumber.trim() == request.resource.data.trackingNumber &&
+        request.resource.data.trackingUpdatedBy == request.auth.uid &&
+        request.resource.data.trackingUpdatedAt == request.time &&
+        request.resource.data.updatedAt == request.time;
     }
 
     match /config/payment {
@@ -326,8 +416,37 @@ service cloud.firestore {
         (isGuest() || isActiveCustomer())
       );
       allow create: if canCreateOrder(orderId);
-      allow update: if canSubmitSlip(orderId) || canReviewOrder();
+      allow update: if canSubmitSlip(orderId) || canReviewOrder() || canAcceptCodOrder() ||
+        canAdvanceFulfillment() || canCorrectOrderContact() || canUpdateOrderTrackingNumber();
       allow delete: if false;
+
+      match /labelGenerations/{generationId} {
+        allow get, list: if isAdmin();
+        allow create: if isAdmin() &&
+          request.resource.data.keys().hasOnly([
+            'orderId', 'kind', 'createdBy', 'createdAt', 'shippingRevision', 'paymentMethod', 'totalSatang'
+          ]) &&
+          request.resource.data.orderId == orderId &&
+          request.resource.data.kind in ['label', 'packing'] &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.createdAt == request.time &&
+          request.resource.data.shippingRevision == get(/databases/$(database)/documents/orders/$(orderId)).data.get('shippingRevision', 0) &&
+          request.resource.data.paymentMethod == get(/databases/$(database)/documents/orders/$(orderId)).data.payment.method &&
+          request.resource.data.totalSatang == get(/databases/$(database)/documents/orders/$(orderId)).data.totalSatang &&
+          get(/databases/$(database)/documents/orders/$(orderId)).data.fulfillmentStatus in ['ready_to_prepare', 'ready_to_ship'] &&
+          get(/databases/$(database)/documents/orders/$(orderId)).data.status != 'cancelled' &&
+          (get(/databases/$(database)/documents/orders/$(orderId)).data.payment.method == 'cod'
+            ? get(/databases/$(database)/documents/orders/$(orderId)).data.codAcceptance != null
+            : get(/databases/$(database)/documents/orders/$(orderId)).data.status == 'paid' &&
+              get(/databases/$(database)/documents/orders/$(orderId)).data.payment.status == 'successful') &&
+          get(/databases/$(database)/documents/settings/store).data.get('storeName', '') is string &&
+          get(/databases/$(database)/documents/settings/store).data.get('storeName', '').size() > 0 &&
+          get(/databases/$(database)/documents/settings/store).data.get('storeAddress', '') is string &&
+          get(/databases/$(database)/documents/settings/store).data.get('storeAddress', '').size() > 0 &&
+          get(/databases/$(database)/documents/settings/store).data.get('contactPhone', '') is string &&
+          get(/databases/$(database)/documents/settings/store).data.get('contactPhone', '').size() > 0;
+        allow update, delete: if false;
+      }
     }
 
     // Default fallback: deny all other collections

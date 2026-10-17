@@ -1,0 +1,30 @@
+.admin-notification { position: relative; display: inline-flex; flex: 0 0 auto; color: #243b33; font-family: inherit; }
+.admin-notification-trigger { position: relative; display: grid; width: 40px; height: 40px; place-items: center; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #53615d; cursor: pointer; transition: background-color 140ms ease, color 140ms ease; }
+.admin-notification-trigger:hover, .admin-notification-trigger[aria-expanded="true"] { background: #edf4ef; color: #285c49; }
+.admin-notification-trigger:focus-visible, .admin-notification-item:focus-visible, .admin-notification-retry:focus-visible { outline: 3px solid #7db69a; outline-offset: 2px; }
+.admin-notification-count { position: absolute; top: 1px; right: 0; display: grid; min-width: 17px; height: 17px; place-items: center; padding: 0 4px; border: 2px solid #fff; border-radius: 999px; background: #a33176; color: #fff; font-size: 9px; font-weight: 700; line-height: 1; }
+.admin-notification-panel { position: fixed; z-index: 100; top: 64px; right: auto; left: 12px; box-sizing: border-box; width: min(368px, calc(100vw - 24px)); max-height: calc(100dvh - 88px); overflow-x: hidden; overflow-y: auto; border: 1px solid #dce7df; border-radius: 16px; background: #fff; box-shadow: 0 16px 44px rgb(28 52 37 / 18%); color: #243b33; }
+.admin-notification-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 18px 13px; border-bottom: 1px solid #edf1ee; }
+.admin-notification-heading h2 { margin: 0; color: #263a2d; font: 650 16px/1.3 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.admin-notification-heading p { margin: 4px 0 0; color: #66766c; font: 12px/1.4 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.admin-notification-retry { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid #dfe8e1; border-radius: 9px; background: #fff; color: #426c50; cursor: pointer; }
+.admin-notification-list { margin: 0; padding: 4px 8px; list-style: none; }
+.admin-notification-list li + li { border-top: 1px solid #edf1ee; }
+.admin-notification-item { display: flex; width: 100%; align-items: center; gap: 11px; padding: 12px 8px; border: 0; border-radius: 9px; background: #fff; color: inherit; text-align: left; cursor: pointer; }
+.admin-notification-item:hover { background: #f5f8f6; }
+.admin-notification-icon { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; border-radius: 11px; background: #e8f2ec; color: #326847; }
+.admin-notification-icon.is-slip_review { background: #fff3dd; color: #81520d; }
+.admin-notification-icon.is-cod_confirmation { background: #f6eaf2; color: #8a3268; }
+.admin-notification-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
+.admin-notification-order-line { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
+.admin-notification-order-line strong { overflow: hidden; color: #273b30; font-size: 11px; font-weight: 650; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.admin-notification-status { flex: 0 0 auto; padding: 4px 7px; border-radius: 999px; background: #e8f2ec; color: #326847; font-size: 9px; font-weight: 650; line-height: 1.2; white-space: nowrap; }
+.admin-notification-status.is-slip_review { background: #fff3dd; color: #81520d; }
+.admin-notification-status.is-cod_confirmation { background: #f6eaf2; color: #8a3268; }
+.admin-notification-copy small { overflow: hidden; color: #66766c; font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.admin-notification-open-icon { flex: 0 0 auto; color: #829188; }
+.admin-notification-empty { margin: 0; padding: 24px 18px; color: #66766c; font-size: 12px; text-align: center; }
+.admin-notification-footer { padding: 10px 18px 13px; border-top: 1px solid #edf1ee; color: #66766c; font-size: 10px; text-align: center; }
+@media (prefers-reduced-motion: reduce) {
+  .admin-notification-trigger { transition: none; }
+}

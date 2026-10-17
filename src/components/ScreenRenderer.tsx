@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { AdminSidebarNav } from './admin/AdminSidebarNav';
 import adminSurfaceStyles from './admin/admin-surface.css?inline';
+import adminNotificationStyles from './admin-notifications.css?inline';
+import { AdminNotificationBell } from './AdminNotificationBell';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ScreenDefinition, CustomerProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -52,16 +54,7 @@ import { clearPendingOrderRequestKey, createPendingOrder, findMissingVariantSele
 import { orderFailureMessage } from '../services/orderFailure';
 import { getPromptPayConfig, getPromptPaySettings, savePromptPaySettings } from '../services/orderService';
 import { getPublicStoreSettings, getStoreSettings, saveStoreSettings, uploadStoreLogo, type ShippingMethodSetting } from '../services/storeSettingsService';
-import {
-  createBanner,
-  deleteBanner,
-  deleteBannerImage,
-  getActiveBanners,
-  getAdminBanners,
-  getBannerById,
-  updateBanner,
-  uploadBannerImage,
-} from '../services/bannerService';
+import { getActiveBanners } from '../services/bannerService';
 import type { StoreBanner } from '../services/bannerService';
 
 function installStorefrontDesktopStyles(doc: Document) {
@@ -117,6 +110,34 @@ function installStorefrontDesktopStyles(doc: Document) {
       #state-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
     }
     @media (max-width: 768px) {
+      body.soulmate-shared-storefront-header > header { display: none !important; }
+      body.soulmate-shared-storefront-header main { padding-top: 0 !important; }
+      body.soulmate-product-detail-page > header { position: sticky !important; top: 0 !important; z-index: 40 !important; }
+      .soulmate-mobile-home-header-inner { position: relative !important; justify-content: center !important; }
+      .soulmate-mobile-home-logo { position: absolute !important; left: 50% !important; transform: translateX(-50%) !important; }
+      /* Mobile storefront navigation is owned by StorefrontShell so every
+         route has the same bottom bar and no template-specific top actions. */
+      body > header button[aria-label="Open Menu"],
+      body > header button[aria-label="menu"],
+      body > header button[aria-label*="Menu"],
+      body > header button[aria-label*="เมนู"],
+      body > header button[aria-label="เปิดเมนู"],
+      body > header button[aria-label="เมนู"],
+      body > header #header-search-icon-btn,
+      body > header [data-role="header-search-btn"],
+      body > header [data-path="products"],
+      body > header [data-path="account"],
+      body > header [data-path="cart"],
+      body > header a[aria-label="My Account"],
+      body > header a[aria-label="Shopping Cart"],
+      body > header a[aria-label*="ค้นหา"],
+      body > header a[aria-label*="บัญชี"],
+      body > header a[aria-label*="โปรไฟล์"],
+      body > header a[aria-label*="แก้ไขข้อมูล"],
+      body > header a[aria-label*="manage_accounts"],
+      body > header a[aria-label*="ตะกร้า"] { display: none !important; }
+      body > nav.fixed.bottom-0 { display: none !important; }
+      #real-product-detail { padding-bottom: calc(9rem + env(safe-area-inset-bottom, 0px)) !important; }
       #real-product-detail > div:first-child { display: flex !important; flex-direction: column !important; gap: 16px !important; padding: 0 16px !important; }
       #real-product-primary-column, #real-product-secondary-column { display: contents !important; }
       #real-back-to-products { order: 0 !important; align-self: flex-start !important; }
@@ -507,6 +528,7 @@ const dashboardHtmlPath =
   '/stitch_soulmate_e_commerce/soulmate_responsive_admin_dashboard_with_date_filtering/code.html';
 let dashboardShellRequest: Promise<string> | null = null;
 const adminSidebarRoots = new WeakMap<HTMLElement, Root>();
+const adminNotificationRoots = new WeakMap<HTMLElement, Root>();
 function mountAdminSidebarNav(doc: Document, pathname: string) {
   const nav = doc.querySelector<HTMLElement>('#soulmate-admin-sidebar nav');
   if (!nav) return;
@@ -516,6 +538,43 @@ function mountAdminSidebarNav(doc: Document, pathname: string) {
     adminSidebarRoots.set(nav, root);
   }
   root.render(<AdminSidebarNav pathname={pathname} />);
+}
+
+function mountAdminNotificationBell(doc: Document, navigate: (path: string) => void) {
+  const header = doc.body.querySelector('header');
+  const actions = header?.lastElementChild;
+  if (!header || !actions) return () => undefined;
+
+  let style = doc.getElementById('soulmate-admin-notification-styles') as HTMLStyleElement | null;
+  if (!style) {
+    style = doc.createElement('style');
+    style.id = 'soulmate-admin-notification-styles';
+    style.textContent = adminNotificationStyles;
+    doc.head.appendChild(style);
+  }
+
+  const bell = Array.from(header.querySelectorAll('button')).find((button) =>
+    button.getAttribute('aria-label')?.toLowerCase().includes('notification') ||
+    button.querySelector('.material-symbols-outlined')?.textContent?.trim() === 'notifications'
+  );
+  const host = doc.createElement('div');
+  host.className = 'admin-notification-host';
+  if (bell) bell.replaceWith(host);
+  else actions.insertBefore(host, actions.lastElementChild);
+
+  const root = createRoot(host);
+  adminNotificationRoots.set(host, root);
+  root.render(<AdminNotificationBell onNavigate={navigate} />);
+  let disposed = false;
+  return () => {
+    if (disposed) return;
+    disposed = true;
+    adminNotificationRoots.delete(host);
+    host.remove();
+    // ScreenRenderer can be removed during a parent React commit. Dispose the
+    // independent iframe root after that commit has finished.
+    queueMicrotask(() => root.unmount());
+  };
 }
 
 async function installDashboardAdminShell(doc: Document, pathname: string) {
@@ -714,7 +773,11 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
 
   const inputClass = 'w-full h-10 px-3 rounded-lg border border-outline-variant/60 bg-white text-on-surface';
   const status = doc.getElementById('saveStatusNote');
-  const markDirty = () => { if (win.__soulmateSettingsGuard) win.__soulmateSettingsGuard.dirty = true; };
+  const saveBar = doc.getElementById('settings-save-bar');
+  const markDirty = () => {
+    if (win.__soulmateSettingsGuard) win.__soulmateSettingsGuard.dirty = true;
+    if (saveBar) saveBar.hidden = false;
+  };
   form.addEventListener('input', markDirty);
   form.addEventListener('change', markDirty);
   const pendingNavigation = { action: null as (() => void) | null };
@@ -773,19 +836,13 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
     try {
       const publicStore = await getPublicStoreSettings();
       const needsPublicSync = JSON.stringify(publicStore.shippingMethods ?? []) !== JSON.stringify(store.shippingMethods ?? []) ||
-        JSON.stringify(publicStore.paymentMethods ?? []) !== JSON.stringify(store.paymentMethods ?? []) ||
-        (publicStore.orderPrefix ?? 'SM-') !== (store.orderPrefix ?? 'SM-');
+        JSON.stringify(publicStore.paymentMethods ?? []) !== JSON.stringify(store.paymentMethods ?? []);
       if (needsPublicSync) await saveStoreSettings(store);
     } catch (error) {
       console.warn('[SOULMATE Settings] Could not sync checkout settings to public config', error);
     }
   }
   if (store.storeName) (form.elements.namedItem('storeName') as HTMLInputElement).value = store.storeName;
-  const orderPrefixInput = form.elements.namedItem('orderPrefix') as HTMLInputElement | null;
-  if (orderPrefixInput) {
-    orderPrefixInput.value = store.orderPrefix ?? 'SM-';
-    orderPrefixInput.maxLength = 20;
-  }
   for (const key of ['contactEmail', 'contactPhone', 'lineOfficial', 'storeAddress'] as const) {
     const field = form.elements.namedItem(key) as HTMLInputElement | HTMLTextAreaElement | null;
     if (field && store[key] != null) field.value = store[key]!;
@@ -954,12 +1011,12 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
       await saveStoreSettings({
         storeName: value('storeName'), contactEmail: value('contactEmail'), contactPhone: value('contactPhone'),
         lineOfficial: value('lineOfficial'), storeAddress: value('storeAddress'), logoUrl: store.logoUrl ?? '',
-        orderPrefix: value('orderPrefix').trim() || 'SM-',
         shippingMethods: shipping, announcements: announcements.map((message) => message.trim()).filter(Boolean),
         paymentMethods: methods.map(({ id, enabled }) => ({ id, enabled })),
       });
       await savePromptPaySettings(payeePhone.value.trim(), payeeName.value.trim(), promptpay?.enabled ?? false);
       win.__soulmateSettingsGuard.dirty = false;
+      if (saveBar) saveBar.hidden = true;
       if (status) status.textContent = 'บันทึกการตั้งค่าแล้ว';
       doc.getElementById('toastSuccess')?.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
       return true;
@@ -969,40 +1026,6 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
       return false;
     } finally { buttons.forEach((button) => { button.disabled = false; }); }
   };
-}
-
-function syncStorefrontAdminMobileTab(doc: Document, showAdminTab: boolean) {
-  const existing = doc.getElementById('storefront-admin-nav-link');
-  if (!showAdminTab) {
-    existing?.remove();
-    return;
-  }
-
-  // The imported storefront screens own their mobile navbar inside the iframe.
-  // Add the admin destination there so it follows the same fixed navigation.
-  const nav = doc.querySelector<HTMLElement>('nav[class~="fixed"][class~="bottom-0"]');
-  const items = nav?.querySelector<HTMLElement>(':scope > div');
-  if (!items || existing) return;
-
-  const link = doc.createElement('a');
-  link.id = 'storefront-admin-nav-link';
-  link.href = '/admin/dashboard';
-  link.dataset.route = '/admin/dashboard';
-  link.setAttribute('aria-label', 'ไปหลังบ้าน');
-  link.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">space_dashboard</span><span>หลังบ้าน</span>';
-  items.appendChild(link);
-
-  if (doc.getElementById('storefront-admin-nav-style')) return;
-  const style = doc.createElement('style');
-  style.id = 'storefront-admin-nav-style';
-  style.textContent = `
-    #storefront-admin-nav-link { box-sizing: border-box; display: flex; flex: 1 1 0; min-width: 0; height: 48px; padding: 2px 4px; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 12px; background: #e8f8f2; color: #1d5a46; font-size: 10px; line-height: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; }
-    #storefront-admin-nav-link .material-symbols-outlined { font-size: 22px; line-height: 24px; }
-    #storefront-admin-nav-link:active { background: #c9eedf; }
-    #storefront-admin-nav-link:focus-visible { outline: 2px solid #2d6857; outline-offset: -2px; }
-    @media (min-width: 769px) { #storefront-admin-nav-link { display: none !important; } }
-  `;
-  doc.head.appendChild(style);
 }
 
 /**
@@ -2341,6 +2364,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const iframeResizeObserverRef = useRef<ResizeObserver | null>(null);
   const iframeResizeCleanupRef = useRef<(() => void) | null>(null);
+  const adminNotificationCleanupRef = useRef<(() => void) | null>(null);
   const newProductIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -2363,17 +2387,37 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
     iframeResizeCleanupRef.current?.();
     iframeResizeObserverRef.current?.disconnect();
+    adminNotificationCleanupRef.current?.();
+    adminNotificationCleanupRef.current = null;
 
     if (routeType === 'storefront') {
+      doc.body.classList.add('soulmate-shared-storefront-header');
       installStorefrontDesktopStyles(doc);
+      const homeLogo = location.pathname === '/'
+        ? doc.querySelector<HTMLImageElement>('body > header img[alt*="SOULMATE"]')
+        : null;
+      if (homeLogo) {
+        homeLogo.closest('a')?.classList.add('soulmate-mobile-home-logo');
+        homeLogo.closest('header')?.querySelector(':scope > div')?.classList.add('soulmate-mobile-home-header-inner');
+      }
       void applyPublicStoreSettings(doc, location.pathname);
-      syncStorefrontAdminMobileTab(doc, !auth.profileLoading && canAccessAdmin(auth.customerProfile));
       mountAccountNavigation(doc, location.pathname);
 
       const syncIframeHeight = () => {
         if (window.matchMedia('(max-width: 768px)').matches) {
           const frameTop = iframe.getBoundingClientRect().top + window.scrollY;
-          iframe.style.height = `${Math.max(window.innerHeight - frameTop, 1)}px`;
+          const isProductDetail = location.pathname.startsWith('/products/') || location.pathname.startsWith('/product/');
+          if (!isProductDetail) {
+            iframe.style.height = `${Math.max(
+              doc.documentElement.scrollHeight,
+              doc.body?.scrollHeight || 0,
+              window.innerHeight - frameTop,
+              1
+            )}px`;
+            return;
+          }
+          const mobileTabsHeight = document.querySelector('.storefront-mobile-tabs')?.getBoundingClientRect().height || 65;
+          iframe.style.height = `${Math.max(window.innerHeight - frameTop - mobileTabsHeight, 1)}px`;
           return;
         }
         if (location.pathname.startsWith('/products/') || location.pathname.startsWith('/product/')) {
@@ -2469,6 +2513,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       normalizeAdminShellSizing(doc);
       mountAdminSidebarNav(doc, location.pathname);
       configureAdminTopbar(doc);
+      adminNotificationCleanupRef.current = mountAdminNotificationBell(doc, navigate);
       installAdminSurfaceStyles(doc, location.pathname);
       if (location.pathname === '/admin/settings') {
         void configureAdminSettingsPage(doc, win).catch((error) => console.error('[SOULMATE Settings] Initialization failed:', error));
@@ -2476,9 +2521,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     }
 
     // Ensure search icon is placed before profile icon in header
-    if (routeType === 'storefront') {
+    if (routeType === 'storefront' && !window.matchMedia('(max-width: 768px)').matches) {
       ensureHeaderSearchIcon(doc, navigate);
-      syncStorefrontAdminMobileTab(doc, !auth.profileLoading && canAccessAdmin(auth.customerProfile));
     }
 
     // Fix stale imported Admin sidebar routes before any clicks are handled.
@@ -2865,120 +2909,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     // =========================================================================
     // 5. ROUTE-SPECIFIC WIRING
     // =========================================================================
-
-    if (routeType === 'admin' && location.pathname === '/admin/banners') {
-      const main = doc.querySelector('main');
-      if (main) {
-        main.innerHTML = `<div class="max-w-7xl mx-auto"><div class="flex items-center justify-between mb-6"><div><h1 class="text-2xl font-bold">จัดการ Banner</h1><p class="text-sm text-on-surface-variant">แบนเนอร์เรียงตามลำดับการแสดงผล</p></div><div class="flex gap-2"><button id="banner-refresh" class="px-4 py-2 rounded-xl bg-surface-container">รีเฟรช</button><button id="banner-add" class="px-4 py-2 rounded-xl bg-primary text-white">+ เพิ่ม Banner</button></div></div><div id="banner-list" class="space-y-3">กำลังโหลดแบนเนอร์…</div></div>`;
-        const list = doc.getElementById('banner-list');
-        const load = async () => {
-          if (list) list.textContent = 'กำลังโหลดแบนเนอร์…';
-          try {
-            const banners = await getAdminBanners();
-            if (!list) return;
-            if (!banners.length) { list.innerHTML = '<div class="p-8 text-center rounded-xl bg-white">ยังไม่มีแบนเนอร์ เพิ่มภาพแรกเพื่อแสดงบนหน้าแรก</div>'; return; }
-            list.replaceChildren(...banners.map((banner) => {
-              const row = doc.createElement('article'); row.className = 'flex flex-wrap items-center gap-4 rounded-xl bg-white p-4 shadow-sm';
-              const img = doc.createElement('img'); img.src = banner.mobileImageUrl; img.alt = ''; img.className = 'w-28 h-20 object-cover rounded-lg';
-              const detail = doc.createElement('div'); detail.className = 'flex-1 min-w-48';
-              const title = doc.createElement('strong'); title.textContent = banner.name;
-              const status = doc.createElement('p'); status.className = 'text-sm text-on-surface-variant'; status.textContent = `ลำดับ ${banner.displayOrder} · ${banner.active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`; detail.append(title, status);
-              const toggle = doc.createElement('button'); toggle.type = 'button'; toggle.className = 'px-3 py-2 rounded-lg bg-surface-container'; toggle.textContent = banner.active ? 'ปิดใช้งาน' : 'เปิดใช้งาน';
-              toggle.onclick = async () => { toggle.disabled = true; try { await updateBanner(banner.id, { active: !banner.active }); await load(); } catch { win.alert('บันทึกสถานะไม่สำเร็จ'); toggle.disabled = false; } };
-              const edit = doc.createElement('button'); edit.type = 'button'; edit.className = 'px-3 py-2 rounded-lg bg-surface-container'; edit.textContent = 'แก้ไข'; edit.onclick = () => navigate(`/admin/banners/${banner.id}/edit`);
-              row.append(img, detail, toggle, edit); return row;
-            }));
-          } catch (error) { console.error('[Admin Banners]', error); if (list) list.textContent = 'โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่'; }
-        };
-        doc.getElementById('banner-add')?.addEventListener('click', () => navigate('/admin/banners/new'));
-        doc.getElementById('banner-refresh')?.addEventListener('click', () => void load());
-        void load();
-      }
-    }
-
-    if (routeType === 'admin' && (location.pathname === '/admin/banners/new' || /^\/admin\/banners\/[^/]+\/edit$/.test(location.pathname))) {
-      const editing = location.pathname !== '/admin/banners/new';
-      const id = editing ? location.pathname.split('/')[3] : '';
-      const name = doc.getElementById('banner-name') as HTMLInputElement | null;
-      const order = doc.getElementById('display-order') as HTMLInputElement | null;
-      const active = doc.getElementById(editing ? 'status-toggle' : 'active-toggle') as HTMLInputElement | null;
-      const mobileInput = doc.getElementById(editing ? 'file-input-mobile' : 'mobile-file-input') as HTMLInputElement | null;
-      const desktopInput = editing ? null : doc.getElementById('desktop-file-input') as HTMLInputElement | null;
-      const mobilePreview = doc.getElementById(editing ? 'main-banner-img' : 'mobile-preview-thumb') as HTMLImageElement | null;
-      const desktopPreview = doc.getElementById('desktop-preview-thumb') as HTMLImageElement | null;
-      // Never show imported mock artwork while the real banner record is loading.
-      if (mobilePreview) mobilePreview.removeAttribute('src');
-      if (desktopPreview) desktopPreview.removeAttribute('src');
-      if (!editing) {
-        doc.getElementById('mobile-filled-view')?.classList.add('hidden');
-        doc.getElementById('desktop-filled-view')?.classList.add('hidden');
-      }
-      const saveOriginal = doc.getElementById(editing ? 'btn-save' : 'save-btn');
-      const save = saveOriginal?.cloneNode(true) as HTMLButtonElement | null;
-      if (saveOriginal && save) saveOriginal.replaceWith(save);
-      let current: StoreBanner | null = null; let mobileFile: File | null = null; let desktopFile: File | null = null;
-      let removeMobile = false; let removeDesktop = false;
-      let createdId = '';
-      const newlyUploadedPaths: string[] = [];
-      const notify = (message: string) => { const toast = doc.getElementById(editing ? 'save-toast' : 'status-toast'); if (toast) { toast.classList.remove('hidden'); const heading = toast.querySelector('h2'); if (heading) heading.textContent = message; } else win.alert(message); };
-      const pick = (input: HTMLInputElement | null, slot: 'mobile' | 'desktop') => input?.addEventListener('change', () => {
-        const file = input.files?.[0]; if (!file) return;
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) { win.alert('รองรับ JPG, PNG หรือ WEBP ขนาดไม่เกิน 5 MB'); input.value = ''; return; }
-        if (slot === 'mobile') { mobileFile = file; removeMobile = false; if (mobilePreview) mobilePreview.src = URL.createObjectURL(file); }
-        else { desktopFile = file; removeDesktop = false; if (desktopPreview) desktopPreview.src = URL.createObjectURL(file); }
-        doc.getElementById(`${slot}-empty-view`)?.classList.add('hidden'); doc.getElementById(`${slot}-filled-view`)?.classList.remove('hidden');
-        const filename = doc.getElementById(`${slot}-filename`); if (filename) filename.textContent = file.name;
-      });
-      pick(mobileInput, 'mobile'); pick(desktopInput, 'desktop');
-      doc.getElementById('remove-mobile-btn')?.addEventListener('click', () => { mobileFile = null; removeMobile = true; if (mobilePreview) mobilePreview.removeAttribute('src'); doc.getElementById('mobile-filled-view')?.classList.add('hidden'); doc.getElementById('mobile-empty-view')?.classList.remove('hidden'); });
-      doc.getElementById('remove-desktop-btn')?.addEventListener('click', () => { desktopFile = null; removeDesktop = true; if (desktopPreview) desktopPreview.removeAttribute('src'); doc.getElementById('desktop-filled-view')?.classList.add('hidden'); doc.getElementById('desktop-empty-view')?.classList.remove('hidden'); });
-      const loadCurrent = async () => {
-        if (!editing) return; current = await getBannerById(id);
-        if (!current) { notify('ไม่พบแบนเนอร์นี้'); return; }
-        if (name) name.value = current.name; if (order) order.value = String(current.displayOrder); if (active) active.checked = current.active;
-        if (mobilePreview) { if (current.mobileImageUrl) mobilePreview.src = current.mobileImageUrl; else mobilePreview.removeAttribute('src'); }
-      };
-      void loadCurrent().catch((error) => { console.error('[Admin Banner] Load failed', error); notify('โหลดข้อมูลแบนเนอร์ไม่สำเร็จ'); });
-      if (editing) {
-        const confirmDelete = Array.from(doc.querySelectorAll<HTMLButtonElement>('#delete-modal button')).find((button) => button.textContent?.includes('ยืนยันการลบ'));
-        const realDelete = confirmDelete?.cloneNode(true) as HTMLButtonElement | undefined;
-        if (confirmDelete && realDelete) {
-          confirmDelete.replaceWith(realDelete);
-          realDelete.addEventListener('click', async () => {
-            if (!current) { notify('โหลดข้อมูลแบนเนอร์ไม่สำเร็จ'); return; }
-            realDelete.disabled = true;
-            try { await deleteBanner(current); navigate('/admin/banners'); }
-            catch (error) { console.error('[Admin Banner] Delete failed', error); notify('ลบแบนเนอร์ไม่สำเร็จ'); realDelete.disabled = false; }
-          });
-        }
-      }
-      save?.addEventListener('click', async () => {
-        if (!name?.value.trim()) { notify('กรุณาระบุชื่อ Banner'); return; }
-        if (!editing && !mobileFile) { notify('กรุณาเลือกรูป Banner สำหรับมือถือ'); return; }
-        save.disabled = true; let target = id;
-        try {
-          if (!editing) { target = await createBanner({ name: name.value.trim(), displayOrder: Number(order?.value || 1), active: false, mobileImageUrl: '', mobileImagePath: '', desktopImageUrl: '', desktopImagePath: '' }); createdId = target; }
-          const changes: Partial<StoreBanner> = { name: name.value.trim(), displayOrder: Number(order?.value || 1), active: !!active?.checked };
-          if (mobileFile) { const image = await uploadBannerImage(target, 'mobile', mobileFile); newlyUploadedPaths.push(image.path); changes.mobileImageUrl = image.url; changes.mobileImagePath = image.path; }
-          else if (removeMobile) { changes.mobileImageUrl = ''; changes.mobileImagePath = ''; }
-          if (desktopFile) { const image = await uploadBannerImage(target, 'desktop', desktopFile); newlyUploadedPaths.push(image.path); changes.desktopImageUrl = image.url; changes.desktopImagePath = image.path; }
-          else if (removeDesktop) { changes.desktopImageUrl = ''; changes.desktopImagePath = ''; }
-          await updateBanner(target, changes); notify('บันทึก Banner เรียบร้อยแล้ว');
-          if (editing && current) {
-            if ((mobileFile || removeMobile) && current.mobileImagePath) void deleteBannerImage(current.mobileImagePath).catch((error) => console.warn('[Admin Banner] Old mobile image cleanup failed', error));
-            if ((desktopFile || removeDesktop) && current.desktopImagePath) void deleteBannerImage(current.desktopImagePath).catch((error) => console.warn('[Admin Banner] Old desktop image cleanup failed', error));
-          }
-          if (!editing) setTimeout(() => navigate('/admin/banners'), 700);
-          else current = await getBannerById(target);
-        } catch (error) {
-          console.error('[Admin Banner] Save failed', error);
-          await Promise.all(newlyUploadedPaths.map((path) => deleteBannerImage(path).catch((cleanupError) => console.warn('[Admin Banner] Upload cleanup failed', cleanupError))));
-          if (createdId) { const orphan = await getBannerById(createdId).catch(() => null); if (orphan) await deleteBanner(orphan).catch((cleanupError) => console.warn('[Admin Banner] Draft cleanup failed', cleanupError)); }
-          notify('บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง');
-        }
-        finally { save.disabled = false; }
-      });
-    }
 
     // --- Admin Login Page Wiring ---
     if (location.pathname === '/admin/login') {
@@ -5219,6 +5149,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           detailHost.setAttribute('id', 'real-product-detail');
           detailHost.className =
             'w-full bg-surface pb-28';
+          doc.body.classList.add('soulmate-product-detail-page');
 
           const renderPriceHtml = (pricing: StorefrontPricing) => {
             if (pricing.hasSpecialPrice && pricing.specialPrice !== null) {
@@ -6136,44 +6067,76 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           const style = doc.createElement('style');
           style.textContent = `
             .soulmate-banner-slider{position:relative;overflow:hidden;border-radius:1rem;background:#f6f3f2}
-            .soulmate-banner-slider picture{display:block;width:100%}
-            .soulmate-banner-slider img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}
+            .soulmate-banner-track{display:flex;align-items:flex-start;transition:transform 260ms cubic-bezier(0.77,0,0.175,1);will-change:transform}
+            .soulmate-banner-track picture{display:block;flex:0 0 auto}
+            .soulmate-banner-track img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}
             .soulmate-banner-controls{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 12px;pointer-events:none}
             .soulmate-banner-controls button,.soulmate-banner-dots button{pointer-events:auto;border:0;cursor:pointer}
-            .soulmate-banner-controls button{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.88);color:#2d6857;font-size:22px}
+            .soulmate-banner-controls button{width:40px;height:40px;border-radius:50%;background:transparent;color:#2d6857;font-size:22px;text-shadow:0 1px 5px rgba(255,255,255,.9);transition:background-color 160ms ease}
+            .soulmate-banner-controls button:hover{background:rgba(255,255,255,.2)}
+            .soulmate-banner-controls button:focus-visible{outline:2px solid #2d6857;outline-offset:2px}
             .soulmate-banner-dots{position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:8px}
             .soulmate-banner-dots button{width:9px;height:9px;border-radius:50%;padding:0;background:rgba(255,255,255,.65)}
             .soulmate-banner-dots button[aria-current=true]{background:#2d6857;outline:2px solid white}
             @media(max-width:768px){.soulmate-banner-controls button{width:34px;height:34px}}
-            @media(prefers-reduced-motion:reduce){.soulmate-banner-slider img{scroll-behavior:auto}}
+            @media(prefers-reduced-motion:reduce){.soulmate-banner-track{transition-duration:100ms}}
           `;
           doc.head.append(style);
           const slider = doc.createElement('div'); slider.className = 'soulmate-banner-slider'; slider.setAttribute('aria-roledescription', 'carousel'); slider.setAttribute('aria-label', 'แบนเนอร์โปรโมชั่น');
-          const picture = doc.createElement('picture');
-          const desktopSource = doc.createElement('source'); desktopSource.media = '(min-width: 769px)';
-          const image = doc.createElement('img'); image.alt = 'แบนเนอร์โปรโมชั่น SOULMATE'; image.fetchPriority = 'high';
-          picture.append(desktopSource, image); slider.append(picture);
           if (banners.length > 1) {
+            const track = doc.createElement('div'); track.className = 'soulmate-banner-track';
+            const slideBanners = [banners[banners.length - 1], ...banners, banners[0]];
+            const slidePictures = slideBanners.map((banner, slideIndex) => {
+              const picture = doc.createElement('picture');
+              picture.style.width = `${100 / slideBanners.length}%`;
+              picture.setAttribute('aria-hidden', slideIndex === 1 ? 'false' : 'true');
+              const desktopSource = doc.createElement('source'); desktopSource.media = '(min-width: 769px)'; desktopSource.srcset = banner.desktopImageUrl || banner.mobileImageUrl;
+              const image = doc.createElement('img'); image.alt = 'แบนเนอร์โปรโมชั่น SOULMATE'; image.src = banner.mobileImageUrl;
+              if (slideIndex === 1) image.fetchPriority = 'high';
+              picture.append(desktopSource, image);
+              track.append(picture);
+              return picture;
+            });
+            track.style.width = `${slideBanners.length * 100}%`;
+            const reducedMotion = win.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reducedMotion) track.style.transitionDuration = '100ms';
+            let index = 0; let trackIndex = 1; let timer: number | undefined;
+            const dots = doc.createElement('div'); dots.className = 'soulmate-banner-dots';
+            const setPosition = () => { track.style.transform = `translateX(-${trackIndex * 100 / slideBanners.length}%)`; };
+            const updateDots = () => dots.querySelectorAll('button').forEach((dot, i) => { if (i === index) dot.setAttribute('aria-current', 'true'); else dot.removeAttribute('aria-current'); });
+            const moveTo = (nextIndex: number, direction?: 'next' | 'prev') => {
+              const wrapsForward = direction === 'next' && index === banners.length - 1 && nextIndex === 0;
+              const wrapsBackward = direction === 'prev' && index === 0 && nextIndex === banners.length - 1;
+              index = nextIndex;
+              trackIndex = wrapsForward ? banners.length + 1 : wrapsBackward ? 0 : nextIndex + 1;
+              slidePictures.forEach((picture, slideIndex) => picture.setAttribute('aria-hidden', String(slideIndex !== trackIndex)));
+              updateDots();
+              setPosition();
+            };
+            track.addEventListener('transitionend', (event) => {
+              if (event.target !== track) return;
+              if (trackIndex === banners.length + 1) { trackIndex = 1; track.style.transition = 'none'; setPosition(); track.getBoundingClientRect(); track.style.transition = ''; }
+              else if (trackIndex === 0) { trackIndex = banners.length; track.style.transition = 'none'; setPosition(); track.getBoundingClientRect(); track.style.transition = ''; }
+            });
             const controls = doc.createElement('div'); controls.className = 'soulmate-banner-controls';
             const prev = doc.createElement('button'); prev.type = 'button'; prev.setAttribute('aria-label', 'แบนเนอร์ก่อนหน้า'); prev.textContent = '‹';
             const next = doc.createElement('button'); next.type = 'button'; next.setAttribute('aria-label', 'แบนเนอร์ถัดไป'); next.textContent = '›';
-            const dots = doc.createElement('div'); dots.className = 'soulmate-banner-dots';
-            let index = 0; let timer: number | undefined;
-            const renderSlide = () => {
-              const banner = banners[index]; image.src = banner.mobileImageUrl; desktopSource.srcset = banner.desktopImageUrl || banner.mobileImageUrl;
-              dots.querySelectorAll('button').forEach((dot, i) => { if (i === index) dot.setAttribute('aria-current', 'true'); else dot.removeAttribute('aria-current'); });
-            };
-            banners.forEach((banner, i) => { const dot = doc.createElement('button'); dot.type = 'button'; dot.setAttribute('aria-label', `แสดงแบนเนอร์ ${i + 1}: ${banner.name}`); if (!i) dot.setAttribute('aria-current', 'true'); dot.onclick = () => { index = i; renderSlide(); restart(); }; dots.append(dot); });
-            const reducedMotion = win.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            const restart = () => { if (timer) win.clearInterval(timer); if (!reducedMotion) timer = win.setInterval(() => { index = (index + 1) % banners.length; renderSlide(); }, 5000); };
-            prev.onclick = () => { index = (index + banners.length - 1) % banners.length; renderSlide(); restart(); };
-            next.onclick = () => { index = (index + 1) % banners.length; renderSlide(); restart(); };
+            const stopTimer = () => { if (timer) win.clearInterval(timer); timer = undefined; };
+            const restart = () => { stopTimer(); timer = win.setInterval(() => moveTo((index + 1) % banners.length, 'next'), 10000); };
+            banners.forEach((banner, i) => { const dot = doc.createElement('button'); dot.type = 'button'; dot.setAttribute('aria-label', `แสดงแบนเนอร์ ${i + 1}: ${banner.name}`); if (!i) dot.setAttribute('aria-current', 'true'); dot.onclick = () => { moveTo(i); restart(); }; dots.append(dot); });
+            prev.onclick = () => { moveTo((index + banners.length - 1) % banners.length, 'prev'); restart(); };
+            next.onclick = () => { moveTo((index + 1) % banners.length, 'next'); restart(); };
             slider.addEventListener('mouseenter', () => { if (timer) win.clearInterval(timer); });
             slider.addEventListener('mouseleave', restart);
             slider.addEventListener('focusin', () => { if (timer) win.clearInterval(timer); });
             slider.addEventListener('focusout', restart);
-            controls.append(prev, next); slider.append(controls, dots); renderSlide(); restart();
-          } else { image.src = banners[0].mobileImageUrl; desktopSource.srcset = banners[0].desktopImageUrl || banners[0].mobileImageUrl; }
+            controls.append(prev, next); slider.append(track, controls, dots); setPosition(); restart();
+          } else {
+            const picture = doc.createElement('picture');
+            const desktopSource = doc.createElement('source'); desktopSource.media = '(min-width: 769px)'; desktopSource.srcset = banners[0].desktopImageUrl || banners[0].mobileImageUrl;
+            const image = doc.createElement('img'); image.alt = 'แบนเนอร์โปรโมชั่น SOULMATE'; image.src = banners[0].mobileImageUrl; image.fetchPriority = 'high';
+            picture.append(desktopSource, image); slider.append(picture);
+          }
           hero.append(slider);
         }
         // Storefront must show ONLY real published/active products from Firestore.
@@ -6350,11 +6313,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             const index = Number(card.dataset.productIndex || 0);
 
             card.addEventListener('click', (event) => {
-              // Add-to-cart button has its own action.
-              if ((event.target as HTMLElement).closest('.real-home-add-cart')) {
-                return;
-              }
-
               event.preventDefault();
               event.stopPropagation();
               openHomeProduct(index);
@@ -6369,81 +6327,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             });
           });
 
-        doc
-          .querySelectorAll<HTMLButtonElement>('.real-home-add-cart')
-          .forEach((button) => {
-            button.addEventListener('click', async (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-
-              const index = Number(button.dataset.productIndex || 0);
-              const item = homeProducts[index];
-
-              if (!item) return;
-
-              const product = item.product;
-              const availableVariants = Array.isArray(product.variants)
-                ? product.variants.filter(
-                    (variant: any) =>
-                      variant?.active !== false &&
-                      Number(variant?.stock || 0) > 0
-                  )
-                : [];
-
-              // If a product has variants, the customer should choose them
-              // on the real product detail page instead of silently adding
-              // a guessed variant from the homepage.
-              if (product.hasVariants && availableVariants.length > 0) {
-                openHomeProduct(index);
-                return;
-              }
-
-              const raw = product as any;
-              const stock = Number(
-                product.stock ??
-                  raw.stockQuantity ??
-                  raw.inventory ??
-                  0
-              );
-
-              if (!Number.isFinite(stock) || stock <= 0) {
-                win.alert('สินค้านี้หมดสต็อก');
-                return;
-              }
-
-              const cartPayload = {
-                productId: product.id,
-                productName: product.name,
-                variantId: null,
-                variantName: null,
-                unitPrice: item.pricing.sellingPrice,
-                quantity: 1,
-                productImage: item.imageUrl || null,
-              };
-
-              const persistedItems = addPersistedCartItem(cartPayload);
-
-              updateAllCartBadges(
-                doc,
-                persistedItems.reduce(
-                  (sum, persistedItem) =>
-                    sum + persistedItem.quantity,
-                  0
-                )
-              );
-
-              const icon = button.querySelector('.material-symbols-outlined');
-
-              if (icon) {
-                const oldText = icon.textContent;
-                icon.textContent = 'check';
-
-                setTimeout(() => {
-                  icon.textContent = oldText || 'add';
-                }, 1200);
-              }
-            });
-          });
       } catch (err) {
         console.error('[Home Page] Error:', err);
         if (initialProductGrid) {
@@ -6486,6 +6369,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
   useEffect(() => () => {
     iframeResizeCleanupRef.current?.();
     iframeResizeObserverRef.current?.disconnect();
+    adminNotificationCleanupRef.current?.();
+    adminNotificationCleanupRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -6509,7 +6394,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
     const effectiveCart = createEffectiveCart(cart);
 
-    if (routeType === 'storefront') ensureHeaderSearchIcon(doc, navigate);
+    // On mobile, navigation and search are provided by the shared shell.
+    // Keep the legacy template search control only for desktop layouts.
+    if (routeType === 'storefront' && !window.matchMedia('(max-width: 768px)').matches) {
+      ensureHeaderSearchIcon(doc, navigate);
+    }
     updateAllCartBadges(doc, effectiveCart.itemCount);
 
     if (location.pathname === '/cart') {
@@ -6542,7 +6431,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     return (
       <StorefrontShell
         contentClassName={`storefront-embedded-content ${location.pathname.startsWith('/products/') || location.pathname.startsWith('/product/') ? 'storefront-content--product-detail' : ''}`}
-        mobileChrome={false}
+        mobileChrome
       >
         <div className="storefront-frame">
           <div className="storefront-frame-loading" role="status">กำลังโหลดข้อมูล…</div>

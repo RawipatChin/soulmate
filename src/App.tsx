@@ -1,3 +1,4 @@
+import { AdminCustomersPage, AdminCustomerDetailPage } from './components/AdminCustomersPage';
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SCREENS } from './screensData';
@@ -12,6 +13,8 @@ import { AdminProtectedRoute } from './components/AdminProtectedRoute';
 import { AccountAuthPage } from './components/AccountAuthPage';
 import { StorefrontArticlePage, StorefrontContentPage, userFacingPages } from './components/storefront/StorefrontContentPage';
 import { AdminOrdersPage, AdminPaymentSettingsPage, CustomerOrdersPage, OrderConfirmationPage } from './components/OrderPages';
+import { AdminFulfillmentPage } from './components/AdminFulfillmentPage';
+import { AdminBannersPage, AdminBannerFormPage } from './components/AdminBannersPage';
 
 function getScreen(id: string): ScreenDefinition {
   const found = SCREENS.find((s) => s.id === id);
@@ -44,11 +47,6 @@ export default function App() {
   const adminProductsScreen = getScreen('admin-products');
   const adminAddProductScreen = getScreen('admin-add-product');
   const adminEditProductScreen = getScreen('admin-edit-product');
-  const adminCustomersScreen = getScreen('admin-customers');
-  const adminCustomerDetailScreen = getScreen('admin-customer-detail');
-  const adminBannersScreen = getScreen('admin-banners');
-  const adminAddBannerScreen = getScreen('admin-add-banner');
-  const adminEditBannerScreen = getScreen('admin-edit-banner');
   const adminCouponsScreen = getScreen('admin-coupons');
   const adminAddCouponScreen = getScreen('admin-add-coupon');
   const adminEditCouponScreen = getScreen('admin-edit-coupon');
@@ -286,14 +284,14 @@ export default function App() {
               }
             />
             <Route
+              path="/admin/fulfillment"
+              element={<AdminProtectedRoute><AdminFulfillmentPage /></AdminProtectedRoute>}
+            />
+            <Route
               path="/admin/customers"
               element={
                 <AdminProtectedRoute>
-                  <ScreenRenderer
-                    screen={adminCustomersScreen}
-                    routeType="admin"
-                    backFallback="/admin/dashboard"
-                  />
+                  <AdminCustomersPage />
                 </AdminProtectedRoute>
               }
             />
@@ -301,49 +299,21 @@ export default function App() {
               path="/admin/customers/:customerId"
               element={
                 <AdminProtectedRoute>
-                  <ScreenRenderer
-                    screen={adminCustomerDetailScreen}
-                    routeType="admin"
-                    backFallback="/admin/customers"
-                  />
+                  <AdminCustomerDetailPage />
                 </AdminProtectedRoute>
               }
             />
             <Route
               path="/admin/banners"
-              element={
-                <AdminProtectedRoute>
-                  <ScreenRenderer
-                    screen={adminBannersScreen}
-                    routeType="admin"
-                    backFallback="/admin/dashboard"
-                  />
-                </AdminProtectedRoute>
-              }
+              element={<AdminProtectedRoute><AdminBannersPage /></AdminProtectedRoute>}
             />
             <Route
               path="/admin/banners/new"
-              element={
-                <AdminProtectedRoute>
-                  <ScreenRenderer
-                    screen={adminAddBannerScreen}
-                    routeType="admin"
-                    backFallback="/admin/banners"
-                  />
-                </AdminProtectedRoute>
-              }
+              element={<AdminProtectedRoute><AdminBannerFormPage /></AdminProtectedRoute>}
             />
             <Route
               path="/admin/banners/:bannerId/edit"
-              element={
-                <AdminProtectedRoute>
-                  <ScreenRenderer
-                    screen={adminEditBannerScreen}
-                    routeType="admin"
-                    backFallback="/admin/banners"
-                  />
-                </AdminProtectedRoute>
-              }
+              element={<AdminProtectedRoute><AdminBannerFormPage /></AdminProtectedRoute>}
             />
             <Route
               path="/admin/coupons"

@@ -29,6 +29,15 @@ The temporary exchange in which a visitor states product goals, refines preferen
 **Order**:
 A confirmed record of a customer's selected products and purchase details, retained by SOULMATE whether the customer has a permanent account or checks out as a guest.
 
+**Payment status**:
+The state of collecting payment for an Order. “Successful” means the shop has received the money, including money collected by the carrier for a cash-on-delivery Order; it does not mean the parcel has been delivered.
+
+**Fulfillment status**:
+The state of preparing and sending an Order's parcel, tracked separately from its Payment status.
+
+**Parcel label**:
+A shop-generated sheet attached to a parcel with the recipient's delivery details and the Order's payment type. It shows the amount to collect, including the shipping fee, for cash-on-delivery Orders; prepaid Orders say that no money is due on delivery.
+
 **Pending order**:
 An Order that has been recorded and has stock reserved while waiting for payment. It is not a completed sale.
 

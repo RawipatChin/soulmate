@@ -17,6 +17,8 @@ export function KkuIntelsphereChat() {
     }
 
     let disposed = false;
+    let positionFrame = 0;
+    let positionAttempts = 0;
     const widget = document.createElement('chat-widget-embed');
     widget.id = widgetElementId;
     // The storefront is rendered in an iframe. Keep the vendor widget above
@@ -24,9 +26,7 @@ export function KkuIntelsphereChat() {
     Object.assign(widget.style, {
       position: 'fixed',
       right: '0',
-      // Clear the fixed bottom navigation on phones and anchor the launcher
-      // close to the viewport edge on desktop.
-      bottom: window.matchMedia('(max-width: 768px)').matches ? '72px' : '24px',
+      bottom: '0',
       width: '0',
       height: '0',
       overflow: 'visible',
@@ -37,6 +37,31 @@ export function KkuIntelsphereChat() {
     widget.setAttribute('initial-message', welcomeMessage);
     document.body.append(widget);
 
+    // The vendor positions its launcher inside an open shadow root, so the
+    // host's bottom offset does not move the visible button. Adjust the actual
+    // launcher container after the custom element has initialized.
+    const applyWidgetPosition = () => {
+      const container = widget.shadowRoot?.querySelector<HTMLElement>('#chat-widget-container');
+      if (!container) return false;
+      const mobile = window.matchMedia('(max-width: 768px)').matches;
+      container.style.setProperty(
+        'bottom',
+        mobile ? 'calc(80px + env(safe-area-inset-bottom, 0px))' : '20px',
+        'important'
+      );
+      return true;
+    };
+    const positionWidgetWhenReady = () => {
+      if (disposed || applyWidgetPosition() || positionAttempts++ >= 120) return;
+      positionFrame = window.requestAnimationFrame(positionWidgetWhenReady);
+    };
+    const scheduleWidgetPosition = () => {
+      positionAttempts = 0;
+      window.cancelAnimationFrame(positionFrame);
+      positionFrame = window.requestAnimationFrame(positionWidgetWhenReady);
+    };
+    window.addEventListener('resize', applyWidgetPosition);
+
     let script = document.getElementById(widgetScriptId) as HTMLScriptElement | null;
     const isRegistered = () => Boolean(window.customElements?.get('chat-widget-embed'));
     const showLoadError = () => {
@@ -46,11 +71,13 @@ export function KkuIntelsphereChat() {
     const onScriptLoad = () => {
       script?.setAttribute('data-loaded', 'true');
       if (!isRegistered()) showLoadError();
+      else scheduleWidgetPosition();
     };
     const onScriptError = () => showLoadError();
 
     if (isRegistered()) {
       setLoadError('');
+      scheduleWidgetPosition();
     } else if (!script) {
       script = document.createElement('script');
       script.id = widgetScriptId;
@@ -69,6 +96,8 @@ export function KkuIntelsphereChat() {
 
     return () => {
       disposed = true;
+      window.cancelAnimationFrame(positionFrame);
+      window.removeEventListener('resize', applyWidgetPosition);
       script?.removeEventListener('load', onScriptLoad);
       script?.removeEventListener('error', onScriptError);
       widget.remove();

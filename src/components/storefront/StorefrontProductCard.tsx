@@ -82,40 +82,6 @@ function ProductPrice({ pricing, variant }: Pick<StorefrontProductCardProps, 'pr
   return <div className="font-bold text-primary">{sellingPrice}</div>;
 }
 
-function AddToCartButton({ product, imageUrl, pricing, variant, index }: StorefrontProductCardProps) {
-  if (variant === 'related') return null;
-
-  if (variant === 'home') {
-    return (
-      <button
-        aria-label={`เพิ่ม ${product.name} ลงตะกร้า`}
-        className="real-home-add-cart w-9 h-9 rounded-full bg-primary-container text-primary flex items-center justify-center flex-shrink-0"
-        data-product-index={index}
-        type="button"
-      >
-        <span aria-hidden="true" className="material-symbols-outlined text-[20px]">add</span>
-      </button>
-    );
-  }
-
-  return (
-    <button
-      className={variant === 'catalog-list'
-        ? 'rounded-full bg-primary-container p-2 text-on-primary-container'
-        : 'w-9 h-9 rounded-full bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary flex items-center justify-center transition-colors active:scale-90'}
-      data-action="add-to-cart"
-      data-product-id={product.id}
-      data-product-img={imageUrl || ''}
-      data-product-name={product.name}
-      data-product-price={pricing.sellingPrice}
-      title="เพิ่มลงตะกร้า"
-      type="button"
-    >
-      <span aria-hidden="true" className="material-symbols-outlined text-[18px]">add_shopping_cart</span>
-    </button>
-  );
-}
-
 export function StorefrontProductCard({
   product,
   imageUrl,
@@ -164,7 +130,6 @@ export function StorefrontProductCard({
           <h3 className="text-sm font-semibold text-on-surface leading-snug line-clamp-2 min-h-[40px]">{product.name}</h3>
           <div className="mt-2 flex items-end justify-between gap-2">
             <ProductPrice pricing={pricing} variant={variant} />
-            <AddToCartButton imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} index={index} />
           </div>
         </div>
       </article>

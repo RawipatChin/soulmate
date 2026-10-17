@@ -105,7 +105,11 @@
 .order-queue-empty p, .order-inspector-placeholder p { max-width: 330px; margin: 7px 0 0; color: #596d62; font-size: 12px; line-height: 1.65; }
 .order-queue-empty button { margin-top: 13px; padding: 8px 11px; border: 1px solid #d4e3da; border-radius: 8px; background: #fff; color: #285a46; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
 .order-empty-icon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 11px; background: #edf6f0; color: #356c50; }
-.order-queue-footer { padding: 10px 16px; border-top: 1px solid #eaf0ec; color: #596d62; font-size: 10px; font-variant-numeric: tabular-nums; }
+.order-queue-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; border-top: 1px solid #eaf0ec; color: #596d62; font-size: 10px; font-variant-numeric: tabular-nums; }
+.order-queue-pagination { display: flex; align-items: center; gap: 8px; }
+.order-queue-pagination button { min-height: 30px; padding: 0 9px; border: 1px solid #d3e2d9; border-radius: 7px; background: #fff; color: #285842; font: inherit; font-size: 10px; cursor: pointer; }
+.order-queue-pagination button:disabled { cursor: not-allowed; opacity: .45; }
+.order-queue-pagination button:focus-visible { outline: 2px solid #2d6857; outline-offset: 2px; }
 .order-loading { flex-direction: row; gap: 10px; min-height: 210px; font-size: 12px; }
 .order-loading-mark { width: 16px; height: 16px; border: 2px solid #dbe9e0; border-top-color: #2d6857; border-radius: 50%; animation: order-spin .8s linear infinite; }
 .order-inspector { position: sticky; top: 78px; }
@@ -193,6 +197,13 @@
 .order-manual-payment, .order-review-panel, .order-payment-settings { margin: 20px 0; padding: 18px; border: 1px solid #dcebe2; border-radius: 16px; background: #f8fcf9; color: #294c3d; }
 .order-manual-payment h2, .order-review-panel h3, .order-payment-settings h3 { margin: 0 0 10px; font-size: 18px; }
 .order-manual-payment p, .order-review-panel p, .order-payment-settings p { line-height: 1.6; font-size: 13px; }
+.order-tracking-form { margin: 0; }
+.order-tracking-form > div { display: flex; gap: 8px; }
+.order-tracking-form input { width: 100%; min-width: 0; min-height: 42px; padding: 8px 11px; border: 1px solid #d5e3db; border-radius: 8px; background: #fff; color: #234a38; font: inherit; font-size: 13px; }
+.order-tracking-form input:focus-visible { outline: 2px solid #2d6857; outline-offset: 2px; }
+.order-tracking-form button { min-height: 42px; flex: 0 0 auto; padding: 0 15px; font-size: 12px; }
+.order-tracking-form button:disabled { cursor: not-allowed; opacity: .5; }
+.order-tracking-panel > .order-error { margin: 10px 0 0; }
 .order-payment-qr { display: block; width: min(100%, 280px); height: auto; margin: 18px auto; padding: 10px; border: 1px solid #e2ece5; border-radius: 12px; background: white; }
 .order-manual-payment form, .order-payment-settings form { display: grid; gap: 10px; margin: 16px 0; text-align: left; }
 .order-manual-payment label, .order-payment-settings label { display: grid; gap: 6px; font-weight: 700; font-size: 13px; }
@@ -237,6 +248,7 @@
   .order-filters button { gap: 4px; padding: 0 6px; font-size: 10px; }
   .order-filters button span { min-width: 18px; height: 18px; padding: 0 4px; }
   .order-queue-item { padding: 12px; }
+  .order-queue-footer { align-items: flex-start; flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) {
   .order-page-admin *, .order-page-admin *::before, .order-page-admin *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }

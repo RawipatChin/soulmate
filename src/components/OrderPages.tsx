@@ -9,7 +9,13 @@ import {
   listMyOrders,
   loadOrderSlip,
   getPromptPaySettings,
+  acceptCodOrder,
   reviewOrder,
+  updateFulfillmentStatus,
+  createLabelGeneration,
+  getLabelGenerations,
+  updateOrderContact,
+  updateOrderTrackingNumber,
   savePromptPaySettings,
   submitOrderSlip,
   type StoreOrder,
@@ -17,6 +23,8 @@ import {
 import { promptPayPayload } from '../services/promptPayQr';
 import './order-pages.css';
 import { AdminSidebarNav } from './admin/AdminSidebarNav';
+import { AdminNotificationBell } from './AdminNotificationBell';
+import './admin-notifications.css';
 
 const money = (satang: number) => `฿${(satang / 100).toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
 const dateText = (order: StoreOrder) => order.createdAt?.toDate?.().toLocaleString('th-TH') ?? 'กำลังบันทึกเวลา';
@@ -46,7 +54,7 @@ const paymentKind = (order: StoreOrder) => order.payment?.method === 'manual_pro
 const orderDate = (order: StoreOrder) => order.createdAt?.toDate?.() ?? null;
 const dayTime = (order: StoreOrder) => orderDate(order)?.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) ?? 'กำลังบันทึกเวลา';
 
-function AdminOrderShell({ children }: { children: ReactNode }) {
+export function AdminOrderShell({ children, title = 'คำสั่งซื้อ' }: { children: ReactNode; title?: string }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const auth = useAuth();
   const navigate = useNavigate();
@@ -66,7 +74,7 @@ function AdminOrderShell({ children }: { children: ReactNode }) {
       </div>
       <div className="admin-order-sidebar-bottom"><div className="admin-order-profile"><div className="admin-order-role"><span>สิทธิ์การใช้งาน</span><strong>ผู้ดูแลระบบ</strong></div><div className="admin-order-user"><span className="admin-order-avatar"><UserRound size={18} /></span><span><strong>ทีม SOULMATE</strong><small>{auth.customerProfile?.email || ''}</small></span></div></div><button className="admin-order-logout" onClick={logout}><LogOut size={18} />ออกจากระบบ</button></div>
     </aside>
-    <div className="admin-order-content"><header className="admin-order-topbar"><div><button className="admin-order-menu" aria-label="เปิดเมนู" onClick={() => setDrawerOpen(true)}><span className="material-symbols-outlined" aria-hidden="true">menu</span></button><h1>คำสั่งซื้อ</h1></div><div className="admin-order-top-actions"><Link className="admin-order-storefront-link" to="/" aria-label="กลับไปหน้าร้าน"><span className="material-symbols-outlined" aria-hidden="true">storefront</span><span>กลับไปหน้าร้าน</span></Link><button className="admin-order-notifications" type="button" aria-label="การแจ้งเตือน"><span className="material-symbols-outlined" aria-hidden="true">notifications</span><span className="admin-order-notification-dot" /></button><span className="admin-order-user-divider" /><span className="admin-order-avatar"><UserRound size={18} /></span><span className="admin-order-user-name">ผู้ดูแลระบบ</span></div></header>{children}</div>
+    <div className="admin-order-content"><header className="admin-order-topbar"><div><button className="admin-order-menu" aria-label="เปิดเมนู" onClick={() => setDrawerOpen(true)}><span className="material-symbols-outlined" aria-hidden="true">menu</span></button><h1>{title}</h1></div><div className="admin-order-top-actions"><Link className="admin-order-storefront-link" to="/" aria-label="กลับไปหน้าร้าน"><span className="material-symbols-outlined" aria-hidden="true">storefront</span><span>กลับไปหน้าร้าน</span></Link><AdminNotificationBell onNavigate={navigate} /><span className="admin-order-user-divider" /><span className="admin-order-avatar"><UserRound size={18} /></span><span className="admin-order-user-name">ผู้ดูแลระบบ</span></div></header>{children}</div>
   </div>;
 }
 
@@ -119,22 +127,28 @@ function OrderPaymentPanel({ order, onUpdated }: { order: StoreOrder; onUpdated:
 }
 
 function AdminReviewPanel({ order, onUpdated }: { order: StoreOrder; onUpdated: () => void }) {
-  const [slipUrl, setSlipUrl] = useState('');
+  const [slipPreview, setSlipPreview] = useState<{ orderId: string; slipPath: string; url: string } | null>(null);
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const slipUrl = slipPreview?.orderId === order.id && slipPreview.slipPath === order.slipPath ? slipPreview.url : '';
   useEffect(() => {
     let alive = true;
     let url = '';
+    setSlipPreview(null);
+    setChecked(false);
+    setError('');
     if (order.slipPath) loadOrderSlip(order).then((blob) => {
       url = URL.createObjectURL(blob);
-      if (alive) setSlipUrl(url);
+      if (alive) setSlipPreview({ orderId: order.id, slipPath: order.slipPath!, url });
       else URL.revokeObjectURL(url);
     }).catch(() => { if (alive) setError('เปิดสลิปไม่ได้ ห้ามอนุมัติจนกว่าจะตรวจหลักฐานได้'); });
     return () => { alive = false; if (url) URL.revokeObjectURL(url); };
   }, [order.id, order.slipPath]);
   if (order.schemaVersion !== 2) return null;
   const finished = order.status === 'paid' || order.status === 'cancelled';
+  const codNeedsAcceptance = order.payment?.method === 'cod' && order.status === 'pending_payment' && !order.codAcceptance;
+  const codCanCollect = order.payment?.method === 'cod' && order.status === 'pending_payment' && Boolean(order.codAcceptance) && order.fulfillmentStatus === 'shipped';
   const act = async (action: 'approved' | 'cancelled') => {
     const approvePrompt = order.payment?.method === 'cod' ? 'ยืนยันว่าได้รับเงินสดจากผู้จัดส่งแล้วและปิดออเดอร์?' : 'ตรวจเงินเข้าบัญชีแล้วและยืนยันให้ออเดอร์สำเร็จ?';
     if (!window.confirm(action === 'approved' ? approvePrompt : 'ยกเลิกออเดอร์และคืนสต็อก?')) return;
@@ -151,15 +165,67 @@ function AdminReviewPanel({ order, onUpdated }: { order: StoreOrder; onUpdated: 
     {order.status === 'pending_payment' && order.payment?.method === 'manual_promptpay' && Date.now() >= slipDeadline(order) && <p className="order-error">เลยกำหนดส่งสลิป 24 ชั่วโมงแล้ว</p>}
     {order.slipPath && (slipUrl ? <img className="order-slip-preview" src={slipUrl} alt="สลิปที่ลูกค้าส่ง" /> : <p>กำลังเปิดสลิป…</p>)}
     {!finished && <>
-      {(order.status === 'awaiting_review' && slipUrl || order.payment?.method === 'cod' && order.status === 'pending_payment') && <label className="order-review-check"><input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} />{order.payment?.method === 'cod' ? 'ได้รับเงินสดจากผู้จัดส่งแล้ว' : 'ตรวจยอด ผู้รับ และเงินเข้าบัญชีจริงแล้ว'}</label>}
+      {(order.status === 'awaiting_review' && slipUrl || codCanCollect) && <label className="order-review-check"><input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} />{order.payment?.method === 'cod' ? 'ผู้จัดส่งส่งเงิน COD ให้ร้านแล้ว' : 'ตรวจยอด ผู้รับ และเงินเข้าบัญชีจริงแล้ว'}</label>}
+      {codNeedsAcceptance && <label className="order-review-check"><input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} />ตรวจรายละเอียดออเดอร์และยืนยันรับ COD</label>}
       <div className="order-review-actions">
-        <button className="order-primary" disabled={busy || !checked || (order.payment?.method === 'cod' ? order.status !== 'pending_payment' : !slipUrl || order.status !== 'awaiting_review')} onClick={() => void act('approved')}>{order.payment?.method === 'cod' ? 'ยืนยันว่าเก็บเงินแล้ว' : 'อนุมัติว่าเงินเข้าแล้ว'}</button>
+        {codNeedsAcceptance
+          ? <button className="order-primary" disabled={busy || !checked} onClick={async () => { setBusy(true); setError(''); try { await acceptCodOrder(order.id); onUpdated(); } catch (cause) { setError((cause as Error).message || 'ยืนยัน COD ไม่สำเร็จ'); } finally { setBusy(false); } }}>ยืนยันรับออเดอร์ COD</button>
+          : <button className="order-primary" disabled={busy || !checked || (order.payment?.method === 'cod' ? !codCanCollect : !slipUrl || order.status !== 'awaiting_review')} onClick={() => void act('approved')}>{order.payment?.method === 'cod' ? 'ยืนยันว่าได้รับเงิน COD แล้ว' : 'อนุมัติว่าเงินเข้าแล้ว'}</button>}
         <button className="order-secondary" disabled={busy} onClick={() => void act('cancelled')}>ยกเลิกและคืนสต็อก</button>
       </div>
     </>}
     {order.review && <p>ผลตรวจ: {order.review.result === 'approved' ? 'อนุมัติ' : 'ยกเลิก'} · UID {order.review.by}</p>}
     {error && <p className="order-error" role="alert">{error}</p>}
   </div>;
+}
+
+function fulfillmentText(order: StoreOrder) {
+  switch (order.fulfillmentStatus) {
+    case 'awaiting_cod_acceptance': return 'รอแอดมินยืนยัน COD';
+    case 'awaiting_payment': return 'รอยืนยันการชำระเงิน';
+    case 'ready_to_prepare': return 'พร้อมจัดเตรียม';
+    case 'ready_to_ship': return 'พร้อมส่ง';
+    case 'shipped': return 'ส่งแล้ว';
+    default: return order.status === 'paid' ? 'พร้อมจัดเตรียม' : 'สถานะจัดส่งยังไม่พร้อมใช้งาน';
+  }
+}
+
+function AdminFulfillmentPanel({ order, onUpdated }: { order: StoreOrder; onUpdated: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [trackingBusy, setTrackingBusy] = useState(false);
+  const [fulfillmentError, setFulfillmentError] = useState('');
+  const [trackingError, setTrackingError] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber ?? '');
+  useEffect(() => { setTrackingNumber(order.trackingNumber ?? ''); }, [order.id, order.trackingNumber]);
+  if (order.schemaVersion !== 2) return null;
+  const next = order.fulfillmentStatus === 'ready_to_prepare' ? 'ready_to_ship'
+    : order.fulfillmentStatus === 'ready_to_ship' ? 'shipped' : null;
+  const action = next === 'ready_to_ship' ? 'ยืนยันว่าแพ็กสินค้าแล้ว · พร้อมส่ง' : 'ยืนยันว่าส่งมอบให้ขนส่งแล้ว';
+  return <>
+    <section className="order-review-panel" aria-label="สถานะจัดส่ง">
+      <h3>สถานะจัดส่ง</h3>
+      <p><strong>{fulfillmentText(order)}</strong></p>
+      {next && <button className="order-primary" type="button" disabled={busy} onClick={async () => {
+        setBusy(true); setFulfillmentError('');
+        try { await updateFulfillmentStatus(order.id, next); onUpdated(); }
+        catch (cause) { setFulfillmentError((cause as Error).message || 'เปลี่ยนสถานะจัดส่งไม่สำเร็จ'); }
+        finally { setBusy(false); }
+      }}>{busy ? 'กำลังบันทึก…' : action}</button>}
+      {fulfillmentError && <p className="order-error" role="alert">{fulfillmentError}</p>}
+    </section>
+    <section className="order-review-panel order-tracking-panel" aria-labelledby={`tracking-heading-${order.id}`}>
+      <h3 id={`tracking-heading-${order.id}`}>เลข Tracking</h3>
+      <form className="order-tracking-form" onSubmit={async (event) => {
+        event.preventDefault(); setTrackingBusy(true); setTrackingError('');
+        try { await updateOrderTrackingNumber(order.id, trackingNumber); onUpdated(); }
+        catch (cause) { setTrackingError((cause as Error).message || 'บันทึกเลข Tracking ไม่สำเร็จ'); }
+        finally { setTrackingBusy(false); }
+      }}>
+        <div><input id={`tracking-${order.id}`} aria-label="เลข Tracking" value={trackingNumber} maxLength={80} placeholder="กรอกเลขติดตามพัสดุ ถ้ามี" disabled={order.status === 'cancelled' || trackingBusy} onChange={(event) => setTrackingNumber(event.target.value)} /><button className="order-secondary" type="submit" disabled={order.status === 'cancelled' || trackingBusy || trackingNumber.trim() === (order.trackingNumber ?? '')}>{trackingBusy ? 'กำลังบันทึก…' : 'บันทึกเลข'}</button></div>
+      </form>
+      {trackingError && <p className="order-error" role="alert">{trackingError}</p>}
+    </section>
+  </>;
 }
 
 function PaymentSetupPanel() {
@@ -223,6 +289,7 @@ export function CustomerOrdersPage() {
 }
 
 export function AdminOrdersPage() {
+  const pageSize = 10;
   const { orderId } = useParams();
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [order, setOrder] = useState<StoreOrder | null>(null);
@@ -231,6 +298,7 @@ export function AdminOrdersPage() {
   const [queryText, setQueryText] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<'all' | QueueCategory>('all');
   const [selectedId, setSelectedId] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
   useEffect(() => {
     let alive = true;
@@ -253,26 +321,29 @@ export function AdminOrdersPage() {
     const haystack = [item.orderNumber, item.contact?.firstName, item.contact?.lastName, item.contact?.phone, item.contact?.email].join(' ').toLocaleLowerCase('th-TH');
     return statusMatches && haystack.includes(queryText.trim().toLocaleLowerCase('th-TH'));
   });
-  const selectedOrder = visibleOrders.find((item) => item.id === selectedId) ?? visibleOrders[0] ?? null;
-  const chooseFilter = (filter: typeof paymentFilter) => setPaymentFilter(filter);
+  const pageCount = Math.max(1, Math.ceil(visibleOrders.length / pageSize));
+  const page = Math.min(currentPage, pageCount);
+  const pageOrders = visibleOrders.slice((page - 1) * pageSize, page * pageSize);
+  const selectedOrder = pageOrders.find((item) => item.id === selectedId) ?? pageOrders[0] ?? null;
+  const chooseFilter = (filter: typeof paymentFilter) => { setPaymentFilter(filter); setCurrentPage(1); };
   return <AdminOrderShell><main className="order-page order-page-admin">
     <div className="order-toolbar"><button className="order-refresh" type="button" onClick={() => setRefreshKey((key) => key + 1)} disabled={busy}><RefreshCw size={16} className={busy ? 'is-spinning' : ''} />รีเฟรช</button></div>
     <section className="order-workbench" aria-label="คิวและรายละเอียดคำสั่งซื้อ">
       <div className="order-queue">
-        <div className="order-queue-tools"><label className="order-search"><Search size={17} aria-hidden="true" /><input value={queryText} onChange={(event) => setQueryText(event.target.value)} placeholder="ค้นหาเลขออเดอร์ ชื่อ เบอร์โทร" aria-label="ค้นหาคำสั่งซื้อ" /></label>
+        <div className="order-queue-tools"><label className="order-search"><Search size={17} aria-hidden="true" /><input value={queryText} onChange={(event) => { setQueryText(event.target.value); setCurrentPage(1); }} placeholder="ค้นหาเลขออเดอร์ ชื่อ เบอร์โทร" aria-label="ค้นหาคำสั่งซื้อ" /></label>
           <div className="order-filters" role="group" aria-label="กรองตามสถานะชำระเงิน">
             {([['all', 'ทั้งหมด'], ['pending', 'รอดำเนินการ'], ['review', 'รอตรวจสลิป'], ['paid', 'สำเร็จ'], ['cancelled', 'ยกเลิก']] as const).map(([key, label]) => <button key={key} type="button" className={paymentFilter === key ? 'is-active' : ''} aria-pressed={paymentFilter === key} onClick={() => chooseFilter(key)}>{label}<span>{counts[key]}</span></button>)}
           </div>
         </div>
         {error && <div className="order-error" role="alert">{error}<button type="button" onClick={() => setRefreshKey((key) => key + 1)}>ลองอีกครั้ง</button></div>}
         {busy ? <div className="order-loading" role="status"><span className="order-loading-mark" />กำลังโหลดคิวคำสั่งซื้อ…</div> : visibleOrders.length ? <div className="order-queue-list" aria-label="คำสั่งซื้อ">
-          {visibleOrders.map((item) => <button className={`order-queue-item${selectedOrder?.id === item.id ? ' is-selected' : ''}`} key={item.id} type="button" aria-pressed={selectedOrder?.id === item.id} onClick={() => setSelectedId(item.id)}>
+          {pageOrders.map((item) => <button className={`order-queue-item${selectedOrder?.id === item.id ? ' is-selected' : ''}`} key={item.id} type="button" aria-pressed={selectedOrder?.id === item.id} onClick={() => setSelectedId(item.id)}>
             <span className="order-queue-item-top"><strong>{item.orderNumber || item.id}</strong><small>{dayTime(item)}</small></span>
             <span className="order-queue-item-bottom"><span>{`${item.contact?.firstName ?? ''} ${item.contact?.lastName ?? ''}`.trim() || 'ลูกค้าทั่วไป'}</span><strong>{money(item.totalSatang)}</strong></span>
             <span className={`order-status-chip ${isPaid(item) ? 'is-paid' : isFailedPayment(item) ? 'is-failed' : 'is-pending'}`}>{isPaid(item) ? <CheckCircle2 size={14} /> : isFailedPayment(item) ? <XCircle size={14} /> : <Clock3 size={14} />}{paymentText(item)}</span>
           </button>)}
         </div> : <div className="order-queue-empty"><span className="order-empty-icon"><Search size={20} /></span><strong>{orders.length ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ยังไม่มีคำสั่งซื้อ'}</strong><p>{orders.length ? 'ลองค้นหาด้วยคำอื่น หรือเลือกสถานะทั้งหมด' : 'ออเดอร์ใหม่จะแสดงที่นี่เมื่อมีการสั่งซื้อจากหน้าร้าน'}</p>{orders.length > 0 && <button type="button" onClick={() => { setQueryText(''); setPaymentFilter('all'); }}>ล้างตัวกรอง</button>}</div>}
-        {!busy && orders.length > 0 && <div className="order-queue-footer">แสดง {visibleOrders.length} จาก {orders.length} รายการ</div>}
+        {!busy && orders.length > 0 && <div className="order-queue-footer"><span>แสดง {visibleOrders.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, visibleOrders.length)} จาก {visibleOrders.length} รายการ</span>{pageCount > 1 && <nav className="order-queue-pagination" aria-label="เปลี่ยนหน้าคำสั่งซื้อ"><button type="button" disabled={page <= 1} onClick={() => setCurrentPage(Math.max(1, page - 1))}>ก่อนหน้า</button><span>หน้า {page} / {pageCount}</span><button type="button" disabled={page >= pageCount} onClick={() => setCurrentPage(Math.min(pageCount, page + 1))}>ถัดไป</button></nav>}</div>}
       </div>
       <aside className="order-inspector" aria-label="รายละเอียดรายการที่เลือก">
         {selectedOrder ? <>
@@ -335,5 +406,5 @@ export function OrderConfirmationPage() {
 }
 
 function OrderDetail({ order, busy, error, admin = false, onUpdated }: { order: StoreOrder | null; busy: boolean; error: string; admin?: boolean; onUpdated: () => void }) {
-  return <main className="order-page"><Link className="order-back" to={admin ? '/admin/orders' : '/account/orders'}>← กลับไปรายการคำสั่งซื้อ</Link>{busy ? <p className="order-empty">กำลังโหลดคำสั่งซื้อ…</p> : error || !order ? <p className="order-error">{error || 'ไม่พบคำสั่งซื้อ'}</p> : <section className="order-panel"><p className="order-eyebrow">รายละเอียดคำสั่งซื้อ</p><h1>{order.orderNumber}</h1><p>{dateText(order)} · {paymentText(order)}</p>{admin && <div className="order-contact"><strong>{order.contact.firstName} {order.contact.lastName}</strong><span>{order.contact.email}</span><span>{order.contact.phone}</span><span>{order.contact.addressLine1}, {order.contact.subdistrict}, {order.contact.district}, {order.contact.province} {order.contact.postalCode}</span></div>}<div className="order-items">{order.items.map((item, index) => <div className="order-item" key={`${item.productId}-${item.variantId}-${index}`}><span>{item.productName}{item.variantName ? ` · ${item.variantName}` : ''} × {item.quantity}</span><strong>{money(item.lineTotalSatang)}</strong></div>)}</div><div className="order-totals"><span>สินค้า {money(order.subtotalSatang)}</span><span>จัดส่ง {money(order.shippingFeeSatang)}</span><strong>รวม {money(order.totalSatang)}</strong></div>{admin ? <AdminReviewPanel order={order} onUpdated={onUpdated} /> : <OrderPaymentPanel order={order} onUpdated={onUpdated} />}</section>}</main>;
+  return <main className="order-page"><Link className="order-back" to={admin ? '/admin/orders' : '/account/orders'}>← กลับไปรายการคำสั่งซื้อ</Link>{busy ? <p className="order-empty">กำลังโหลดคำสั่งซื้อ…</p> : error || !order ? <p className="order-error">{error || 'ไม่พบคำสั่งซื้อ'}</p> : <section className="order-panel"><p className="order-eyebrow">รายละเอียดคำสั่งซื้อ</p><h1>{order.orderNumber}</h1><p>{dateText(order)} · {paymentText(order)}</p>{admin && <div className="order-contact"><strong>{order.contact.firstName} {order.contact.lastName}</strong><span>{order.contact.email}</span><span>{order.contact.phone}</span><span>{order.contact.addressLine1}, {order.contact.subdistrict}, {order.contact.district}, {order.contact.province} {order.contact.postalCode}</span></div>}<div className="order-items">{order.items.map((item, index) => <div className="order-item" key={`${item.productId}-${item.variantId}-${index}`}><span>{item.productName}{item.variantName ? ` · ${item.variantName}` : ''} × {item.quantity}</span><strong>{money(item.lineTotalSatang)}</strong></div>)}</div><div className="order-totals"><span>สินค้า {money(order.subtotalSatang)}</span><span>จัดส่ง {money(order.shippingFeeSatang)}</span><strong>รวม {money(order.totalSatang)}</strong></div>{admin ? <><AdminReviewPanel order={order} onUpdated={onUpdated} /><AdminFulfillmentPanel order={order} onUpdated={onUpdated} /></> : <OrderPaymentPanel order={order} onUpdated={onUpdated} />}</section>}</main>;
 }

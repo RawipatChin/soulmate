@@ -40,15 +40,19 @@ const normalizeDisplayOrder = (value: number) =>
   Math.max(1, Math.min(99, Math.trunc(Number.isFinite(value) ? value : 1)));
 
 function mapBanner(id: string, data: Record<string, any>): StoreBanner {
+  const mobileImageUrl = typeof data.mobileImageUrl === 'string' ? data.mobileImageUrl : '';
+  const desktopImageUrl = typeof data.desktopImageUrl === 'string' ? data.desktopImageUrl : '';
+  const mobileImagePath = typeof data.mobileImagePath === 'string' ? data.mobileImagePath : '';
+  const desktopImagePath = typeof data.desktopImagePath === 'string' ? data.desktopImagePath : '';
   return {
     id,
     name: typeof data.name === 'string' ? data.name : '',
     displayOrder: normalizeDisplayOrder(Number(data.displayOrder)),
     active: data.active === true,
-    mobileImageUrl: typeof data.mobileImageUrl === 'string' ? data.mobileImageUrl : '',
-    mobileImagePath: typeof data.mobileImagePath === 'string' ? data.mobileImagePath : '',
-    desktopImageUrl: typeof data.desktopImageUrl === 'string' ? data.desktopImageUrl : '',
-    desktopImagePath: typeof data.desktopImagePath === 'string' ? data.desktopImagePath : '',
+    mobileImageUrl: mobileImageUrl || desktopImageUrl,
+    mobileImagePath: mobileImagePath || desktopImagePath,
+    desktopImageUrl: desktopImageUrl || mobileImageUrl,
+    desktopImagePath: desktopImagePath || mobileImagePath,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   };
@@ -65,7 +69,7 @@ export async function getActiveBanners(): Promise<StoreBanner[]> {
   const snapshot = await getDocs(query(collection(db, 'banners'), where('active', '==', true)));
   return snapshot.docs
     .map((item) => mapBanner(item.id, item.data()))
-    .filter((banner) => banner.mobileImageUrl)
+    .filter((banner) => banner.mobileImageUrl || banner.desktopImageUrl)
     .sort(compareBanners);
 }
 
@@ -77,7 +81,7 @@ export async function getBannerById(bannerId: string): Promise<StoreBanner | nul
 
 export async function uploadBannerImage(
   bannerId: string,
-  slot: 'mobile' | 'desktop',
+  slot: 'mobile' | 'desktop' | 'shared',
   file: File,
 ): Promise<BannerImage> {
   if (!storage) throw new Error('Firebase Storage ยังไม่ได้เชื่อมต่อ');

@@ -10,6 +10,9 @@ import { MAX_ORDER_LINES, optionId, optionRef, type SellableOption } from './inv
 import { calculateMembershipTier, getTierRank } from '../utils/membership';
 import type { MembershipTier } from '../types/membership';
 import { getPublicStoreSettings } from './storeSettingsService';
+import { formatOrderNumber, getBangkokOrderYear } from './orderNumber';
+
+export type FulfillmentStatus = 'awaiting_payment' | 'awaiting_cod_acceptance' | 'ready_to_prepare' | 'ready_to_ship' | 'shipped';
 
 export interface OrderContact {
   firstName: string; lastName: string; phone: string; email: string;
@@ -25,10 +28,22 @@ export interface StoreOrder extends DocumentData {
   ownerType: 'guest' | 'customer'; contact: OrderContact; items: OrderLine[];
   subtotalSatang: number; shippingFeeSatang: number; totalSatang: number;
   status: 'pending_payment' | 'awaiting_review' | 'paid' | 'cancelled' | 'payment_failed' | 'expired';
+  fulfillmentStatus?: FulfillmentStatus;
+  codAcceptance?: { by: string; at: Timestamp } | null;
+  shippingRevision?: number;
+  trackingNumber?: string;
+  trackingUpdatedBy?: string;
+  trackingUpdatedAt?: Timestamp;
   payment: { method: 'manual_promptpay' | 'cod' | 'promptpay' | null; status: string; promptPayPhone?: string | null; chargeId?: string | null; qrUrl?: string | null };
   slipPath?: string | null; submittedAt?: Timestamp | null;
   review?: { by: string; at: Timestamp; result: 'approved' | 'cancelled'; reason: string } | null;
   createdAt?: Timestamp; updatedAt?: Timestamp; inventoryRestored?: boolean;
+}
+export function effectiveFulfillmentStatus(order: StoreOrder): FulfillmentStatus {
+  if (order.fulfillmentStatus) return order.fulfillmentStatus;
+  if (order.status === 'paid') return order.payment?.method === 'cod' ? 'shipped' : 'ready_to_prepare';
+  if (order.payment?.method === 'cod') return 'awaiting_cod_acceptance';
+  return 'awaiting_payment';
 }
 export class OrderReviewError extends Error {
   currentItems?: Array<{ productId: string; variantId: string | null; unitPriceSatang: number; productName: string; variantName: string | null }>;
@@ -119,6 +134,7 @@ export async function createPendingOrder(
   const missingVariant = await findMissingVariantSelection(items);
   if (missingVariant) throw missingVariant;
   const fingerprint = JSON.stringify({ contact, shippingMethodId, selectedPaymentMethod, items: items.map((item) => [item.productId, item.variantId, item.quantity]) });
+  const orderYear = getBangkokOrderYear();
   let saved: { key: string; fingerprint: string } | null = null;
   try { saved = JSON.parse(sessionStorage.getItem(requestKeyName) || 'null'); } catch { /* replace stale key */ }
   const key = saved?.fingerprint === fingerprint ? saved.key : crypto.randomUUID().replaceAll('-', '');
@@ -165,27 +181,16 @@ export async function createPendingOrder(
     const shippingFee = shippingMethod.freeShippingThreshold != null && subtotalSatang >= Math.round(shippingMethod.freeShippingThreshold * 100)
       ? 0
       : Math.round(shippingMethod.fee * 100);
-    const orderPrefix = (publicStoreSettings.orderPrefix || 'SM-').trim().slice(0, 20);
-    const sequenceMode = /^\d{8,15}$/.test(orderPrefix);
-    let orderNumber: string;
-    if (sequenceMode) {
-      const configuredLastNumber = Number(orderPrefix);
-      const lastNumber = Number.isSafeInteger(publicSettings.orderSequence)
-        ? publicSettings.orderSequence as number
-        : configuredLastNumber;
-      if (!Number.isSafeInteger(lastNumber) || lastNumber < 0 || lastNumber >= Number.MAX_SAFE_INTEGER) {
-        throw new Error('เลขออเดอร์เกินขอบเขตที่รองรับ กรุณาตรวจการตั้งค่าเลขออเดอร์');
-      }
-      const nextNumber = lastNumber + 1;
-      orderNumber = String(nextNumber).padStart(Math.max(8, orderPrefix.length), '0');
-      tx.set(publicSettingsRef, {
-        orderSequence: nextNumber,
-        orderSequenceText: orderNumber,
-        orderSequenceOrderId: key,
-      }, { merge: true });
-    } else {
-      orderNumber = `${orderPrefix}${key.slice(0, 10).toUpperCase()}`;
-    }
+    const previousYear = Number(publicSettings.orderSequenceYear ?? 0);
+    const previousSequence = Number(publicSettings.orderSequence ?? 0);
+    const nextSequence = previousYear === orderYear ? previousSequence + 1 : 1;
+    const orderNumber = formatOrderNumber(orderYear, nextSequence);
+    tx.set(publicSettingsRef, {
+      orderSequenceYear: orderYear,
+      orderSequence: nextSequence,
+      orderSequenceText: orderNumber,
+      orderSequenceOrderId: key,
+    }, { merge: true });
     lines.forEach((line, index) => tx.update(refs[index], {
       available: options[index]!.available - line.quantity, lastOrderId: key, lastOrderLine: index,
     }));
@@ -196,8 +201,10 @@ export async function createPendingOrder(
       status: 'pending_payment', payment: {
         method: selectedPaymentMethod,
         status: 'pending',
-        promptPayPhone: paymentSettings?.phone ?? null,
+        promptPayPhone: selectedPaymentMethod === 'manual_promptpay' ? paymentSettings!.phone : null,
       },
+      fulfillmentStatus: selectedPaymentMethod === 'cod' ? 'awaiting_cod_acceptance' : 'awaiting_payment',
+      codAcceptance: null, shippingRevision: 0,
       slipPath: null, submittedAt: null, review: null, inventoryRestored: false,
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     });
@@ -230,7 +237,8 @@ export async function reviewOrder(orderId: string, action: 'approved' | 'cancell
     if (order.schemaVersion !== 2) throw new Error('ออเดอร์รุ่นเดิมต้องจัดการแยกจากระบบใหม่');
     if (order.status === 'paid' || order.status === 'cancelled') return;
     if (action === 'approved') {
-      const isCodCollection = order.payment?.method === 'cod' && order.status === 'pending_payment';
+      const isCodCollection = order.payment?.method === 'cod' && order.status === 'pending_payment' &&
+        Boolean(order.codAcceptance) && order.fulfillmentStatus === 'shipped';
       if (!isCodCollection && (order.status !== 'awaiting_review' || !order.slipPath)) throw new Error('ต้องมีสลิปให้ตรวจสอบก่อนอนุมัติ');
       const customerRef = order.ownerType === 'customer' ? doc(firestore, 'users', order.ownerUid) : null;
       const customer = customerRef ? await tx.get(customerRef) : null;
@@ -244,7 +252,7 @@ export async function reviewOrder(orderId: string, action: 'approved' | 'cancell
           membershipTier: getTierRank(calculated) > getTierRank(previous) ? calculated : previous,
           updatedAt: serverTimestamp() });
       }
-      tx.update(orderRef, { status: 'paid', 'payment.status': 'successful',
+      tx.update(orderRef, { status: 'paid', 'payment.status': 'successful', fulfillmentStatus: order.fulfillmentStatus === 'shipped' ? 'shipped' : 'ready_to_prepare',
         review: { by: adminUid, at: serverTimestamp(), result: action, reason: '' }, updatedAt: serverTimestamp() });
       return;
     }
@@ -255,6 +263,137 @@ export async function reviewOrder(orderId: string, action: 'approved' | 'cancell
     tx.update(orderRef, { status: 'cancelled', 'payment.status': 'cancelled', inventoryRestored: true,
       review: { by: adminUid, at: serverTimestamp(), result: action, reason: reason.trim() }, updatedAt: serverTimestamp() });
   });
+}
+
+export async function acceptCodOrder(orderId: string) {
+  const { db: firestore, auth: firebaseAuth } = services();
+  const adminUid = firebaseAuth.currentUser?.uid;
+  if (!adminUid) throw new Error('กรุณาเข้าสู่ระบบแอดมิน');
+  const orderRef = doc(firestore, 'orders', orderId);
+  await runTransaction(firestore, async (tx) => {
+    const snapshot = await tx.get(orderRef);
+    if (!snapshot.exists()) throw new Error('ไม่พบออเดอร์');
+    const order = snapshot.data() as StoreOrder;
+    if (order.schemaVersion !== 2 || order.payment?.method !== 'cod' || order.status !== 'pending_payment') {
+      throw new Error('ออเดอร์นี้ไม่สามารถยืนยัน COD ได้');
+    }
+    if (order.codAcceptance || order.fulfillmentStatus !== 'awaiting_cod_acceptance') return;
+    tx.update(orderRef, {
+      codAcceptance: { by: adminUid, at: serverTimestamp() },
+      fulfillmentStatus: 'ready_to_prepare', updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+export async function updateFulfillmentStatus(orderId: string, next: 'ready_to_ship' | 'shipped') {
+  const { db: firestore } = services();
+  const orderRef = doc(firestore, 'orders', orderId);
+  await runTransaction(firestore, async (tx) => {
+    const snapshot = await tx.get(orderRef);
+    if (!snapshot.exists()) throw new Error('ไม่พบออเดอร์');
+    const order = snapshot.data() as StoreOrder;
+    if (order.schemaVersion !== 2 || order.status === 'cancelled' || order.status === 'payment_failed' || order.status === 'expired') {
+      throw new Error('ออเดอร์นี้ไม่สามารถเปลี่ยนสถานะจัดส่งได้');
+    }
+    const validSource = next === 'ready_to_ship'
+      ? order.fulfillmentStatus === 'ready_to_prepare'
+      : order.fulfillmentStatus === 'ready_to_ship';
+    if (!validSource) throw new Error('สถานะจัดส่งเปลี่ยนไปแล้ว กรุณารีเฟรช');
+    tx.update(orderRef, { fulfillmentStatus: next, updatedAt: serverTimestamp() });
+  });
+}
+
+export async function updateOrderContact(orderId: string, contact: OrderContact) {
+  const { db: firestore, auth: firebaseAuth } = services();
+  const adminUid = firebaseAuth.currentUser?.uid;
+  if (!adminUid) throw new Error('กรุณาเข้าสู่ระบบแอดมิน');
+  validateContact(contact);
+  const orderRef = doc(firestore, 'orders', orderId);
+  await runTransaction(firestore, async (tx) => {
+    const snapshot = await tx.get(orderRef);
+    if (!snapshot.exists()) throw new Error('ไม่พบออเดอร์');
+    const order = snapshot.data() as StoreOrder;
+    if (order.schemaVersion !== 2 || order.fulfillmentStatus === 'shipped' || order.status === 'cancelled') {
+      throw new Error('แก้ข้อมูลจัดส่งได้ก่อนส่งพัสดุเท่านั้น');
+    }
+    tx.update(orderRef, {
+      contact, shippingRevision: Number(order.shippingRevision ?? 0) + 1,
+      shippingContactUpdatedBy: adminUid,
+      shippingContactUpdatedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+export async function updateOrderTrackingNumber(orderId: string, trackingNumber: string) {
+  const { db: firestore, auth: firebaseAuth } = services();
+  const adminUid = firebaseAuth.currentUser?.uid;
+  if (!adminUid) throw new Error('กรุณาเข้าสู่ระบบแอดมิน');
+  const normalizedTrackingNumber = trackingNumber.trim();
+  if (normalizedTrackingNumber.length > 80) throw new Error('เลข Tracking ต้องไม่เกิน 80 ตัวอักษร');
+  const orderRef = doc(firestore, 'orders', orderId);
+  await runTransaction(firestore, async (tx) => {
+    const snapshot = await tx.get(orderRef);
+    if (!snapshot.exists()) throw new Error('ไม่พบออเดอร์');
+    const order = snapshot.data() as StoreOrder;
+    if (order.schemaVersion !== 2 || order.status === 'cancelled') {
+      throw new Error('ออเดอร์นี้ไม่สามารถบันทึกเลข Tracking ได้');
+    }
+    tx.update(orderRef, {
+      trackingNumber: normalizedTrackingNumber,
+      trackingUpdatedBy: adminUid,
+      trackingUpdatedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+export async function createLabelGeneration(orderId: string, kind: 'label' | 'packing', expectedShippingRevision?: number) {
+  const { db: firestore, auth: firebaseAuth } = services();
+  const adminUid = firebaseAuth.currentUser?.uid;
+  if (!adminUid) throw new Error('กรุณาเข้าสู่ระบบแอดมิน');
+  const orderRef = doc(firestore, 'orders', orderId);
+  const generationRef = doc(collection(firestore, 'orders', orderId, 'labelGenerations'));
+  return runTransaction(firestore, async (tx) => {
+    const snapshot = await tx.get(orderRef);
+    if (!snapshot.exists()) throw new Error('ไม่พบออเดอร์');
+    const order = snapshot.data() as StoreOrder;
+    const currentFulfillmentStatus = effectiveFulfillmentStatus(order);
+    const currentShippingRevision = Number(order.shippingRevision ?? 0);
+    if (expectedShippingRevision !== undefined && currentShippingRevision !== expectedShippingRevision) {
+      throw new Error('ข้อมูลผู้รับเปลี่ยนหลังตรวจตัวอย่าง กรุณาตรวจรายการและยืนยันใหม่');
+    }
+    const isReady = currentFulfillmentStatus === 'ready_to_prepare' || currentFulfillmentStatus === 'ready_to_ship';
+    const paymentReady = order.payment?.method === 'cod'
+      ? Boolean(order.codAcceptance)
+      : order.status === 'paid' && order.payment?.status === 'successful';
+    const contact = order.contact;
+    const addressReady = [contact?.firstName, contact?.lastName, contact?.phone, contact?.addressLine1, contact?.subdistrict, contact?.district, contact?.province, contact?.postalCode].every((value) => String(value ?? '').trim());
+    if (order.schemaVersion !== 2 || order.status === 'cancelled' || !isReady || !paymentReady || !addressReady) {
+      throw new Error('ออเดอร์นี้ยังไม่พร้อมสร้างเอกสารจัดส่ง');
+    }
+    tx.set(generationRef, {
+      orderId, kind, createdBy: adminUid, createdAt: serverTimestamp(),
+      shippingRevision: currentShippingRevision,
+      paymentMethod: order.payment?.method ?? null, totalSatang: order.totalSatang,
+    });
+    return { ...order, id: orderId, fulfillmentStatus: currentFulfillmentStatus } as StoreOrder;
+  });
+}
+
+export async function getLabelGenerations(orderId: string) {
+  const firestore = services().db;
+  const snapshot = await getDocs(collection(firestore, 'orders', orderId, 'labelGenerations'));
+  const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() as {
+    orderId: string; kind: 'label' | 'packing'; createdBy: string; createdAt?: Timestamp;
+    shippingRevision: number; paymentMethod: string | null; totalSatang: number;
+  } })).sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+  const adminUids = [...new Set(items.map((item) => item.createdBy))];
+  const adminProfiles = await Promise.all(adminUids.map(async (uid) => {
+    const profile = await getDoc(doc(firestore, 'users', uid));
+    return [uid, profile.data()?.email?.trim() || uid] as const;
+  }));
+  const emailByUid = new Map(adminProfiles);
+  return items.map((item) => ({ ...item, createdByEmail: emailByUid.get(item.createdBy) ?? item.createdBy }));
 }
 export async function getOrder(orderId: string): Promise<StoreOrder | null> {
   const snapshot = await getDoc(doc(services().db, 'orders', orderId));
