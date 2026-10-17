@@ -26,6 +26,7 @@ export function StorefrontShell({
   const location = useLocation();
   const { customerProfile, profileLoading } = useAuth();
   const showAdminLink = !profileLoading && canAccessAdmin(customerProfile);
+  const isSuperAdmin = customerProfile?.role === 'super_admin';
   const [cartCount, setCartCount] = useState(() => getCartSnapshot().itemCount);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -75,7 +76,7 @@ export function StorefrontShell({
           </nav>
 
           <div className="storefront-header-actions">
-            {showAdminLink && <Link className="storefront-admin-link" to="/admin/dashboard"><span className="material-symbols-outlined">space_dashboard</span><span>หลังบ้าน</span></Link>}
+            {showAdminLink && <Link aria-label={isSuperAdmin ? 'ไปหน้า Super Admin' : 'ไปหน้าหลังบ้าน'} className="storefront-admin-link" to={isSuperAdmin ? '/admin/settings' : '/admin/dashboard'}><span className="material-symbols-outlined" aria-hidden="true">{isSuperAdmin ? 'admin_panel_settings' : 'space_dashboard'}</span><span>{isSuperAdmin ? 'Super Admin' : 'หลังบ้าน'}</span></Link>}
             <Link aria-label={`ตะกร้าสินค้า ${cartCount} ชิ้น`} className="storefront-icon-link storefront-cart-link" to="/cart">
               <span className="material-symbols-outlined">shopping_bag</span>
               <span className="storefront-action-label">ตะกร้า</span>

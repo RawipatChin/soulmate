@@ -252,7 +252,7 @@
     .dashboard-select { cursor:pointer; }
     .dashboard-link { display:inline-flex; align-items:center; justify-content:center; }
     .dashboard-link:hover { background:#f1f7f3; }
-    .dashboard-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-bottom:16px; }
+    .dashboard-kpis { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; margin-bottom:16px; }
     .dashboard-kpi,.dashboard-panel { background:#fff; border:1px solid #e8ece9; border-radius:16px; }
     .dashboard-kpi { padding:17px 19px; }
     .dashboard-kpi-label { color:#68726c; font-size:12px; font-weight:550; }
@@ -276,6 +276,7 @@
     .dashboard-status[data-status="paid"] { color:#246046; background:#e9f5ed; }
     .dashboard-status[data-status="pending"] { color:#79591e; background:#fbf3df; }
     .dashboard-status[data-status="failed"] { color:#963d3d; background:#faeaea; }
+    @media(max-width:1100px) { .dashboard-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); } }
     @media(max-width:700px) {
       .soulmate-dashboard { padding:80px 15px 24px; }
       .dashboard-top { align-items:flex-start; flex-direction:column; gap:12px; margin-bottom:15px; }
@@ -305,6 +306,8 @@
       <section class="dashboard-kpis" aria-label="สรุปคำสั่งซื้อ">
         <article class="dashboard-kpi" data-tone="sage"><div class="dashboard-kpi-label">ยอดขายที่ชำระแล้ว</div><div class="dashboard-kpi-value" id="dashboard-paid-sales">฿0</div></article>
         <article class="dashboard-kpi"><div class="dashboard-kpi-label">ออเดอร์รอชำระ</div><div class="dashboard-kpi-value" id="dashboard-pending-count">0</div></article>
+        <article class="dashboard-kpi"><div class="dashboard-kpi-label">รอตรวจสลิป</div><div class="dashboard-kpi-value" id="dashboard-review-count">0</div></article>
+        <article class="dashboard-kpi"><div class="dashboard-kpi-label">ยกเลิก</div><div class="dashboard-kpi-value" id="dashboard-cancelled-count">0</div></article>
         <article class="dashboard-kpi"><div class="dashboard-kpi-label">ออเดอร์ทั้งหมด</div><div class="dashboard-kpi-value" id="dashboard-order-count">0</div></article>
       </section>
       <section class="dashboard-panel" aria-labelledby="dashboard-chart-title">

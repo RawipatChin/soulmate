@@ -16,32 +16,22 @@
 }
 [data-soulmate-admin-view] ::selection { color: #10291e; background: #b2efd9; }
 [data-soulmate-admin-view] :focus-visible { outline: 2px solid #2d6857 !important; outline-offset: 2px; }
-[data-soulmate-admin-view] #soulmate-admin-sidebar {
-  width: 260px !important;
-  background: #fff !important;
-  border-right: 1px solid #e5e2e1 !important;
-  box-shadow: 0 1px 8px rgb(0 0 0 / 4%) !important;
-}
-[data-soulmate-admin-view] .soulmate-admin-layout { padding-left: 260px !important; }
-[data-soulmate-admin-view] #soulmate-admin-sidebar > div:first-child > div:first-child {
-  height: 64px !important;
-  padding: 0 24px !important;
-  border-bottom: 1px solid #f6f3f2 !important;
-}
-[data-soulmate-admin-view] #soulmate-admin-sidebar > div:first-child > div:nth-child(2) {
-  height: 40px !important;
-  padding: 8px 24px !important;
-}
-[data-soulmate-admin-view] #soulmate-admin-sidebar nav { gap: 4px !important; padding: 0 16px !important; }
+[data-soulmate-admin-view] #soulmate-admin-sidebar > div:first-child { display: flex !important; flex-direction: column !important; visibility: visible !important; }
+[data-soulmate-admin-view] #soulmate-admin-sidebar nav { display: flex !important; flex-direction: column !important; gap: 4px !important; padding: 0 16px !important; visibility: visible !important; opacity: 1 !important; }
 [data-soulmate-admin-view] #soulmate-admin-sidebar nav a {
-  box-sizing: border-box !important;
-  height: 40px !important;
+  display: flex !important;
+  width: 100% !important;
+  min-height: 40px !important;
+  align-items: center !important;
+  gap: 8px !important;
   padding: 8px 16px !important;
   border-radius: 12px !important;
   color: #404945 !important;
   font-size: 14px !important;
   line-height: 20px !important;
   font-weight: 500 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
   transition: color 160ms ease, background-color 160ms ease !important;
 }
 [data-soulmate-admin-view] #soulmate-admin-sidebar nav a:hover { background: #eae7e7 !important; color: #1c1b1b !important; }
@@ -52,11 +42,7 @@
   font-weight: 600 !important;
 }
 [data-soulmate-admin-view] #soulmate-admin-sidebar nav a .material-symbols-outlined { font-size: 20px !important; line-height: 20px !important; }
-[data-soulmate-admin-view] #soulmate-admin-sidebar > div:last-child > div:first-child {
-  border: 1px solid #e1ebe5;
-  border-radius: 12px !important;
-  background: #f5f8f6 !important;
-}
+[data-soulmate-admin-view] .soulmate-admin-layout { padding-left: 260px !important; }
 [data-soulmate-admin-view] #soulmate-admin-header {
   left: 260px !important;
   height: 64px !important;
@@ -129,7 +115,6 @@
   [data-soulmate-admin-view] main > div:first-child { padding: 22px 22px 40px !important; }
 }
 @media (max-width: 767px) {
-  [data-soulmate-admin-view] #soulmate-admin-sidebar { width: 260px !important; }
   [data-soulmate-admin-view] #soulmate-admin-header { height: 64px !important; padding: 0 16px !important; }
   [data-soulmate-admin-view] #admin-storefront-link { width: 40px !important; min-width: 40px !important; justify-content: center !important; padding: 8px !important; }
   [data-soulmate-admin-view] #admin-storefront-link > span:last-child { display: none !important; }

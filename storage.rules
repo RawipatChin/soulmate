@@ -1,6 +1,29 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function isActiveAdmin() {
+      return request.auth != null &&
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'] &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    match /orders/{orderId}/slip {
+      allow read: if request.auth != null &&
+        (isActiveAdmin() ||
+          (firestore.exists(/databases/(default)/documents/orders/$(orderId)) &&
+            firestore.get(/databases/(default)/documents/orders/$(orderId)).data.ownerUid == request.auth.uid));
+      allow create, update: if request.auth != null &&
+        firestore.exists(/databases/(default)/documents/orders/$(orderId)) &&
+        firestore.get(/databases/(default)/documents/orders/$(orderId)).data.ownerUid == request.auth.uid &&
+        firestore.get(/databases/(default)/documents/orders/$(orderId)).data.payment.method == 'manual_promptpay' &&
+        firestore.get(/databases/(default)/documents/orders/$(orderId)).data.status == 'pending_payment' &&
+        request.time < firestore.get(/databases/(default)/documents/orders/$(orderId)).data.createdAt + duration.value(24, 'h') &&
+        request.resource.size <= 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if false;
+    }
+
     // Customer profile photos: users/{uid}/profile/avatar
     match /users/{userId}/profile/{allPaths=**} {
       allow read: if true;
@@ -27,6 +50,14 @@ service firebase.storage {
         request.resource.size <= 5 * 1024 * 1024 &&
         request.resource.contentType.matches('image/(jpeg|png|webp)');
       allow delete: if isAdmin();
+    }
+
+    match /store/logo/{fileName} {
+      allow read: if true;
+      allow write: if isActiveAdmin() &&
+        request.resource.size <= 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if isActiveAdmin();
     }
   }
 }

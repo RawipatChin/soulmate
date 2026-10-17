@@ -5,21 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "demo:checkout": "node scripts/checkout-interactive-demo.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/utils/accountAccess.test.ts src/services/orderFailure.test.ts"
+    "test": "node --experimental-strip-types --test src/utils/accountAccess.test.ts src/services/orderFailure.test.ts src/services/promptPayQr.test.ts",
+    "test:orders:emulator": "firebase emulators:exec --only auth,firestore,storage --project demo-soulmate \"node scripts/order-emulator-smoke.mjs\"",
+    "test:orders:browser": "firebase emulators:exec --only auth,firestore,storage --project demo-soulmate \"node scripts/order-browser-emulator-smoke.mjs\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@types/qrcode": "^1.5.6",
     "@vitejs/plugin-react": "^6.1.1",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "firebase": "^12.19.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "qrcode": "^1.5.4",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-router-dom": "^7.18.4",

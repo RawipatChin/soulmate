@@ -1,180 +1,224 @@
 import { signInAnonymously, type User } from 'firebase/auth';
 import {
-  collection,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  doc,
-  type DocumentData,
+  collection, doc, getDoc, getDocs, query, runTransaction, serverTimestamp,
+  updateDoc, setDoc, where, type DocumentData, type Timestamp,
 } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { auth, db, functions } from '../lib/firebase';
+import { getBlob, ref, uploadBytes } from 'firebase/storage';
+import { auth, db, storage } from '../lib/firebase';
 import type { StorefrontCartItem } from './cartService';
-import { logOrderFailure } from './orderFailure';
+import { MAX_ORDER_LINES, ORDER_SHIPPING_SATANG, optionId, optionRef, type SellableOption } from './inventoryService';
+import { calculateMembershipTier, getTierRank } from '../utils/membership';
+import type { MembershipTier } from '../types/membership';
 
 export interface OrderContact {
-  firstName: string;
-  lastName: string;
-  phone: string;
-  email: string;
-  addressLine1: string;
-  subdistrict: string;
-  district: string;
-  province: string;
-  postalCode: string;
+  firstName: string; lastName: string; phone: string; email: string;
+  addressLine1: string; subdistrict: string; district: string; province: string; postalCode: string;
 }
-
+export interface OrderLine {
+  productId: string; optionId: string; productName: string; variantId: string | null;
+  variantName: string | null; unitPriceSatang: number; quantity: number;
+  productImage: string | null; lineTotalSatang: number;
+}
 export interface StoreOrder extends DocumentData {
-  id: string;
-  orderNumber: string;
-  ownerUid: string;
-  ownerType: 'guest' | 'customer';
-  contact: OrderContact;
-  items: Array<{
-    productId: string;
-    productName: string;
-    variantId: string | null;
-    variantName: string | null;
-    unitPriceSatang: number;
-    quantity: number;
-    lineTotalSatang: number;
-  }>;
-  subtotalSatang: number;
-  shippingFeeSatang: number;
-  totalSatang: number;
-  status: 'pending_payment' | 'paid' | 'payment_failed' | 'expired';
-  expiresAt?: { toMillis: () => number; toDate?: () => Date };
-  payment: { method: 'promptpay' | null; status: string; chargeId: string | null; qrUrl: string | null };
-  createdAt?: { toDate: () => Date };
+  id: string; orderNumber: string; schemaVersion?: number; ownerUid: string;
+  ownerType: 'guest' | 'customer'; contact: OrderContact; items: OrderLine[];
+  subtotalSatang: number; shippingFeeSatang: number; totalSatang: number;
+  status: 'pending_payment' | 'awaiting_review' | 'paid' | 'cancelled' | 'payment_failed' | 'expired';
+  payment: { method: 'manual_promptpay' | 'promptpay' | null; status: string; promptPayPhone?: string | null; chargeId?: string | null; qrUrl?: string | null };
+  slipPath?: string | null; submittedAt?: Timestamp | null;
+  review?: { by: string; at: Timestamp; result: 'approved' | 'cancelled'; reason: string } | null;
+  createdAt?: Timestamp; updatedAt?: Timestamp; inventoryRestored?: boolean;
 }
-
 export class OrderReviewError extends Error {
   currentItems?: Array<{ productId: string; variantId: string | null; unitPriceSatang: number; productName: string; variantName: string | null }>;
 }
-
-export function clearPendingOrderRequestKey() {
-  sessionStorage.removeItem('soulmate_order_request_key_v1');
-}
-
-function requireServices() {
-  if (!auth || !db || !functions) throw new Error('ระบบคำสั่งซื้อยังไม่ได้ตั้งค่า Firebase');
-  return { auth, db, functions };
-}
-
-function newestFirst(orders: StoreOrder[]) {
-  return orders.sort((a, b) => (b.createdAt?.toDate?.().getTime() ?? 0) - (a.createdAt?.toDate?.().getTime() ?? 0));
-}
-
-async function reconcileOrderIds(orderIds: string[]) {
-  if (!orderIds.length) return;
-  const { functions } = requireServices();
-  const callable = httpsCallable(functions, 'reconcileOrderExpirations');
-  for (let index = 0; index < orderIds.length; index += 50) {
-    const batch = { orderIds: orderIds.slice(index, index + 50) };
-    await callable(batch);
+export class OrderUnavailableItemError extends Error {
+  constructor(public readonly productId: string, public readonly variantId: string | null, productName: string) {
+    super(variantId === null
+      ? `กรุณาเลือกตัวเลือกสินค้า ${productName} ใหม่`
+      : `ตัวเลือกสินค้า ${productName} ไม่พร้อมขาย กรุณาเลือกใหม่`);
   }
 }
-
-async function reconcilePendingOrders(orders: StoreOrder[]) {
-  await reconcileOrderIds(orders.filter((order) => order.status === 'pending_payment').map((order) => order.id));
+const requestKeyName = 'soulmate_order_request_key_v1';
+export function clearPendingOrderRequestKey() { sessionStorage.removeItem(requestKeyName); }
+function services() {
+  if (!auth || !db || !storage) throw new Error('ระบบคำสั่งซื้อยังไม่ได้ตั้งค่า Firebase');
+  return { auth, db, storage };
 }
-
 export async function ensureCheckoutIdentity(): Promise<User> {
-  const { auth } = requireServices();
-  await auth.authStateReady();
-  if (auth.currentUser) return auth.currentUser;
-  return (await signInAnonymously(auth)).user;
+  const { auth: firebaseAuth } = services();
+  await firebaseAuth.authStateReady();
+  return firebaseAuth.currentUser ?? (await signInAnonymously(firebaseAuth)).user;
 }
-
-export async function createPendingOrder(items: StorefrontCartItem[], contact: OrderContact) {
-  const { functions } = requireServices();
-  await ensureCheckoutIdentity();
-  const storageKey = 'soulmate_order_request_key_v1';
-  const callable = httpsCallable(functions, 'createPendingOrder');
-  const requestItems = items.map(({ productId, variantId, quantity, unitPrice }) => ({
-    productId,
-    variantId,
-    quantity,
-    expectedPriceSatang: Math.round(unitPrice * 100),
-  }));
-  const fingerprint = JSON.stringify({ contact, items: requestItems });
-  const previousRequest = sessionStorage.getItem(storageKey);
-  let saved: { key: string; fingerprint: string } | null = null;
-  try { saved = previousRequest ? JSON.parse(previousRequest) as { key: string; fingerprint: string } : null; } catch { /* Replace stale pre-fingerprint session values. */ }
-  const currentKey = saved?.fingerprint === fingerprint ? saved.key : crypto.randomUUID().replaceAll('-', '');
-  sessionStorage.setItem(storageKey, JSON.stringify({ key: currentKey, fingerprint }));
-  try {
-    const response = await callable({
-      idempotencyKey: currentKey,
-      contact,
-      items: requestItems,
-    });
-    return response.data as { orderId: string; orderNumber: string; ownerType: 'guest' | 'customer'; replay: boolean };
-  } catch (cause) {
-    logOrderFailure('createPendingOrder', cause);
-    const error = cause as Error & {
-      details?: { currentItems?: OrderReviewError['currentItems'] };
-      customData?: { details?: { currentItems?: OrderReviewError['currentItems'] } };
-    };
-    const changedItems = error.details?.currentItems ?? error.customData?.details?.currentItems;
-    if (changedItems) {
-      const reviewError = new OrderReviewError(error.message);
-      reviewError.currentItems = changedItems;
-      throw reviewError;
-    }
-    throw cause;
+function validateContact(contact: OrderContact) {
+  if (Object.values(contact).some((value) => !String(value).trim()) || !/^\S+@\S+\.\S+$/.test(contact.email)) {
+    throw new Error('กรุณากรอกชื่อ เบอร์โทร อีเมล และที่อยู่ให้ครบถ้วน');
   }
 }
-
-export async function startPromptPay(orderId: string) {
-  const { functions } = requireServices();
-  const callable = httpsCallable(functions, 'startPromptPay');
-  const response = await callable({ orderId });
-  return response.data as { chargeId: string; qrUrl: string };
+export async function getPromptPaySettings(): Promise<{ phone: string; payeeName: string } | null> {
+  const snapshot = await getDoc(doc(services().db, 'config', 'payment'));
+  if (!snapshot.exists() || !snapshot.data().enabled) return null;
+  return { phone: String(snapshot.data().phone ?? ''), payeeName: String(snapshot.data().payeeName ?? '') };
 }
-
-export async function getOrder(orderId: string): Promise<StoreOrder | null> {
-  const { db } = requireServices();
-  const orderRef = doc(db, 'orders', orderId);
-  let snapshot = await getDoc(orderRef);
+export async function getPromptPayConfig(): Promise<{ phone: string; payeeName: string; enabled: boolean } | null> {
+  const snapshot = await getDoc(doc(services().db, 'config', 'payment'));
   if (!snapshot.exists()) return null;
-  if (snapshot.data().status === 'pending_payment') {
-    try {
-      await reconcileOrderIds([orderId]);
-      snapshot = await getDoc(orderRef);
-    } catch (cause) {
-      logOrderFailure('reconcileOrderExpirations', cause);
-      // An unavailable reconciliation function must not hide a saved Order.
-    }
-  }
-  return snapshot.exists() ? ({ id: snapshot.id, ...snapshot.data() } as StoreOrder) : null;
+  return {
+    phone: String(snapshot.data().phone ?? ''),
+    payeeName: String(snapshot.data().payeeName ?? ''),
+    enabled: snapshot.data().enabled === true,
+  };
 }
-
+export async function savePromptPaySettings(phone: string, payeeName: string, enabled = true) {
+  const { db: firestore, auth: firebaseAuth } = services();
+  if (enabled && !/^0\d{9}$/.test(phone)) throw new Error('เบอร์พร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก');
+  await setDoc(doc(firestore, 'config', 'payment'), {
+    phone, payeeName: payeeName.trim(), enabled,
+    updatedAt: serverTimestamp(), updatedBy: firebaseAuth.currentUser?.uid,
+  });
+}
+export async function findMissingVariantSelection(items: StorefrontCartItem[]): Promise<OrderUnavailableItemError | null> {
+  const { db: firestore } = services();
+  const withoutVariant = items.filter((item) => item.variantId === null);
+  const products = await Promise.all(withoutVariant.map((item) => getDoc(doc(firestore, 'products', item.productId))));
+  const index = products.findIndex((snapshot) => snapshot.data()?.hasVariants === true);
+  if (index < 0) return null;
+  const item = withoutVariant[index];
+  return new OrderUnavailableItemError(item.productId, null, item.productName);
+}
+export async function createPendingOrder(items: StorefrontCartItem[], contact: OrderContact) {
+  const { db: firestore } = services();
+  const user = await ensureCheckoutIdentity();
+  const paymentSettings = await getPromptPaySettings();
+  if (!paymentSettings) throw new Error('ร้านยังไม่ได้ตั้งค่าบัญชี PromptPay กรุณาติดต่อร้าน');
+  validateContact(contact);
+  if (!items.length || items.length > MAX_ORDER_LINES) throw new Error('หนึ่งออเดอร์ใส่สินค้าได้สูงสุด 5 รายการต่างกัน');
+  if (items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99)) throw new Error('จำนวนสินค้าไม่ถูกต้อง');
+  const ids = items.map((item) => `${item.productId}/${optionId(item.variantId)}`);
+  if (new Set(ids).size !== ids.length) throw new Error('มีสินค้าซ้ำในตะกร้า');
+  const missingVariant = await findMissingVariantSelection(items);
+  if (missingVariant) throw missingVariant;
+  const fingerprint = JSON.stringify({ contact, items: items.map((item) => [item.productId, item.variantId, item.quantity]) });
+  let saved: { key: string; fingerprint: string } | null = null;
+  try { saved = JSON.parse(sessionStorage.getItem(requestKeyName) || 'null'); } catch { /* replace stale key */ }
+  const key = saved?.fingerprint === fingerprint ? saved.key : crypto.randomUUID().replaceAll('-', '');
+  sessionStorage.setItem(requestKeyName, JSON.stringify({ key, fingerprint }));
+  const orderRef = doc(firestore, 'orders', key);
+  const refs = items.map((item) => optionRef(firestore, item.productId, item.variantId));
+  return runTransaction(firestore, async (tx) => {
+    const prior = await tx.get(orderRef);
+    if (prior.exists()) {
+      if (prior.data().ownerUid !== user.uid) throw new Error('คำสั่งซื้อนี้เป็นของบัญชีอื่น');
+      return { orderId: key, orderNumber: prior.data().orderNumber as string, ownerType: prior.data().ownerType as 'guest' | 'customer', replay: true };
+    }
+    const snapshots = await Promise.all(refs.map((item) => tx.get(item)));
+    const options = snapshots.map((snapshot) => snapshot.exists() ? snapshot.data() as SellableOption : null);
+    const currentItems = options.map((option, index) => ({
+      productId: items[index].productId, variantId: items[index].variantId,
+      unitPriceSatang: option?.unitPriceSatang ?? 0,
+      productName: option?.productName ?? items[index].productName,
+      variantName: option?.variantName ?? items[index].variantName,
+    }));
+    if (options.some((option, index) => option && option.unitPriceSatang !== Math.round(items[index].unitPrice * 100))) {
+      const error = new OrderReviewError('ราคาสินค้าเปลี่ยนแล้ว กรุณาตรวจสอบตะกร้าอีกครั้ง');
+      error.currentItems = currentItems;
+      throw error;
+    }
+    const lines: OrderLine[] = items.map((item, index) => {
+      const option = options[index];
+      if (!option || !option.active || option.productId !== item.productId || option.variantId !== item.variantId) {
+        throw new OrderUnavailableItemError(item.productId, item.variantId, item.productName);
+      }
+      if (option.available < item.quantity) throw new Error(`สินค้า ${option.productName} มีไม่พอ`);
+      return {
+        productId: item.productId, optionId: optionId(item.variantId), productName: option.productName,
+        variantId: item.variantId, variantName: option.variantName,
+        unitPriceSatang: option.unitPriceSatang, quantity: item.quantity,
+        productImage: option.productImage, lineTotalSatang: option.unitPriceSatang * item.quantity,
+      };
+    });
+    const subtotalSatang = lines.reduce((sum, line) => sum + line.lineTotalSatang, 0);
+    const orderNumber = `SM-${key.slice(0, 10).toUpperCase()}`;
+    lines.forEach((line, index) => tx.update(refs[index], {
+      available: options[index]!.available - line.quantity, lastOrderId: key, lastOrderLine: index,
+    }));
+    tx.set(orderRef, {
+      schemaVersion: 2, orderNumber, ownerUid: user.uid, ownerType: user.isAnonymous ? 'guest' : 'customer',
+      contact, items: lines, subtotalSatang, shippingFeeSatang: ORDER_SHIPPING_SATANG,
+      totalSatang: subtotalSatang + ORDER_SHIPPING_SATANG, currency: 'THB',
+      status: 'pending_payment', payment: { method: 'manual_promptpay', status: 'pending', promptPayPhone: paymentSettings.phone },
+      slipPath: null, submittedAt: null, review: null, inventoryRestored: false,
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+    return { orderId: key, orderNumber, ownerType: user.isAnonymous ? 'guest' as const : 'customer' as const, replay: false };
+  });
+}
+export async function submitOrderSlip(order: StoreOrder, file: File) {
+  const { db: firestore, storage: bucket, auth: firebaseAuth } = services();
+  if (firebaseAuth.currentUser?.uid !== order.ownerUid || order.status !== 'pending_payment' || order.payment?.method !== 'manual_promptpay') throw new Error('ออเดอร์นี้ยังไม่เปิดรับสลิป');
+  if (file.size > 5 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('ใช้รูป JPG, PNG หรือ WebP ขนาดไม่เกิน 5 MB');
+  const path = `orders/${order.id}/slip`;
+  await uploadBytes(ref(bucket, path), file, { contentType: file.type });
+  await updateDoc(doc(firestore, 'orders', order.id), {
+    status: 'awaiting_review', slipPath: path, submittedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  });
+}
+export async function loadOrderSlip(order: StoreOrder): Promise<Blob> {
+  if (!order.slipPath) throw new Error('ยังไม่มีสลิป');
+  return getBlob(ref(services().storage, order.slipPath));
+}
+export async function reviewOrder(orderId: string, action: 'approved' | 'cancelled', reason = '') {
+  const { db: firestore, auth: firebaseAuth } = services();
+  const adminUid = firebaseAuth.currentUser?.uid;
+  if (!adminUid) throw new Error('กรุณาเข้าสู่ระบบแอดมิน');
+  const orderRef = doc(firestore, 'orders', orderId);
+  await runTransaction(firestore, async (tx) => {
+    const snapshot = await tx.get(orderRef);
+    if (!snapshot.exists()) throw new Error('ไม่พบออเดอร์');
+    const order = { id: snapshot.id, ...snapshot.data() } as StoreOrder;
+    if (order.schemaVersion !== 2) throw new Error('ออเดอร์รุ่นเดิมต้องจัดการแยกจากระบบใหม่');
+    if (order.status === 'paid' || order.status === 'cancelled') return;
+    if (action === 'approved') {
+      if (order.status !== 'awaiting_review' || !order.slipPath) throw new Error('ต้องมีสลิปให้ตรวจสอบก่อนอนุมัติ');
+      const customerRef = order.ownerType === 'customer' ? doc(firestore, 'users', order.ownerUid) : null;
+      const customer = customerRef ? await tx.get(customerRef) : null;
+      if (customerRef && customer?.exists()) {
+        const profile = customer.data();
+        const completedOrderCount = Number(profile.completedOrderCount ?? 0) + 1;
+        const lifetimeSpend = Number(profile.lifetimeSpend ?? 0) + order.subtotalSatang / 100;
+        const calculated = calculateMembershipTier(completedOrderCount, lifetimeSpend);
+        const previous = (profile.membershipTier ?? 'classic') as MembershipTier;
+        tx.update(customerRef, { completedOrderCount, lifetimeSpend,
+          membershipTier: getTierRank(calculated) > getTierRank(previous) ? calculated : previous,
+          updatedAt: serverTimestamp() });
+      }
+      tx.update(orderRef, { status: 'paid', 'payment.status': 'successful',
+        review: { by: adminUid, at: serverTimestamp(), result: action, reason: '' }, updatedAt: serverTimestamp() });
+      return;
+    }
+    const refs = order.items.map((line) => optionRef(firestore, line.productId, line.variantId));
+    const stock = await Promise.all(refs.map((item) => tx.get(item)));
+    if (stock.some((item) => !item.exists())) throw new Error('ไม่พบสต็อกสำหรับคืนสินค้า');
+    refs.forEach((item, index) => tx.update(item, { available: Number(stock[index].data()?.available ?? 0) + order.items[index].quantity, lastOrderId: orderId }));
+    tx.update(orderRef, { status: 'cancelled', 'payment.status': 'cancelled', inventoryRestored: true,
+      review: { by: adminUid, at: serverTimestamp(), result: action, reason: reason.trim() }, updatedAt: serverTimestamp() });
+  });
+}
+export async function getOrder(orderId: string): Promise<StoreOrder | null> {
+  const snapshot = await getDoc(doc(services().db, 'orders', orderId));
+  return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } as StoreOrder : null;
+}
+function newestFirst(orders: StoreOrder[]) {
+  return orders.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+}
 export async function listMyOrders(): Promise<StoreOrder[]> {
-  const { auth, db } = requireServices();
-  const user = auth.currentUser;
+  const { auth: firebaseAuth, db: firestore } = services();
+  const user = firebaseAuth.currentUser;
   if (!user || user.isAnonymous) return [];
-  const ordersQuery = query(collection(db, 'orders'), where('ownerUid', '==', user.uid));
-  let snapshot = await getDocs(ordersQuery);
-  try {
-    await reconcilePendingOrders(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as StoreOrder)));
-    snapshot = await getDocs(ordersQuery);
-  } catch (cause) {
-    logOrderFailure('reconcileMyOrders', cause);
-  }
+  const snapshot = await getDocs(query(collection(firestore, 'orders'), where('ownerUid', '==', user.uid)));
   return newestFirst(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as StoreOrder)));
 }
-
 export async function listAdminOrders(): Promise<StoreOrder[]> {
-  const { db } = requireServices();
-  const ordersQuery = query(collection(db, 'orders'));
-  let snapshot = await getDocs(ordersQuery);
-  try {
-    await reconcilePendingOrders(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as StoreOrder)));
-    snapshot = await getDocs(ordersQuery);
-  } catch (cause) {
-    logOrderFailure('reconcileAdminOrders', cause);
-  }
+  const snapshot = await getDocs(collection(services().db, 'orders'));
   return newestFirst(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as StoreOrder)));
 }

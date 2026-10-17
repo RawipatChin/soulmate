@@ -102,6 +102,8 @@
   .storefront-shell--mobile .storefront-primary-nav.is-open { display: flex; }
   .storefront-shell--mobile .storefront-primary-nav a { padding: 12px 8px; }
   .storefront-shell--mobile .storefront-header-actions { margin-left: auto; gap: 12px; }
+  .storefront-shell--mobile .storefront-admin-link { width: 40px; min-height: 40px; padding: 0; justify-content: center; }
+  .storefront-shell--mobile .storefront-admin-link > span:last-child { display: none; }
   .storefront-shell--mobile .storefront-icon-link { gap: 0; }
   .storefront-shell--mobile .storefront-action-label { display: none; }
   .storefront-shell--mobile .storefront-content { min-height: calc(100vh - 128px); }

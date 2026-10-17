@@ -13,6 +13,7 @@ const { initializeApp: initializeAdminApp, deleteApp: deleteAdminApp } = require
 const { getFirestore: getAdminFirestore } = requireFunctions('firebase-admin/firestore');
 const adminApp = initializeAdminApp({ projectId }, 'browser-smoke-admin');
 const productId = `browser-smoke-${randomUUID()}`;
+const staleProductId = `browser-stale-${randomUUID()}`;
 const port = 3100;
 const origin = `http://127.0.0.1:${port}`;
 const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8081';
@@ -43,6 +44,15 @@ async function checkout(page) {
   const frame = page.frameLocator('iframe');
   await frame.locator('#btn-checkout').click();
   await page.waitForURL('**/checkout');
+  await page.reload();
+  await frame.locator('#checkoutForm').waitFor();
+  assert.equal(await page.evaluate(async () => {
+    const { configureCheckoutPaymentMethods } = await import('/src/components/ScreenRenderer.tsx');
+    const checkoutDoc = document.querySelector('iframe').contentDocument;
+    configureCheckoutPaymentMethods(checkoutDoc);
+    configureCheckoutPaymentMethods(checkoutDoc);
+    return Boolean(checkoutDoc.querySelector('#checkoutForm'));
+  }), true);
   await frame.locator('#checkoutPaymentUnavailable').waitFor();
   for (const [id, value] of Object.entries(contact)) {
     if (id === 'shipProvince') await frame.locator(`#${id}`).selectOption(value);
@@ -51,18 +61,55 @@ async function checkout(page) {
   await frame.locator('#btnSubmitOrder').click();
   await page.waitForURL('**/order-success?orderId=*', { timeout: 20000 });
   await page.getByText('บันทึกคำสั่งซื้อแล้ว', { exact: true }).waitFor();
-  await page.getByText('รอชำระเงิน').first().waitFor();
+  await page.getByText('บันทึกแล้ว · รอแจ้งชำระเงิน').first().waitFor();
   assert.equal(await page.getByRole('button', { name: 'ชำระผ่าน PromptPay' }).count(), 0);
+  assert.equal(await page.getByAltText(/QR พร้อมเพย์ยอด/).count(), 0);
+  assert.equal(await page.locator('input[type="file"]').count(), 0);
+  const dismiss = page.getByRole('button', { name: 'รับทราบ' });
+  if (await dismiss.count()) await dismiss.click();
   const orderId = new URL(page.url()).searchParams.get('orderId');
   assert.ok(orderId);
   const snapshot = await getAdminFirestore(adminApp).doc(`orders/${orderId}`).get();
   assert.equal(snapshot.data()?.status, 'pending_payment');
+  assert.equal(snapshot.data()?.payment?.method, null);
+  assert.equal(snapshot.data()?.payment?.promptPayPhone, null);
   return orderId;
+}
+
+async function checkoutStaleVariant(page) {
+  await page.goto(`${origin}/cart`);
+  await page.evaluate((item) => localStorage.setItem('soulmate_storefront_cart_v1', JSON.stringify([item])), {
+    ...cartItem, id: `${staleProductId}::base`, productId: staleProductId,
+    productName: 'Variant smoke product', variantId: null, variantName: null,
+  });
+  await page.reload();
+  await page.frameLocator('iframe').locator('#btn-checkout').click();
+  await page.waitForURL('**/checkout');
+  await page.reload();
+  const frame = page.frameLocator('iframe');
+  await frame.locator('#checkoutForm').waitFor();
+  await frame.locator('#checkoutSubmissionError').getByText('กรุณาเลือกตัวเลือกสินค้า Variant smoke product ใหม่').waitFor();
+  assert.equal((await getAdminFirestore(adminApp).collection('orders').get()).size, 0);
+  await frame.getByRole('button', { name: 'เลือกตัวเลือกสินค้าอีกครั้ง' }).click();
+  await page.waitForURL(`**/products/${staleProductId}`);
+  assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('soulmate_storefront_cart_v1'))).length, 0);
 }
 
 async function main() {
   await getAdminFirestore(adminApp).doc(`products/${productId}`).set({
     name: 'Browser smoke product', status: 'active', price: 129.5, stock: 10,
+  });
+  await getAdminFirestore(adminApp).doc(`inventory/${productId}/options/base`).set({
+    productId, variantId: null, productName: 'Browser smoke product', variantName: null,
+    unitPriceSatang: 12950, stock: 10, available: 10, active: true, productImage: null, lastOrderId: null, lastOrderLine: null,
+  });
+  await getAdminFirestore(adminApp).doc(`inventory/${staleProductId}/options/base`).set({
+    productId: staleProductId, variantId: null, productName: 'Variant smoke product', variantName: null,
+    unitPriceSatang: 12950, stock: 10, available: 10, active: false, productImage: null, lastOrderId: null, lastOrderLine: null,
+  });
+  await getAdminFirestore(adminApp).doc(`products/${staleProductId}`).set({
+    name: 'Variant smoke product', status: 'active', price: 129.5, stock: 10, hasVariants: true,
+    variants: [{ id: 'small', displayName: '1 ชิ้น', price: 129.5, stock: 10, active: true }],
   });
   const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
     cwd: process.cwd(), stdio: 'ignore',
@@ -70,7 +117,7 @@ async function main() {
       ...process.env,
       VITE_FIREBASE_API_KEY: 'fake-api-key', VITE_FIREBASE_AUTH_DOMAIN: `${projectId}.firebaseapp.com`,
       VITE_FIREBASE_PROJECT_ID: projectId, VITE_FIREBASE_APP_ID: '1:123:web:smoke',
-      VITE_USE_FIREBASE_EMULATORS: 'true', VITE_CHECKOUT_TEST_MODE_ENABLED: 'true',
+      VITE_USE_FIREBASE_EMULATORS: 'true',
       VITE_FIRESTORE_EMULATOR_PORT: String(firestorePort),
       VITE_OMISE_TEST_MODE_ENABLED: 'false',
     },
@@ -81,6 +128,9 @@ async function main() {
     await waitForServer();
     browser = await chromium.launch({ executablePath: chromePath, headless: true });
     const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const stalePage = await guestContext.newPage();
+    await checkoutStaleVariant(stalePage);
+    await stalePage.close();
     const guestPage = await guestContext.newPage();
     const guestOrderId = await checkout(guestPage);
     await guestPage.goto(`${origin}/account`);
@@ -111,7 +161,26 @@ async function main() {
     await customerPage.waitForURL('**/account/profile');
     assert.equal(await customerPage.getByText('ไม่สามารถเปิดข้อมูลบัญชีได้').count(), 0);
     await customerContext.close();
-    console.log(`PASS browser guest and customer checkout; saved orders ${guestOrderId.slice(0, 8)}, ${customerOrderId.slice(0, 8)}; guest account redirects to login`);
+
+    const adminEmail = `admin-${randomUUID()}@example.test`;
+    const adminUser = (await createUserWithEmailAndPassword(customerAuth, adminEmail, password)).user;
+    await getAdminFirestore(adminApp).doc(`users/${adminUser.uid}`).set({ email: adminEmail, role: 'admin', status: 'active' });
+    const adminContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const adminPage = await adminContext.newPage();
+    await adminPage.goto(`${origin}/admin/login`);
+    await adminPage.locator('input[type="email"]').fill(adminEmail);
+    await adminPage.locator('input[type="password"]').fill(password);
+    await adminPage.getByRole('button', { name: 'เข้าสู่ระบบ' }).click();
+    await adminPage.waitForURL('**/admin/dashboard');
+    await adminPage.goto(`${origin}/admin/orders/${customerOrderId}`);
+    adminPage.on('dialog', (dialog) => dialog.accept());
+    assert.equal(await adminPage.getByRole('button', { name: 'อนุมัติว่าเงินเข้าแล้ว' }).isDisabled(), true);
+    await adminPage.getByRole('button', { name: 'ยกเลิกและคืนสต็อก' }).click();
+    await adminPage.getByText('ผลตรวจ: ยกเลิก').waitFor();
+    assert.equal((await getAdminFirestore(adminApp).doc(`orders/${customerOrderId}`).get()).data()?.status, 'cancelled');
+    assert.equal((await getAdminFirestore(adminApp).doc(`users/${customerUser.uid}`).get()).data()?.completedOrderCount, 0);
+    await adminContext.close();
+    console.log(`PASS browser guest/customer order save without payment and admin cancellation; saved orders ${guestOrderId.slice(0, 8)}, ${customerOrderId.slice(0, 8)}`);
   } finally {
     await browser?.close();
     vite.kill();

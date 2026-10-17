@@ -25,7 +25,7 @@ service cloud.firestore {
     function isActiveCustomer() {
       return isSignedIn() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['customer', 'user'] &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
     }
 
@@ -96,13 +96,175 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
-    // Cloud Functions are the only writers. Email and order number never grant access.
+    function optionPath(line) {
+      return /databases/$(database)/documents/inventory/$(line.productId)/options/$(line.optionId);
+    }
+
+    function validLineData(orderId, items, index) {
+      let line = index < items.size() ? items[index] : {};
+      let option = index < items.size() ? getAfter(optionPath(line)).data : {};
+      return index >= items.size() || (
+        line.quantity is int &&
+        line.quantity >= 1 && line.quantity <= 99 &&
+        line.productId is string &&
+        line.optionId is string &&
+        line.optionId == (line.variantId == null ? 'base' : 'v_' + line.variantId) &&
+        option.productId == line.productId &&
+        option.variantId == line.variantId &&
+        option.lastOrderId == orderId &&
+        option.lastOrderLine == index &&
+        option.unitPriceSatang == line.unitPriceSatang &&
+        line.lineTotalSatang == line.unitPriceSatang * line.quantity
+      );
+    }
+
+    function lineTotal(items, index) {
+      return index < items.size() ? items[index].lineTotalSatang : 0;
+    }
+
+    function canCreateOrder(orderId) {
+      let data = request.resource.data;
+      let items = data.items;
+      return isSignedIn() && (isGuest() || isActiveCustomer() || isAdmin()) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'orderNumber', 'ownerUid', 'ownerType', 'contact', 'items',
+          'subtotalSatang', 'shippingFeeSatang', 'totalSatang', 'currency',
+          'status', 'payment', 'slipPath', 'submittedAt', 'review',
+          'inventoryRestored', 'createdAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion == 2 && data.ownerUid == request.auth.uid &&
+        data.ownerType == (isGuest() ? 'guest' : 'customer') &&
+        data.orderNumber is string && data.contact is map &&
+        data.contact.keys().hasAll([
+          'firstName', 'lastName', 'phone', 'email', 'addressLine1',
+          'subdistrict', 'district', 'province', 'postalCode'
+        ]) &&
+        items is list && items.size() >= 1 && items.size() <= 5 &&
+        validLineData(orderId, items, 0) && validLineData(orderId, items, 1) &&
+        validLineData(orderId, items, 2) && validLineData(orderId, items, 3) &&
+        validLineData(orderId, items, 4) &&
+        data.subtotalSatang ==
+          lineTotal(items, 0) + lineTotal(items, 1) + lineTotal(items, 2) +
+          lineTotal(items, 3) + lineTotal(items, 4) &&
+        data.shippingFeeSatang == 3000 &&
+        data.totalSatang == data.subtotalSatang + 3000 &&
+        data.currency == 'THB' && data.status == 'pending_payment' &&
+        data.payment.status == 'pending' &&
+        (
+          (data.payment.method == null && data.payment.promptPayPhone == null) ||
+          (data.payment.method == 'manual_promptpay' &&
+            data.payment.promptPayPhone ==
+              get(/databases/$(database)/documents/config/payment).data.phone)
+        ) &&
+        data.slipPath == null && data.submittedAt == null &&
+        data.review == null && data.inventoryRestored == false &&
+        data.createdAt == request.time && data.updatedAt == request.time;
+    }
+
+    function canSubmitSlip(orderId) {
+      return isSignedIn() && resource.data.ownerUid == request.auth.uid &&
+        resource.data.schemaVersion == 2 &&
+        resource.data.payment.method == 'manual_promptpay' &&
+        resource.data.status == 'pending_payment' &&
+        request.time < resource.data.createdAt + duration.value(24, 'h') &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'slipPath', 'submittedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.status == 'awaiting_review' &&
+        request.resource.data.slipPath == 'orders/' + orderId + '/slip' &&
+        request.resource.data.submittedAt == request.time &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    function canReviewOrder() {
+      return isAdmin() && resource.data.schemaVersion == 2 &&
+        resource.data.status in ['pending_payment', 'awaiting_review'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'payment', 'review', 'inventoryRestored', 'updatedAt'
+        ]) &&
+        request.resource.data.review.by == request.auth.uid &&
+        request.resource.data.review.at == request.time &&
+        request.resource.data.updatedAt == request.time &&
+        (
+          (resource.data.status == 'awaiting_review' &&
+            resource.data.slipPath != null &&
+            request.resource.data.status == 'paid' &&
+            request.resource.data.payment.status == 'successful' &&
+            request.resource.data.inventoryRestored == false &&
+            request.resource.data.review.result == 'approved') ||
+          (request.resource.data.status == 'cancelled' &&
+            request.resource.data.payment.status == 'cancelled' &&
+            request.resource.data.inventoryRestored == true &&
+            request.resource.data.review.result == 'cancelled')
+        );
+    }
+
+    match /config/payment {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create, update: if isSuperAdmin() &&
+        request.resource.data.keys().hasOnly(['phone', 'payeeName', 'enabled', 'updatedAt', 'updatedBy']) &&
+        (request.resource.data.phone == '' || request.resource.data.phone.matches('^0[0-9]{9}$')) &&
+        request.resource.data.enabled is bool &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /settings/store {
+      allow get: if isAdmin();
+      allow list: if false;
+      allow create, update: if isSuperAdmin() &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /settings/public {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isSuperAdmin() &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /inventory/{productId}/options/{optionId} {
+      function reservesForNewOrder() {
+        let orderId = request.resource.data.lastOrderId;
+        let orderPath = /databases/$(database)/documents/orders/$(orderId);
+        let order = getAfter(orderPath).data;
+        let index = request.resource.data.lastOrderLine;
+        let line = order.items[index];
+        return isSignedIn() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['available', 'lastOrderId', 'lastOrderLine']) &&
+          orderId is string &&
+          !exists(orderPath) &&
+          resource.data.active == true &&
+          index is int && index >= 0 && index < order.items.size() &&
+          line.productId == productId && line.optionId == optionId &&
+          line.quantity is int && line.quantity > 0 &&
+          request.resource.data.available == resource.data.available - line.quantity &&
+          request.resource.data.available >= 0;
+      }
+      allow get, list: if resource.data.active == true || isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if reservesForNewOrder() || isAdmin();
+    }
+
+    // Buyers create an Order and reserve every option in one transaction.
     match /orders/{orderId} {
-      allow get, list: if isAdmin() || (
+      allow get: if isAdmin() || (isSignedIn() && !exists(/databases/$(database)/documents/orders/$(orderId))) || (
         isSignedIn() && resource.data.ownerUid == request.auth.uid &&
         (isGuest() || isActiveCustomer())
       );
-      allow create, update, delete: if false;
+      allow list: if isAdmin() || (
+        isSignedIn() && resource.data.ownerUid == request.auth.uid &&
+        (isGuest() || isActiveCustomer())
+      );
+      allow create: if canCreateOrder(orderId);
+      allow update: if canSubmitSlip(orderId) || canReviewOrder();
+      allow delete: if false;
     }
 
     // Default fallback: deny all other collections

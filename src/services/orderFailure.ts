@@ -1,22 +1,22 @@
-type CallableFailure = {
+type FirebaseFailure = {
   code?: unknown;
   message?: unknown;
 };
 
 export function orderFailureCode(cause: unknown): string {
-  const code = (cause as CallableFailure | null)?.code;
-  return typeof code === 'string' && /^[a-z-]+\/[a-z-]+$/.test(code)
+  const code = (cause as FirebaseFailure | null)?.code;
+  return typeof code === 'string' && /^(?:[a-z-]+\/)?[a-z-]+$/.test(code)
     ? code
     : 'unknown';
 }
 
 export function orderFailureMessage(cause: unknown): string {
   const code = orderFailureCode(cause);
-  if (code === 'functions/not-found') return 'ระบบบันทึกคำสั่งซื้อยังไม่พร้อมใน Firebase โปรเจกต์นี้ กรุณาติดต่อร้าน';
-  if (code === 'functions/unauthenticated') return 'ไม่สามารถยืนยันตัวตนสำหรับสั่งซื้อได้ กรุณาลองอีกครั้ง';
-  if (code === 'functions/unavailable' || code === 'functions/deadline-exceeded') return 'เชื่อมต่อระบบคำสั่งซื้อไม่ได้ กรุณาลองอีกครั้ง';
-  if (code === 'functions/internal' || code === 'unknown') return 'บันทึกคำสั่งซื้อไม่สำเร็จ กรุณาลองอีกครั้ง หากยังมีปัญหาให้แจ้งร้าน';
-  const message = (cause as CallableFailure | null)?.message;
+  if (code === 'permission-denied') return 'บันทึกออเดอร์ไม่ได้ กรุณาตรวจสอบราคาและสต็อกสินค้าแล้วลองอีกครั้ง';
+  if (code === 'unauthenticated') return 'ไม่สามารถยืนยันตัวตนสำหรับสั่งซื้อได้ กรุณาลองอีกครั้ง';
+  if (code === 'unavailable' || code === 'deadline-exceeded') return 'เชื่อมต่อระบบคำสั่งซื้อไม่ได้ กรุณาลองอีกครั้ง';
+  if (code === 'unknown') return 'บันทึกคำสั่งซื้อไม่สำเร็จ กรุณาลองอีกครั้ง หากยังมีปัญหาให้แจ้งร้าน';
+  const message = (cause as FirebaseFailure | null)?.message;
   return typeof message === 'string' && message.trim() && message !== 'internal'
     ? message
     : 'บันทึกคำสั่งซื้อไม่สำเร็จ กรุณาลองอีกครั้ง';

@@ -16,8 +16,26 @@ import { ref as storageRef, deleteObject, listAll } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
 import type { Product, ProductInput, ProductStatus, ProductShipping, ProductImage } from '../types';
 import { resolveAllProductImages, resolveProductImage } from './productImageService';
+import { writeProductWithOptions } from './inventoryService';
 
 export { resolveAllProductImages, resolveProductImage };
+
+async function withAvailableStock(product: Product): Promise<Product> {
+  if (!db || product.status !== 'active') return product;
+  const snapshot = await getDocs(query(
+    collection(db, 'inventory', product.id, 'options'), where('active', '==', true),
+  ));
+  if (snapshot.empty) return product;
+  const byId = new Map(snapshot.docs.map((item) => [item.id, item.data()]));
+  return {
+    ...product,
+    stock: Number(byId.get('base')?.available ?? product.stock),
+    variants: product.variants?.map((variant) => ({
+      ...variant,
+      stock: Number(byId.get(`v_${variant.id}`)?.available ?? variant.stock),
+    })),
+  };
+}
 
 export function generateSlug(name: string): string {
   return (
@@ -169,6 +187,7 @@ function mapProductDoc(id: string, d: any): Product {
 
 export async function getProducts(options?: {
   status?: ProductStatus | 'all';
+  raw?: boolean;
 }): Promise<Product[]> {
   if (!db) {
     console.warn('[ProductService] Firestore is not initialized');
@@ -180,7 +199,7 @@ export async function getProducts(options?: {
     const statusFilter = options?.status && options.status !== 'all'
       ? where('status', '==', options.status)
       : null;
-    const orderedQuery = statusFilter
+    const orderedQuery = options?.raw && !statusFilter ? productsColRef : statusFilter
       ? query(productsColRef, statusFilter, orderBy('createdAt', 'desc'))
       : query(productsColRef, orderBy('createdAt', 'desc'));
     let snapshot;
@@ -195,12 +214,14 @@ export async function getProducts(options?: {
     const items: Product[] = snapshot.docs.map((docSnap) => {
       return mapProductDoc(docSnap.id, docSnap.data());
     });
+    if (options?.raw) items.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+    const availableItems = options?.raw ? items : await Promise.all(items.map(withAvailableStock));
 
     if (options?.status && options.status !== 'all') {
-      return items.filter((p) => p.status === options.status);
+      return availableItems.filter((p) => p.status === options.status);
     }
 
-    return items;
+    return availableItems;
   } catch (err) {
     console.error('[ProductService] Error getting products:', err);
     throw err;
@@ -250,7 +271,7 @@ export function subscribeToProducts(
   }
 }
 
-export async function getProductById(productId: string): Promise<Product | null> {
+export async function getProductById(productId: string, raw = false): Promise<Product | null> {
   if (!db || !productId) return null;
   try {
     const docRef = doc(db, 'products', productId);
@@ -267,12 +288,13 @@ export async function getProductById(productId: string): Promise<Product | null>
       snap.data().primaryImageURL || baseProduct.primaryImageURL
     );
 
-    return {
+    const product = {
       ...baseProduct,
       images,
       primaryImageURL: primaryImageURL || baseProduct.primaryImageURL,
       primaryImageId: primaryImageId || baseProduct.primaryImageId,
     };
+    return raw ? product : withAvailableStock(product);
   } catch (err) {
     console.error('[ProductService] Error getting product by ID:', err);
     return null;
@@ -484,7 +506,7 @@ export async function createProduct(
     };
   }
 
-  await setDoc(newDoc, data);
+  await writeProductWithOptions(newDoc.id, data, true);
   return newDoc.id;
 }
 
@@ -579,7 +601,7 @@ export async function updateProduct(
     };
   }
 
-  await updateDoc(docRef, updatePayload);
+  await writeProductWithOptions(productId, updatePayload, false);
 }
 
 /**

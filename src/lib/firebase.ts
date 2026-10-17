@@ -22,7 +22,6 @@ import {
   connectStorageEmulator,
   type FirebaseStorage,
 } from 'firebase/storage';
-import { getFunctions, connectFunctionsEmulator, type Functions } from 'firebase/functions';
 
 
 export interface FirebaseConfigStatus {
@@ -93,7 +92,6 @@ let appInstance: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
 let dbInstance: Firestore | null = null;
 let storageInstance: FirebaseStorage | null = null;
-let functionsInstance: Functions | null = null;
 
 
 if (isFirebaseConfigured) {
@@ -112,7 +110,6 @@ if (isFirebaseConfigured) {
       appInstance,
       `gs://${SOULMATE_STORAGE_BUCKET}`
     );
-    functionsInstance = getFunctions(appInstance);
     if (import.meta.env?.VITE_USE_FIREBASE_EMULATORS === 'true') {
       connectAuthEmulator(authInstance, 'http://127.0.0.1:9099', { disableWarnings: true });
       connectFirestoreEmulator(
@@ -121,7 +118,6 @@ if (isFirebaseConfigured) {
         Number(import.meta.env?.VITE_FIRESTORE_EMULATOR_PORT) || 8081,
       );
       connectStorageEmulator(storageInstance, '127.0.0.1', 9199);
-      connectFunctionsEmulator(functionsInstance, '127.0.0.1', 5001);
     }
 
     console.log(
@@ -146,4 +142,3 @@ export const app = appInstance;
 export const auth = authInstance;
 export const db = dbInstance;
 export const storage = storageInstance;
-export const functions = functionsInstance;

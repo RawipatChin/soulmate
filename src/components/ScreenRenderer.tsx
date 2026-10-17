@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { AdminSidebarNav } from './admin/AdminSidebarNav';
 import adminSurfaceStyles from './admin/admin-surface.css?inline';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ScreenDefinition, CustomerProfile } from '../types';
@@ -46,8 +48,10 @@ import { mountVariantManager } from '../utils/productVariantManager';
 import { StorefrontShell } from './storefront/StorefrontShell';
 import { canAccessAdmin } from '../utils/accountAccess';
 import { renderStorefrontProductCard } from './storefront/StorefrontProductCard';
-import { clearPendingOrderRequestKey, createPendingOrder, listAdminOrders, OrderReviewError } from '../services/orderService';
+import { clearPendingOrderRequestKey, createPendingOrder, findMissingVariantSelection, listAdminOrders, OrderReviewError, OrderUnavailableItemError } from '../services/orderService';
 import { orderFailureMessage } from '../services/orderFailure';
+import { getPromptPayConfig, getPromptPaySettings, savePromptPaySettings } from '../services/orderService';
+import { getPublicStoreSettings, getStoreSettings, saveStoreSettings, uploadStoreLogo, type ShippingMethodSetting } from '../services/storeSettingsService';
 import {
   createBanner,
   deleteBanner,
@@ -502,6 +506,17 @@ function normalizeAdminSidebarRoutes(doc: Document) {
 const dashboardHtmlPath =
   '/stitch_soulmate_e_commerce/soulmate_responsive_admin_dashboard_with_date_filtering/code.html';
 let dashboardShellRequest: Promise<string> | null = null;
+const adminSidebarRoots = new WeakMap<HTMLElement, Root>();
+function mountAdminSidebarNav(doc: Document, pathname: string) {
+  const nav = doc.querySelector<HTMLElement>('#soulmate-admin-sidebar nav');
+  if (!nav) return;
+  let root = adminSidebarRoots.get(nav);
+  if (!root) {
+    root = createRoot(nav);
+    adminSidebarRoots.set(nav, root);
+  }
+  root.render(<AdminSidebarNav pathname={pathname} />);
+}
 
 async function installDashboardAdminShell(doc: Document, pathname: string) {
   if (pathname === '/admin/dashboard') return;
@@ -536,6 +551,35 @@ async function installDashboardAdminShell(doc: Document, pathname: string) {
 
   const aside = doc.importNode(sourceAside, true);
   const header = doc.importNode(sourceHeader, true);
+  const sidebarItems = [
+    ['admin-dashboard', '/admin/dashboard', 'dashboard', 'ภาพรวม'],
+    ['admin-products', '/admin/products', 'inventory_2', 'สินค้าและสต็อก'],
+    ['admin-orders', '/admin/orders', 'shopping_bag', 'คำสั่งซื้อ'],
+    ['admin-customers', '/admin/customers', 'group', 'ลูกค้า'],
+    ['admin-banners', '/admin/banners', 'view_carousel', 'แบนเนอร์'],
+    ['admin-coupons', '/admin/coupons', 'confirmation_number', 'คูปอง'],
+    ['admin-settings', '/admin/settings', 'settings', 'ตั้งค่า'],
+  ] as const;
+  const sidebarNav = aside.querySelector('nav') ?? doc.createElement('nav');
+  if (!sidebarNav.parentElement) aside.querySelector(':scope > div:first-child')?.appendChild(sidebarNav);
+  if (sidebarNav.querySelectorAll('a[data-route], a[data-path]').length === 0) {
+    sidebarNav.replaceChildren(...sidebarItems.map(([path, route, icon, label]) => {
+      const link = doc.createElement('a');
+      link.className = 'flex items-center gap-space-sm px-space-md py-space-sm rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all';
+      link.dataset.path = path;
+      link.dataset.route = route;
+      link.href = route;
+      const iconNode = doc.createElement('span');
+      iconNode.className = 'material-symbols-outlined';
+      iconNode.setAttribute('aria-hidden', 'true');
+      iconNode.textContent = icon;
+      const labelNode = doc.createElement('span');
+      labelNode.textContent = label;
+      link.append(iconNode, labelNode);
+      return link;
+    }));
+  }
+  sidebarNav.removeAttribute('hidden');
   const logoLink = aside.querySelector('img[alt="SOULMATE"]')?.closest<HTMLAnchorElement>('a');
   logoLink?.setAttribute('href', '/admin/dashboard');
   logoLink?.setAttribute('data-path', 'admin-dashboard');
@@ -574,20 +618,6 @@ function installAdminSurfaceStyles(doc: Document, pathname: string) {
   style.id = 'soulmate-admin-surface-styles';
   style.textContent = adminSurfaceStyles;
   doc.head.appendChild(style);
-
-  const navLabels: Record<string, string> = {
-    'admin-dashboard': 'ภาพรวม', 'admin-products': 'สินค้าและสต็อก',
-    'admin-orders': 'คำสั่งซื้อ', 'admin-customers': 'ลูกค้า',
-    'admin-banners': 'แบนเนอร์', 'admin-coupons': 'คูปอง',
-    'admin-settings': 'ตั้งค่า',
-  };
-  doc.querySelectorAll<HTMLElement>('#soulmate-admin-sidebar nav [data-path]').forEach((link) => {
-    const label = navLabels[link.dataset.path || ''];
-    const icon = link.querySelector('.material-symbols-outlined, .material-icons');
-    const labelNode = Array.from(link.children).reverse().find((node) => node !== icon && !node.querySelector('.material-symbols-outlined, .material-icons'));
-    if (label && labelNode) labelNode.textContent = label;
-    else if (label && !icon) link.textContent = label;
-  });
 }
 
 function normalizeAdminShellSizing(doc: Document) {
@@ -602,14 +632,6 @@ function normalizeAdminShellSizing(doc: Document) {
   const style = doc.createElement('style');
   style.id = 'soulmate-admin-shell-sizing';
   style.textContent = `
-    #soulmate-admin-sidebar { width: 260px !important; font-size: 14px !important; line-height: 20px !important; }
-    #soulmate-admin-sidebar > div:first-child > div:first-child { height: 64px !important; padding: 0 24px !important; }
-    #soulmate-admin-sidebar > div:first-child > div:nth-child(2) { height: 40px !important; padding: 8px 24px !important; }
-    #soulmate-admin-sidebar nav { gap: 4px !important; padding: 0 16px !important; }
-    #soulmate-admin-sidebar nav a { box-sizing: border-box !important; display: flex !important; align-items: center !important; gap: 8px !important; width: 100% !important; height: 40px !important; padding: 8px 16px !important; font-size: 14px !important; line-height: 20px !important; }
-    #soulmate-admin-sidebar nav a .material-symbols-outlined { font-size: 20px !important; line-height: 20px !important; }
-    #soulmate-admin-sidebar > div:last-child { padding: 16px !important; gap: 16px !important; }
-    #soulmate-admin-sidebar > div:last-child > div:first-child { padding: 16px !important; gap: 4px !important; }
     #soulmate-admin-header { height: 64px !important; padding-left: 24px !important; padding-right: 24px !important; }
     #soulmate-admin-header h1 { font-size: 18px !important; line-height: 24px !important; }
     @media (max-width: 767px) {
@@ -652,6 +674,283 @@ function configureAdminTopbar(doc: Document) {
     #admin-storefront-link .material-symbols-outlined { font-size: 18px; }
   `;
   doc.head.appendChild(style);
+}
+
+async function applyPublicStoreSettings(doc: Document, pathname: string) {
+  try {
+    const settings = await getPublicStoreSettings();
+    if (settings.logoUrl) {
+      doc.querySelectorAll<HTMLImageElement>('img[alt="SOULMATE"]').forEach((image) => { image.src = settings.logoUrl!; });
+    }
+    const messages = settings.announcements?.map((message) => message.trim()).filter(Boolean) ?? [];
+    if (pathname === '/' && messages.length) {
+      const main = doc.querySelector('main');
+      if (main && !doc.getElementById('store-announcement-bar')) {
+        const bar = doc.createElement('div');
+        bar.id = 'store-announcement-bar';
+        bar.setAttribute('role', 'status');
+        bar.className = 'w-full bg-primary px-4 py-2 text-center text-sm font-semibold text-on-primary';
+        bar.textContent = messages.join(' · ');
+        main.prepend(bar);
+      }
+    }
+  } catch (error) {
+    console.warn('[SOULMATE Storefront] Public settings unavailable:', error);
+  }
+}
+
+async function configureAdminSettingsPage(doc: Document, win: any) {
+  const form = doc.getElementById('settingsForm') as HTMLFormElement | null;
+  if (!form) return;
+  const storeSection = doc.getElementById('storeSettingsSection1');
+  const shippingSection = doc.getElementById('storeSettingsSection2');
+  const paymentSection = doc.getElementById('storeSettingsSection4');
+  const storefrontSection = doc.getElementById('storeSettingsSection5');
+  const systemSection = doc.getElementById('storeSettingsSection6');
+  systemSection?.remove();
+  doc.querySelector('main > div > header')?.remove();
+  doc.getElementById('unsavedBanner')?.remove();
+  if (!storeSection || !shippingSection || !paymentSection || !storefrontSection) return;
+
+  const inputClass = 'w-full h-10 px-3 rounded-lg border border-outline-variant/60 bg-white text-on-surface';
+  const status = doc.getElementById('saveStatusNote');
+  const markDirty = () => { if (win.__soulmateSettingsGuard) win.__soulmateSettingsGuard.dirty = true; };
+  form.addEventListener('input', markDirty);
+  form.addEventListener('change', markDirty);
+  const pendingNavigation = { action: null as (() => void) | null };
+  const leaveDialog = doc.createElement('dialog'); leaveDialog.id = 'settings-leave-dialog'; leaveDialog.setAttribute('aria-labelledby', 'settings-leave-title');
+  leaveDialog.className = 'w-[min(100%-32px,420px)] max-w-[420px] rounded-2xl border border-outline-variant bg-white p-6 text-on-surface shadow-2xl backdrop:bg-black/40';
+  const leaveTitle = doc.createElement('h2'); leaveTitle.id = 'settings-leave-title'; leaveTitle.className = 'text-lg font-semibold'; leaveTitle.textContent = 'ยังไม่ได้บันทึก';
+  const leaveMessage = doc.createElement('p'); leaveMessage.className = 'mt-2 text-sm text-on-surface-variant'; leaveMessage.textContent = 'ต้องการบันทึกก่อนออกจากหน้านี้หรือไม่?';
+  const leaveActions = doc.createElement('div'); leaveActions.className = 'mt-6 flex flex-wrap justify-end gap-2';
+  const stayButton = doc.createElement('button'); stayButton.type = 'button'; stayButton.className = 'rounded-full px-4 py-2 text-sm font-medium hover:bg-surface-container-low'; stayButton.textContent = 'อยู่ต่อ'; stayButton.addEventListener('click', () => { pendingNavigation.action = null; leaveDialog.close(); });
+  const leaveButton = doc.createElement('button'); leaveButton.type = 'button'; leaveButton.className = 'rounded-full px-4 py-2 text-sm font-medium text-error hover:bg-error-container'; leaveButton.textContent = 'ออกโดยไม่บันทึก'; leaveButton.addEventListener('click', () => { const action = pendingNavigation.action; pendingNavigation.action = null; win.__soulmateSettingsGuard.dirty = false; leaveDialog.close(); action?.(); });
+  const saveLeaveButton = doc.createElement('button'); saveLeaveButton.type = 'button'; saveLeaveButton.className = 'rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90'; saveLeaveButton.textContent = 'บันทึกและออก';
+  saveLeaveButton.addEventListener('click', async () => { saveLeaveButton.disabled = true; try { const saved = await win.triggerSaveFlow?.(); if (saved) { const action = pendingNavigation.action; pendingNavigation.action = null; leaveDialog.close(); action?.(); } } finally { saveLeaveButton.disabled = false; } });
+  leaveActions.append(stayButton, leaveButton, saveLeaveButton); leaveDialog.append(leaveTitle, leaveMessage, leaveActions); doc.body.append(leaveDialog);
+  win.__soulmateSettingsGuard = { dirty: false, request: (action: () => void) => { pendingNavigation.action = action; leaveDialog.showModal(); } };
+  const makeInput = (label: string, name: string, type = 'text') => {
+    const wrap = doc.createElement('label');
+    wrap.className = 'flex min-w-0 flex-col gap-1 text-sm font-medium text-on-surface';
+    const title = doc.createElement('span'); title.textContent = label;
+    const input = doc.createElement('input'); input.name = name; input.type = type; input.className = inputClass;
+    if (type === 'number') { input.min = '0'; input.inputMode = 'decimal'; }
+    wrap.append(title, input); return input;
+  };
+  const addSettingsSwitchStyle = () => {
+    if (doc.getElementById('settings-switch-style')) return;
+    const style = doc.createElement('style'); style.id = 'settings-switch-style';
+    style.textContent = `
+      .payment-method-switch { display: inline-flex; min-width: 44px; min-height: 32px; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer; touch-action: manipulation; }
+      .payment-method-switch-track { display: flex; width: 42px; height: 24px; align-items: center; padding: 2px; border-radius: 999px; background: #cbd5d1; transition: background-color 150ms ease; }
+      .payment-method-switch-thumb { width: 20px; height: 20px; border-radius: 999px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.2); transform: translateX(0); transition: transform 150ms ease; }
+      .payment-method-switch[aria-checked="true"] .payment-method-switch-track { background: #2d6857; }
+      .payment-method-switch[aria-checked="true"] .payment-method-switch-thumb { transform: translateX(18px); }
+      .payment-method-switch:focus-visible { outline: 2px solid #2d6857; outline-offset: 2px; border-radius: 999px; }
+      @media (prefers-reduced-motion: reduce) { .payment-method-switch-track, .payment-method-switch-thumb { transition: none; } }
+    `;
+    doc.head.append(style);
+  };
+  const makeSwitch = (label: string, checked: boolean) => {
+    addSettingsSwitchStyle();
+    const button = doc.createElement('button'); button.type = 'button'; button.className = 'payment-method-switch';
+    button.setAttribute('role', 'switch'); button.setAttribute('aria-label', label); button.setAttribute('aria-checked', String(checked));
+    const track = doc.createElement('span'); track.className = 'payment-method-switch-track';
+    const thumb = doc.createElement('span'); thumb.className = 'payment-method-switch-thumb';
+    track.append(thumb); button.append(track);
+    return { wrap: button, setChecked: (value: boolean) => button.setAttribute('aria-checked', String(value)) };
+  };
+
+  let shipping: ShippingMethodSetting[] = [];
+  let announcements: string[] = [];
+  let paymentConfig: { phone: string; payeeName: string; enabled: boolean } | null = null;
+  let store: Awaited<ReturnType<typeof getStoreSettings>> = {};
+  const [storeResult, paymentResult] = await Promise.allSettled([getStoreSettings(), getPromptPayConfig()]);
+  if (storeResult.status === 'fulfilled') store = storeResult.value;
+  else if (status) status.textContent = 'โหลดการตั้งค่าร้านเดิมไม่สำเร็จ ระบบจะแสดงค่าเริ่มต้น';
+  if (paymentResult.status === 'fulfilled') paymentConfig = paymentResult.value;
+  if (store.storeName) (form.elements.namedItem('storeName') as HTMLInputElement).value = store.storeName;
+  for (const key of ['contactEmail', 'contactPhone', 'lineOfficial', 'storeAddress'] as const) {
+    const field = form.elements.namedItem(key) as HTMLInputElement | HTMLTextAreaElement | null;
+    if (field && store[key] != null) field.value = store[key]!;
+  }
+  const logoPreview = doc.getElementById('storeLogoPreview') as HTMLImageElement | null;
+  if (logoPreview && store.logoUrl) logoPreview.src = store.logoUrl;
+  const sidebarLogo = doc.querySelector<HTMLImageElement>('#soulmate-admin-sidebar img[alt="SOULMATE"]');
+  if (sidebarLogo && store.logoUrl) sidebarLogo.src = store.logoUrl;
+  shipping = store.shippingMethods?.length ? store.shippingMethods.map((item) => ({ ...item })) : [
+    { id: 'standard', name: 'จัดส่งมาตรฐาน', fee: 0, freeShippingThreshold: null, enabled: true },
+  ];
+  announcements = store.announcements?.length ? [...store.announcements] : [];
+
+  const shippingList = doc.getElementById('shippingMethodsList');
+  const renderShipping = () => {
+    if (!shippingList) return;
+    shippingList.replaceChildren();
+    shipping.forEach((method, index) => {
+      const card = doc.createElement('div'); card.className = 'rounded-xl border border-outline-variant/50 bg-surface-container-low p-3';
+      const top = doc.createElement('div'); top.className = 'mb-3 flex items-center justify-between gap-3';
+      const name = makeInput('ชื่อวิธีจัดส่ง', `shippingName-${index}`); name.value = method.name; name.className = inputClass + ' font-semibold';
+      const remove = doc.createElement('button'); remove.type = 'button'; remove.className = 'rounded-full px-3 py-2 text-sm text-error hover:bg-error-container'; remove.textContent = 'ลบ';
+      remove.addEventListener('click', () => { shipping.splice(index, 1); renderShipping(); markDirty(); });
+      const enabled = makeSwitch(`เปิดใช้ ${method.name || 'วิธีจัดส่ง'}`, method.enabled);
+      top.append(name.parentElement!, enabled.wrap, remove);
+      const values = doc.createElement('div'); values.className = 'grid grid-cols-1 gap-3 sm:grid-cols-2';
+      const fee = makeInput('ค่าจัดส่งมาตรฐาน (฿)', `shippingFee-${index}`, 'number'); fee.value = String(method.fee);
+      const free = makeInput('ส่งฟรีเมื่อยอดถึง (฿)', `shippingFree-${index}`, 'number'); free.placeholder = 'ไม่กำหนด'; free.value = method.freeShippingThreshold == null ? '' : String(method.freeShippingThreshold);
+      values.append(fee.parentElement!, free.parentElement!); card.append(top, values); shippingList.append(card);
+      name.addEventListener('input', () => { method.name = name.value; markDirty(); });
+      fee.addEventListener('input', () => { method.fee = Math.max(0, Number(fee.value) || 0); markDirty(); });
+      free.addEventListener('input', () => { method.freeShippingThreshold = free.value === '' ? null : Math.max(0, Number(free.value) || 0); markDirty(); });
+      enabled.wrap.addEventListener('click', () => { method.enabled = !method.enabled; enabled.setChecked(method.enabled); markDirty(); });
+    });
+  };
+  renderShipping();
+  doc.getElementById('addShippingMethod')?.remove();
+  const addShipping = doc.createElement('button');
+  addShipping.id = 'addShippingMethod'; addShipping.type = 'button';
+  addShipping.className = 'self-start rounded-xl border border-outline-variant px-4 py-3 font-medium text-primary hover:bg-primary-container/30';
+  addShipping.textContent = '+ เพิ่มวิธีจัดส่ง';
+  shippingSection.append(addShipping);
+  addShipping.addEventListener('click', () => {
+    shipping.push({ id: `shipping-${Date.now()}`, name: '', fee: 0, freeShippingThreshold: null, enabled: true });
+    renderShipping(); markDirty();
+  });
+
+  // Replace the old storefront switches and system diagnostics with the actual announcement editor.
+  const storefrontBody = storefrontSection.querySelector(':scope > div:last-child');
+  if (storefrontBody) {
+    storefrontBody.replaceChildren();
+    const announcementList = doc.createElement('div'); announcementList.className = 'flex flex-col gap-2';
+    const renderAnnouncements = () => {
+      announcementList.replaceChildren();
+      announcements.forEach((message, index) => {
+        const row = doc.createElement('div'); row.className = 'flex items-center gap-2';
+        const field = doc.createElement('input'); field.type = 'text'; field.value = message; field.placeholder = 'ข้อความประกาศ'; field.className = inputClass;
+        field.addEventListener('input', () => { announcements[index] = field.value; markDirty(); });
+        const remove = doc.createElement('button'); remove.type = 'button'; remove.textContent = 'ลบ'; remove.className = 'rounded-full px-3 py-2 text-sm text-error hover:bg-error-container';
+        remove.addEventListener('click', () => { announcements.splice(index, 1); renderAnnouncements(); markDirty(); });
+        row.append(field, remove); announcementList.append(row);
+      });
+    };
+    const add = doc.createElement('button'); add.type = 'button'; add.className = 'self-start rounded-full bg-primary-container px-3 py-2 text-sm font-semibold text-on-primary-container'; add.textContent = '+ เพิ่มข้อความประกาศ';
+    add.addEventListener('click', () => { announcements.push(''); renderAnnouncements(); markDirty(); const field = announcementList.querySelector('input:last-of-type') as HTMLInputElement | null; field?.focus(); });
+    storefrontBody.append(announcementList, add); renderAnnouncements();
+  }
+
+  // Payment methods use compact rows; PromptPay details live in a focused dialog.
+  const paymentHeader = paymentSection.querySelector(':scope > div:first-child');
+  const paymentEditor = doc.createElement('div'); paymentEditor.className = 'flex flex-col gap-3';
+  paymentSection.querySelectorAll(':scope > div').forEach((element) => { if (element !== paymentHeader) element.remove(); });
+  paymentSection.append(paymentEditor);
+  const storedCodMethod = store.paymentMethods?.find((method) => method.id === 'cod');
+  const methods = [
+    { id: 'promptpay', label: 'PromptPay / QR Payment', icon: 'qr_code_2', enabled: paymentConfig?.enabled ?? true, removable: false },
+    ...(store.paymentMethods?.length && !storedCodMethod ? [] : [{ id: 'cod', label: 'เก็บเงินปลายทาง (Cash on Delivery - COD)', icon: 'local_atm', enabled: storedCodMethod?.enabled ?? true, removable: true }]),
+  ];
+  if (paymentSection.querySelector('#paymentAccountFields')) paymentSection.querySelector('#paymentAccountFields')?.remove();
+  const payeeFields = doc.createElement('div'); payeeFields.id = 'paymentAccountFields'; payeeFields.className = 'grid grid-cols-1 gap-3 rounded-xl border border-outline-variant/50 bg-surface-container-low p-3 sm:grid-cols-2';
+  const payeeName = makeInput('ชื่อบัญชีรับเงิน', 'promptpayPayeeName'); payeeName.value = paymentConfig?.payeeName ?? '';
+  const payeePhone = makeInput('เบอร์ที่ผูกกับ PromptPay', 'promptpayPhone', 'tel'); payeePhone.value = paymentConfig?.phone ?? ''; payeePhone.placeholder = '08XXXXXXXX'; payeePhone.maxLength = 10; payeePhone.inputMode = 'numeric';
+  payeeFields.append(payeeName.parentElement!, payeePhone.parentElement!);
+  const paymentDialogStyle = doc.createElement('style');
+  paymentDialogStyle.id = 'promptpay-settings-dialog-style';
+  paymentDialogStyle.textContent = `
+    #promptpay-settings-dialog { width: min(100% - 32px, 480px); max-width: 480px; border: 1px solid #dce7e1; border-radius: 20px; padding: 24px; color: #203b30; box-shadow: 0 24px 80px rgba(20, 45, 34, .22); }
+    #promptpay-settings-dialog::backdrop { background: rgba(17, 31, 25, .42); backdrop-filter: blur(3px); }
+    #promptpay-settings-dialog[open] { animation: promptpay-dialog-in 160ms ease-out both; }
+    @keyframes promptpay-dialog-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @media (prefers-reduced-motion: reduce) { #promptpay-settings-dialog[open] { animation: none; } }
+  `;
+  doc.head.append(paymentDialogStyle);
+  const paymentDialog = doc.createElement('dialog');
+  paymentDialog.id = 'promptpay-settings-dialog';
+  paymentDialog.setAttribute('aria-labelledby', 'promptpay-settings-title');
+  const dialogHeader = doc.createElement('div'); dialogHeader.className = 'mb-5 flex items-start justify-between gap-4';
+  const dialogHeading = doc.createElement('div');
+  const dialogTitle = doc.createElement('h3'); dialogTitle.id = 'promptpay-settings-title'; dialogTitle.className = 'text-lg font-semibold'; dialogTitle.textContent = 'ตั้งค่า PromptPay';
+  const dialogSubtitle = doc.createElement('p'); dialogSubtitle.className = 'mt-1 text-sm text-on-surface-variant'; dialogSubtitle.textContent = 'บัญชีที่ใช้รับชำระเงินด้วย QR';
+  dialogHeading.append(dialogTitle, dialogSubtitle);
+  const dialogClose = doc.createElement('button'); dialogClose.type = 'button'; dialogClose.className = 'rounded-full p-2 text-on-surface-variant hover:bg-surface-container-low'; dialogClose.setAttribute('aria-label', 'ปิดหน้าต่าง'); dialogClose.textContent = '✕';
+  dialogClose.addEventListener('click', () => paymentDialog.close());
+  dialogHeader.append(dialogHeading, dialogClose);
+  payeeFields.className = 'grid grid-cols-1 gap-4 sm:grid-cols-2';
+  const dialogFooter = doc.createElement('div'); dialogFooter.className = 'mt-6 flex justify-end';
+  const dialogDone = doc.createElement('button'); dialogDone.type = 'button'; dialogDone.className = 'rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90'; dialogDone.textContent = 'เรียบร้อย';
+  dialogDone.addEventListener('click', () => paymentDialog.close());
+  dialogFooter.append(dialogDone);
+  paymentDialog.append(dialogHeader, payeeFields, dialogFooter);
+  paymentDialog.addEventListener('click', (event) => { if (event.target === paymentDialog) paymentDialog.close(); });
+  doc.body.append(paymentDialog);
+  const renderPaymentMethods = () => {
+    paymentEditor.replaceChildren();
+    const count = paymentSection.querySelector('#paymentMethodCount');
+    if (count) count.textContent = `เปิดใช้ ${methods.filter((method) => method.enabled).length} วิธี`;
+    methods.forEach((method) => {
+      const row = doc.createElement('div'); row.className = 'grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-outline-variant/50 bg-white p-3';
+      const icon = doc.createElement('span'); icon.className = 'material-symbols-outlined flex h-11 w-11 items-center justify-center rounded-lg bg-primary-container text-primary'; icon.textContent = method.icon;
+      const info = doc.createElement('div'); info.className = 'min-w-0';
+      const label = doc.createElement('p'); label.className = 'font-semibold'; label.textContent = method.label;
+      info.append(label);
+      const actions = doc.createElement('div'); actions.className = 'flex flex-wrap items-center justify-end gap-3';
+      const toggle = makeSwitch(`เปิดใช้ ${method.label}`, method.enabled);
+      if (method.id === 'promptpay') {
+        const setup = doc.createElement('button'); setup.type = 'button'; setup.className = 'rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium hover:bg-surface-container-low'; setup.textContent = 'ตั้งค่า PromptPay';
+        setup.addEventListener('click', () => paymentDialog.showModal());
+        actions.append(setup, toggle.wrap);
+      } else if (method.removable) {
+        const remove = doc.createElement('button'); remove.type = 'button'; remove.className = 'rounded-lg border border-outline-variant px-3 py-2 text-sm'; remove.textContent = 'ลบวิธีการออก'; remove.addEventListener('click', () => { methods.splice(methods.indexOf(method), 1); renderPaymentMethods(); markDirty(); }); actions.append(remove, toggle.wrap);
+      } else {
+        actions.append(toggle.wrap);
+      }
+      toggle.wrap.addEventListener('click', () => { method.enabled = !method.enabled; toggle.setChecked(method.enabled); markDirty(); renderPaymentMethods(); });
+      row.append(icon, info, actions); paymentEditor.append(row);
+    });
+    const add = doc.createElement('button'); add.type = 'button'; add.className = 'rounded-xl border border-outline-variant px-4 py-3 font-medium text-primary hover:bg-primary-container/30'; add.textContent = '+ เพิ่มวิธีชำระเงิน';
+    add.addEventListener('click', () => { if (!methods.some((method) => method.id === 'cod')) methods.push({ id: 'cod', label: 'เก็บเงินปลายทาง (Cash on Delivery - COD)', icon: 'local_atm', enabled: true, removable: true }); else { const next = methods.find((method) => method.id === 'card'); if (!next) methods.push({ id: 'card', label: 'บัตรเครดิต / บัตรเดบิต', icon: 'credit_card', enabled: false, removable: true }); } renderPaymentMethods(); markDirty(); });
+    paymentEditor.append(add);
+  };
+  renderPaymentMethods();
+  const logoInput = doc.getElementById('storeLogoInput') as HTMLInputElement | null;
+  logoInput?.addEventListener('change', async () => {
+    const file = logoInput.files?.[0]; if (!file || !logoPreview) return;
+    logoInput.disabled = true; if (status) status.textContent = 'กำลังอัปโหลดโลโก้…';
+    try { store.logoUrl = await uploadStoreLogo(file); logoPreview.src = store.logoUrl; markDirty(); if (status) status.textContent = 'อัปโหลดโลโก้แล้ว กดบันทึกการตั้งค่าเพื่อยืนยัน'; }
+    catch (error) { if (status) status.textContent = (error as Error).message || 'อัปโหลดโลโก้ไม่สำเร็จ'; }
+    finally { logoInput.disabled = false; logoInput.value = ''; }
+  });
+
+  const originalDiscard = win.discardChanges;
+  win.discardChanges = () => { originalDiscard?.(); void win.location.reload(); };
+  win.triggerSaveFlow = async () => {
+    const buttons = [doc.getElementById('saveBtnBottom')].filter(Boolean) as HTMLButtonElement[];
+    buttons.forEach((button) => { button.disabled = true; });
+    if (status) status.textContent = 'กำลังบันทึกการตั้งค่า…';
+    try {
+      const value = (name: string) => (form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null)?.value.trim() ?? '';
+      const promptpay = methods.find((method) => method.id === 'promptpay');
+      if (promptpay?.enabled && (!payeeName.value.trim() || !/^0\d{9}$/.test(payeePhone.value.trim()))) {
+        if (status) status.textContent = 'กรอกชื่อบัญชีและเบอร์ PromptPay 10 หลักก่อนบันทึก';
+        if (!paymentDialog.open) paymentDialog.showModal();
+        (payeeName.value.trim() ? payeePhone : payeeName).focus();
+        return false;
+      }
+      await saveStoreSettings({
+        storeName: value('storeName'), contactEmail: value('contactEmail'), contactPhone: value('contactPhone'),
+        lineOfficial: value('lineOfficial'), storeAddress: value('storeAddress'), logoUrl: store.logoUrl ?? '',
+        shippingMethods: shipping, announcements: announcements.map((message) => message.trim()).filter(Boolean),
+        paymentMethods: methods.map(({ id, enabled }) => ({ id, enabled })),
+      });
+      await savePromptPaySettings(payeePhone.value.trim(), payeeName.value.trim(), promptpay?.enabled ?? false);
+      win.__soulmateSettingsGuard.dirty = false;
+      if (status) status.textContent = 'บันทึกการตั้งค่าแล้ว';
+      doc.getElementById('toastSuccess')?.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+      return true;
+    } catch (error) {
+      if (status) status.textContent = (error as Error).message || 'บันทึกการตั้งค่าไม่สำเร็จ';
+      return false;
+    } finally { buttons.forEach((button) => { button.disabled = false; }); }
+  };
 }
 
 function syncStorefrontAdminMobileTab(doc: Document, showAdminTab: boolean) {
@@ -1261,76 +1560,36 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
   }
 }
 
-function configureCheckoutPaymentMethods(doc: Document) {
-  const normalize = (value: string | null | undefined) =>
-    (value || '').replace(/\s+/g, ' ').trim();
-
-  const findPaymentRow = (needle: string): HTMLElement | null => {
-    const leaf = Array.from(
-      doc.querySelectorAll<HTMLElement>('body *')
-    ).find((el) => {
-      if (el.children.length > 0) return false;
-      return normalize(el.textContent).includes(needle);
-    });
-
-    if (!leaf) return null;
-
-    let current: HTMLElement | null = leaf;
-
-    for (let depth = 0; current && depth < 7; depth += 1) {
-      const hasRadio = Boolean(
-        current.querySelector('input[type="radio"]')
-      );
-      const text = normalize(current.textContent);
-
-      if (
-        hasRadio &&
-        (text.includes('เก็บเงินปลายทาง') ||
-          text.includes('PromptPay') ||
-          text.includes('บัตรเครดิต'))
-      ) {
-        return current;
-      }
-
-      current = current.parentElement;
-    }
-
-    return leaf.parentElement;
-  };
-
-  // Remove Credit / Debit Card from the checkout UI completely.
-  const cardRow =
-    findPaymentRow('บัตรเครดิต / เดบิต') ||
-    findPaymentRow('บัตรเครดิต') ||
-    findPaymentRow('เดบิต');
-
-  if (cardRow) {
-    cardRow.remove();
+export function configureCheckoutPaymentMethods(doc: Document) {
+  const radios = ['cod', 'promptpay', 'card'].map((value) =>
+    doc.querySelector<HTMLInputElement>(`#checkoutForm input[name="paymentMethod"][value="${value}"]`)
+  );
+  const paymentSection = radios.find(Boolean)?.closest('section') ??
+    doc.getElementById('checkoutPaymentPendingNotice')?.closest('section');
+  radios.forEach((radio) => radio?.closest('label')?.remove());
+  doc.getElementById('codUnavailableNotice')?.remove();
+  if (paymentSection && !paymentSection.querySelector('#promptpayOnlyOption')) {
+    const option = doc.createElement('label');
+    option.id = 'promptpayOnlyOption';
+    option.className = 'flex items-start gap-3 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950';
+    const radio = doc.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'paymentMethod';
+    radio.value = 'promptpay';
+    radio.checked = true;
+    radio.required = true;
+    radio.className = 'mt-1 accent-emerald-700';
+    const copy = doc.createElement('span');
+    copy.innerHTML = '<strong class="block">PromptPay QR</strong><span class="text-xs">สแกนจ่ายตามยอดรวม ระบบจะแสดง QR หลังยืนยันคำสั่งซื้อ</span>';
+    option.append(radio, copy);
+    paymentSection.appendChild(option);
   }
-
-  const codRow = findPaymentRow('เก็บเงินปลายทาง');
-  if (codRow) codRow.remove();
-
-  // Payment selection is deferred; this checkout only saves an Order.
-  const promptPayRadio =
-    Array.from(
-      doc.querySelectorAll<HTMLInputElement>('input[type="radio"]')
-    ).find((radio) => {
-      const row = radio.closest<HTMLElement>('label, div');
-      return radio.value === 'promptpay' || normalize(row?.textContent).includes('PromptPay');
-    }) ||
-    null;
-
-  if (promptPayRadio) {
-    const paymentSection = promptPayRadio.closest('section');
-    promptPayRadio.closest('label')?.remove();
-    if (paymentSection && !paymentSection.querySelector('#checkoutPaymentPendingNotice')) {
-      const note = doc.createElement('p');
-      note.id = 'checkoutPaymentPendingNotice';
-      note.className = 'rounded-xl bg-amber-50 p-3 text-xs text-amber-900';
-      note.textContent = 'ระบบทดสอบจะบันทึกออเดอร์เป็นรอชำระเงิน ยังไม่เปิดการจ่ายผ่าน PromptPay';
-      paymentSection.appendChild(note);
-    }
+  if (paymentSection && !paymentSection.querySelector('#checkoutPaymentPendingNotice')) {
+    const note = doc.createElement('p');
+    note.id = 'checkoutPaymentPendingNotice';
+    note.className = 'rounded-xl bg-emerald-50 p-3 text-xs text-emerald-900';
+    note.textContent = 'ชำระด้วย PromptPay QR ตามยอดออเดอร์ ระบบจะแสดง QR หลังบันทึกคำสั่งซื้อ';
+    paymentSection.appendChild(note);
   }
 }
 
@@ -1972,6 +2231,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
     if (routeType === 'storefront') {
       installStorefrontDesktopStyles(doc);
+      void applyPublicStoreSettings(doc, location.pathname);
       syncStorefrontAdminMobileTab(doc, !auth.profileLoading && canAccessAdmin(auth.customerProfile));
       mountAccountNavigation(doc, location.pathname);
 
@@ -2072,8 +2332,12 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         console.error('[SOULMATE Admin] Dashboard navigation failed to load:', error);
       }
       normalizeAdminShellSizing(doc);
+      mountAdminSidebarNav(doc, location.pathname);
       configureAdminTopbar(doc);
       installAdminSurfaceStyles(doc, location.pathname);
+      if (location.pathname === '/admin/settings') {
+        void configureAdminSettingsPage(doc, win).catch((error) => console.error('[SOULMATE Settings] Initialization failed:', error));
+      }
     }
 
     // Ensure search icon is placed before profile icon in header
@@ -2112,6 +2376,24 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       // Only treat an aside as admin navigation when we're already on an admin route.
       const isAside = isAdminRoute && !!target.closest('aside, nav[data-admin-nav], .admin-sidebar');
       const isAdminContext = isAdminRoute;
+
+      const settingsGuard = win.__soulmateSettingsGuard;
+      const adminAnchor = target.closest<HTMLAnchorElement>('a');
+      if (isAdminContext && settingsGuard?.dirty && adminAnchor) {
+        const rawDestination = adminAnchor.getAttribute('data-route') || adminAnchor.getAttribute('href') || adminAnchor.getAttribute('data-path') || '';
+        const pathHint = adminAnchor.getAttribute('data-path') || '';
+        const isLogout = pathHint === 'logout' || rawDestination.toLowerCase().includes('logout');
+        const destination = isLogout ? '/admin/login' : resolveAdminNavigationTarget(rawDestination);
+        if (destination && destination !== location.pathname && destination !== '#') {
+          e.preventDefault();
+          e.stopPropagation();
+          settingsGuard.request(() => {
+            if (isLogout) void auth.logout().then(() => navigate('/admin/login', { replace: true }));
+            else navigate(destination);
+          });
+          return;
+        }
+      }
 
       // ===============================================================
       // CUSTOMER CART — ONE REAL CART DESTINATION ON EVERY STOREFRONT PAGE
@@ -2441,90 +2723,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           link.removeAttribute('aria-current');
           link.className =
             'flex flex-col items-center justify-center h-12 px-space-md rounded-full text-on-surface-variant hover:text-primary transition-all duration-200 gap-0.5';
-        }
-      });
-    }
-
-    // 4. Admin Sidebar Highlights
-    if (routeType === 'admin') {
-      const adminLinks = doc.querySelectorAll('aside nav [data-path], aside nav [data-route], aside nav a');
-      adminLinks.forEach((link) => {
-        const p = (link.getAttribute('data-path') || '').toLowerCase();
-        const r = (link.getAttribute('data-route') || link.getAttribute('href') || '').toLowerCase();
-        const text = (link.textContent || '').toLowerCase();
-
-        const isDash =
-          (p === 'admin-dashboard' || p === 'dashboard' || r.includes('admin/dashboard') || text.includes('dashboard')) &&
-          location.pathname === '/admin/dashboard';
-        const isProd =
-          (
-            p === 'admin-products' ||
-            p === 'products' ||
-            r.includes('admin/products') ||
-            text.includes('products') ||
-            text.includes('สินค้า')
-          ) &&
-          location.pathname.startsWith('/admin/products');
-        const isOrders =
-          (
-            p === 'admin-orders' ||
-            p === 'orders' ||
-            r.includes('admin/orders') ||
-            text.includes('orders') ||
-            text.includes('คำสั่งซื้อ')
-          ) &&
-          location.pathname.startsWith('/admin/orders');
-        const isCust =
-          (
-            p === 'admin-customers' ||
-            p === 'customers' ||
-            r.includes('admin/customers') ||
-            text.includes('customers') ||
-            text.includes('ลูกค้า')
-          ) &&
-          location.pathname.startsWith('/admin/customers');
-        const isBanners =
-          (
-            p === 'admin-banners' ||
-            p === 'banners' ||
-            r.includes('admin/banners') ||
-            text.includes('banners') ||
-            text.includes('แบนเนอร์')
-          ) &&
-          location.pathname.startsWith('/admin/banners');
-        const isCoupons =
-          (
-            p === 'admin-coupons' ||
-            p === 'coupons' ||
-            r.includes('admin/coupons') ||
-            text.includes('coupons') ||
-            text.includes('คูปอง')
-          ) &&
-          location.pathname.startsWith('/admin/coupons');
-        const isSettings =
-          (
-            p === 'admin-settings' ||
-            p === 'settings' ||
-            r.includes('admin/settings') ||
-            text.includes('settings') ||
-            text.includes('ตั้งค่า')
-          ) &&
-          location.pathname.startsWith('/admin/settings');
-
-        const isActive = isDash || isProd || isOrders || isCust || isBanners || isCoupons || isSettings;
-
-        if (isActive) {
-          link.setAttribute('aria-current', 'page');
-          link.className =
-            'flex items-center gap-space-sm px-space-md py-space-sm transition-all bg-primary-container text-on-primary-container font-label-lg rounded-xl shadow-xs';
-        } else if (
-          link.getAttribute('data-path') ||
-          link.getAttribute('data-route') ||
-          link.getAttribute('href')?.startsWith('/admin')
-        ) {
-          link.removeAttribute('aria-current');
-          link.className =
-            'flex items-center gap-space-sm px-space-md py-space-sm rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all';
         }
       });
     }
@@ -3092,21 +3290,13 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       renderCheckoutSummary(doc, win, cart);
       attachCheckoutEditListeners(doc);
       populateCheckoutFromDoc(doc, auth.customerProfile, auth.user?.email);
-      const demoOrdersEnabled = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
-      const checkoutTestEnabled = import.meta.env.VITE_CHECKOUT_TEST_MODE_ENABLED === 'true';
-      const orderSubmitEnabled = demoOrdersEnabled || checkoutTestEnabled;
       const checkoutNotice = doc.createElement('p');
       checkoutNotice.id = 'checkoutPaymentUnavailable';
-      checkoutNotice.className = 'text-[11px] text-amber-800 text-center px-3 pb-2';
-      checkoutNotice.textContent = 'โหมดทดสอบจะบันทึกคำสั่งซื้อเป็นรอชำระเงินเท่านั้น ยังไม่เปิดการจ่ายเงิน';
+      checkoutNotice.className = 'text-[11px] text-emerald-800 text-center px-3 pb-2';
+      checkoutNotice.textContent = 'ชำระด้วย PromptPay QR ตามยอดรวม ระบบจะแสดง QR หลังบันทึกออเดอร์';
       const existingCheckoutNotice = doc.getElementById('checkoutPaymentUnavailable');
       if (existingCheckoutNotice) existingCheckoutNotice.textContent = checkoutNotice.textContent;
       else doc.getElementById('stickyCheckoutBar')?.prepend(checkoutNotice);
-      const orderSubmitButton = doc.getElementById('btnSubmitOrder') as HTMLButtonElement | null;
-      if (orderSubmitButton && !orderSubmitEnabled) {
-        orderSubmitButton.disabled = true;
-        orderSubmitButton.title = 'ยังไม่เปิดการบันทึกคำสั่งซื้อทดสอบ';
-      }
       const showCheckoutMessage = (message: string) => {
         const toast = doc.getElementById('toastNotification');
         const text = doc.getElementById('toastText');
@@ -3119,6 +3309,28 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           toast.classList.remove('opacity-100', 'translate-y-0');
         }, 3500);
       };
+      const showUnavailableItem = (error: OrderUnavailableItemError, items: StorefrontCartItem[]) => {
+        doc.getElementById('checkoutSubmissionError')?.remove();
+        const inlineError = doc.createElement('div');
+        inlineError.id = 'checkoutSubmissionError';
+        inlineError.setAttribute('role', 'alert');
+        inlineError.className = 'rounded-xl bg-red-50 p-3 text-center text-xs text-red-800';
+        const message = doc.createElement('p');
+        message.textContent = error.message;
+        const chooseAgain = doc.createElement('button');
+        chooseAgain.type = 'button';
+        chooseAgain.className = 'mt-2 underline font-semibold';
+        chooseAgain.textContent = 'เลือกตัวเลือกสินค้าอีกครั้ง';
+        chooseAgain.addEventListener('click', () => {
+          replaceCartItems(items.filter((item) => !(item.productId === error.productId && item.variantId === error.variantId)));
+          navigate(`/products/${encodeURIComponent(error.productId)}`);
+        });
+        inlineError.append(message, chooseAgain);
+        doc.getElementById('stickyCheckoutBar')?.prepend(inlineError);
+      };
+      void findMissingVariantSelection(createEffectiveCart(cart).items)
+        .then((error) => { if (error) showUnavailableItem(error, createEffectiveCart(cart).items); })
+        .catch(() => { /* Submit still reports checkout errors. */ });
       let placingOrder = false;
       win.handlePlaceOrder = async () => {
         if (placingOrder) return;
@@ -3153,10 +3365,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           return;
         }
         if (effectiveCart.items.length === 0) return;
-        if (!orderSubmitEnabled) {
-          showCheckoutMessage('ยังไม่เปิดการบันทึกคำสั่งซื้อทดสอบ');
-          return;
-        }
         placingOrder = true;
         const submit = doc.getElementById('btnSubmitOrder') as HTMLButtonElement | null;
         const submitText = doc.getElementById('submitText');
@@ -3180,8 +3388,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             replaceCartItems(updatedItems);
             renderCheckoutSummary(doc, win, createEffectiveCart(cart));
             showCheckoutMessage('ราคาสินค้าเปลี่ยนแล้ว ปรับยอดใหม่ให้ตรวจสอบก่อนยืนยันอีกครั้ง');
+          } else if (error instanceof OrderUnavailableItemError) {
+            showUnavailableItem(error, effectiveCart.items);
+            showCheckoutMessage(error.message);
           } else {
-            const message = orderFailureMessage(error);
+            const message = error instanceof Error && !('code' in error) ? error.message : orderFailureMessage(error);
             const inlineError = doc.createElement('p');
             inlineError.id = 'checkoutSubmissionError';
             inlineError.setAttribute('role', 'alert');
@@ -3204,6 +3415,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       const periodSelect = doc.querySelector<HTMLSelectElement>('#dashboard-period');
       const paidSales = doc.getElementById('dashboard-paid-sales');
       const pendingCount = doc.getElementById('dashboard-pending-count');
+      const reviewCount = doc.getElementById('dashboard-review-count');
+      const cancelledCount = doc.getElementById('dashboard-cancelled-count');
       const orderCount = doc.getElementById('dashboard-order-count');
       const chart = doc.getElementById('dashboard-chart');
       const ordersBody = doc.getElementById('dashboard-orders-body');
@@ -3238,8 +3451,12 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         });
         const paidOrders = withinPeriod.filter(isPaid);
         const waitingOrders = withinPeriod.filter((order) => order.status === 'pending_payment' && !isPaid(order));
+        const reviewOrders = withinPeriod.filter((order) => order.status === 'awaiting_review');
+        const cancelledOrders = withinPeriod.filter((order) => order.status === 'cancelled');
         paidSales.textContent = formatMoney(paidOrders.reduce((total, order) => total + (order.totalSatang || 0), 0));
         pendingCount.textContent = waitingOrders.length.toLocaleString('th-TH');
+        if (reviewCount) reviewCount.textContent = reviewOrders.length.toLocaleString('th-TH');
+        if (cancelledCount) cancelledCount.textContent = cancelledOrders.length.toLocaleString('th-TH');
         orderCount.textContent = withinPeriod.length.toLocaleString('th-TH');
         const periodLabel = doc.getElementById('dashboard-period-label');
         if (periodLabel) periodLabel.textContent = label;
@@ -3303,7 +3520,9 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           const statusCell = doc.createElement('td');
           const badge = doc.createElement('span'); badge.className = 'dashboard-status';
           if (isPaid(order)) { badge.textContent = 'ชำระแล้ว'; badge.dataset.status = 'paid'; }
-          else if (order.status === 'pending_payment') { badge.textContent = 'รอชำระ'; badge.dataset.status = 'pending'; }
+          else if (order.status === 'awaiting_review') { badge.textContent = 'รอตรวจสลิป'; badge.dataset.status = 'pending'; }
+          else if (order.status === 'pending_payment') { badge.textContent = order.payment?.method == null ? 'บันทึกแล้ว' : 'รอชำระ'; badge.dataset.status = 'pending'; }
+          else if (order.status === 'cancelled') { badge.textContent = 'ยกเลิก'; badge.dataset.status = 'failed'; }
           else if (order.status === 'expired' || order.payment?.status === 'expired') { badge.textContent = 'หมดอายุ'; badge.dataset.status = 'failed'; }
           else { badge.textContent = 'ไม่สำเร็จ'; badge.dataset.status = 'failed'; }
           statusCell.appendChild(badge); row.appendChild(statusCell); ordersBody.appendChild(row);
@@ -3349,6 +3568,25 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
     // --- Admin Product List Wiring (/admin/products) ---
     if (location.pathname === '/admin/products') {
+      const productMain = doc.querySelector('main');
+      if (productMain) {
+        const breadcrumbMeta = productMain.querySelector<HTMLElement>('div.flex.flex-wrap.items-center.justify-between.gap-space-sm');
+        breadcrumbMeta?.remove();
+        productMain.querySelectorAll('span').forEach((label) => {
+          if (['Inventory Hub', 'v2.4 Live System'].includes(label.textContent?.trim() || '')) label.remove();
+        });
+        const heading = productMain.querySelector<HTMLElement>('h1 [data-products-total]')?.closest('h1')
+          ?? productMain.querySelector<HTMLElement>('h1');
+        const headerLeft = heading?.parentElement;
+        heading?.remove();
+        productMain.querySelectorAll('p').forEach((paragraph) => {
+          if (paragraph.textContent?.includes('จัดการรายการผลิตภัณฑ์เสริมอาหาร')) paragraph.remove();
+        });
+        if (headerLeft && !headerLeft.textContent?.trim()) headerLeft.remove();
+        productMain.querySelectorAll('h3').forEach((title) => {
+          if (title.textContent?.includes('เตรียมภาพสินค้า')) title.closest('div.grid')?.remove();
+        });
+      }
       const docAny = doc as any;
       if (docAny.__adminProductsUnsub) {
         docAny.__adminProductsUnsub();
@@ -3542,7 +3780,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       };
 
       try {
-        currentProducts = await getProducts();
+        currentProducts = await getProducts({ raw: true });
         await renderProductsRows(currentProducts);
 
         // Firestore real-time listener for live sync
@@ -3774,7 +4012,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           const notFoundEl = doc.getElementById('productNotFound');
           const formEl = doc.getElementById('productEditForm');
 
-          const product = await getProductById(productId);
+          const product = await getProductById(productId, true);
 
           if (!product) {
             if (loadingEl) loadingEl.style.display = 'none';
