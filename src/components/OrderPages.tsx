@@ -41,8 +41,8 @@ const paymentText = (order: StoreOrder) => order.payment?.status === 'successful
     ? 'หมดอายุ'
     : order.payment?.status === 'failed' || order.status === 'payment_failed'
       ? 'ชำระไม่สำเร็จ'
-      : order.schemaVersion === 2 && order.payment?.method == null ? 'บันทึกแล้ว · รอแจ้งชำระเงิน' : 'รอชำระเงิน';
-const paymentKind = (order: StoreOrder) => order.payment?.method === 'manual_promptpay' ? 'พร้อมเพย์ · ตรวจสลิปโดยแอดมิน' : order.payment?.method === 'promptpay' ? 'PromptPay' : 'รอร้านแจ้งวิธีชำระเงิน';
+      : order.payment?.method === 'cod' ? 'รอเก็บเงินปลายทาง' : order.schemaVersion === 2 && order.payment?.method == null ? 'บันทึกแล้ว · รอแจ้งชำระเงิน' : 'รอชำระเงิน';
+const paymentKind = (order: StoreOrder) => order.payment?.method === 'manual_promptpay' ? 'พร้อมเพย์ · ตรวจสลิปโดยแอดมิน' : order.payment?.method === 'promptpay' ? 'PromptPay' : order.payment?.method === 'cod' ? 'เก็บเงินสดเมื่อได้รับสินค้า' : 'รอร้านแจ้งวิธีชำระเงิน';
 const orderDate = (order: StoreOrder) => order.createdAt?.toDate?.() ?? null;
 const dayTime = (order: StoreOrder) => orderDate(order)?.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) ?? 'กำลังบันทึกเวลา';
 
@@ -89,6 +89,7 @@ function OrderPaymentPanel({ order, onUpdated }: { order: StoreOrder; onUpdated:
   if (order.schemaVersion !== 2) return null;
   return <div className="order-manual-payment">
     {order.status === 'pending_payment' && order.payment?.method == null && <p className="order-demo-note">บันทึกออเดอร์แล้ว ยังไม่ต้องโอนเงินหรือส่งสลิป ร้านจะแจ้งวิธีชำระเงินภายหลัง</p>}
+    {order.status === 'pending_payment' && order.payment?.method === 'cod' && <p className="order-demo-note">เลือกเก็บเงินปลายทาง ชำระเงินสดกับผู้จัดส่งเมื่อได้รับสินค้า</p>}
     {order.status === 'pending_payment' && order.payment?.method === 'manual_promptpay' && <>
       <h2>โอนเงินด้วยพร้อมเพย์</h2>
       <p>สแกน QR เพื่อโอนยอด <strong>{money(order.totalSatang)}</strong> ไปยังเบอร์พร้อมเพย์ <strong>{order.payment.promptPayPhone}</strong></p>
@@ -135,7 +136,8 @@ function AdminReviewPanel({ order, onUpdated }: { order: StoreOrder; onUpdated: 
   if (order.schemaVersion !== 2) return null;
   const finished = order.status === 'paid' || order.status === 'cancelled';
   const act = async (action: 'approved' | 'cancelled') => {
-    if (!window.confirm(action === 'approved' ? 'ตรวจเงินเข้าบัญชีแล้วและยืนยันให้ออเดอร์สำเร็จ?' : 'ยกเลิกออเดอร์และคืนสต็อก?')) return;
+    const approvePrompt = order.payment?.method === 'cod' ? 'ยืนยันว่าได้รับเงินสดจากผู้จัดส่งแล้วและปิดออเดอร์?' : 'ตรวจเงินเข้าบัญชีแล้วและยืนยันให้ออเดอร์สำเร็จ?';
+    if (!window.confirm(action === 'approved' ? approvePrompt : 'ยกเลิกออเดอร์และคืนสต็อก?')) return;
     const reason = action === 'cancelled' ? window.prompt('เหตุผลที่ยกเลิกออเดอร์', '') : '';
     if (reason === null) return;
     setBusy(true); setError('');
@@ -144,14 +146,14 @@ function AdminReviewPanel({ order, onUpdated }: { order: StoreOrder; onUpdated: 
     finally { setBusy(false); }
   };
   return <div className="order-review-panel">
-    <h3>ตรวจการโอนเงิน</h3>
-    <p>ยอดออเดอร์ <strong>{money(order.totalSatang)}</strong>{order.payment?.promptPayPhone ? ` · พร้อมเพย์ ${order.payment.promptPayPhone}` : ' · ยังไม่เปิดรับชำระเงิน'}</p>
+    <h3>{order.payment?.method === 'cod' ? 'เก็บเงินปลายทาง' : 'ตรวจการโอนเงิน'}</h3>
+    <p>ยอดออเดอร์ <strong>{money(order.totalSatang)}</strong>{order.payment?.promptPayPhone ? ` · พร้อมเพย์ ${order.payment.promptPayPhone}` : order.payment?.method === 'cod' ? ' · ชำระกับผู้จัดส่ง' : ' · ยังไม่เปิดรับชำระเงิน'}</p>
     {order.status === 'pending_payment' && order.payment?.method === 'manual_promptpay' && Date.now() >= slipDeadline(order) && <p className="order-error">เลยกำหนดส่งสลิป 24 ชั่วโมงแล้ว</p>}
     {order.slipPath && (slipUrl ? <img className="order-slip-preview" src={slipUrl} alt="สลิปที่ลูกค้าส่ง" /> : <p>กำลังเปิดสลิป…</p>)}
     {!finished && <>
-      {order.status === 'awaiting_review' && slipUrl && <label className="order-review-check"><input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} />ตรวจยอด ผู้รับ และเงินเข้าบัญชีจริงแล้ว</label>}
+      {(order.status === 'awaiting_review' && slipUrl || order.payment?.method === 'cod' && order.status === 'pending_payment') && <label className="order-review-check"><input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} />{order.payment?.method === 'cod' ? 'ได้รับเงินสดจากผู้จัดส่งแล้ว' : 'ตรวจยอด ผู้รับ และเงินเข้าบัญชีจริงแล้ว'}</label>}
       <div className="order-review-actions">
-        <button className="order-primary" disabled={busy || !checked || !slipUrl || order.status !== 'awaiting_review'} onClick={() => void act('approved')}>อนุมัติว่าเงินเข้าแล้ว</button>
+        <button className="order-primary" disabled={busy || !checked || (order.payment?.method === 'cod' ? order.status !== 'pending_payment' : !slipUrl || order.status !== 'awaiting_review')} onClick={() => void act('approved')}>{order.payment?.method === 'cod' ? 'ยืนยันว่าเก็บเงินแล้ว' : 'อนุมัติว่าเงินเข้าแล้ว'}</button>
         <button className="order-secondary" disabled={busy} onClick={() => void act('cancelled')}>ยกเลิกและคืนสต็อก</button>
       </div>
     </>}
@@ -172,7 +174,7 @@ function PaymentSetupPanel() {
   if (auth.customerProfile?.role !== 'super_admin') return null;
   return <section className="order-payment-settings">
     <h3>ตั้งค่าบัญชีรับเงินพร้อมเพย์</h3>
-    <p>PromptPay QR เป็นวิธีชำระเงินเดียวใน checkout เบอร์นี้จะถูกผูกกับออเดอร์ใหม่ และ QR จะระบุยอดรวมของออเดอร์โดยอัตโนมัติ</p>
+    <p>Checkout จะแสดงวิธีที่เปิดใช้งานใน Settings โดย PromptPay จะสร้าง QR ตามยอดออเดอร์ ส่วน COD ชำระเงินกับผู้จัดส่งเมื่อได้รับสินค้า</p>
     <form onSubmit={async (event) => {
       event.preventDefault(); setBusy(true); setMessage('');
       try { await savePromptPaySettings(phone, name); setMessage('บันทึกเบอร์พร้อมเพย์แล้ว'); }
@@ -323,7 +325,7 @@ export function OrderConfirmationPage() {
       <h1>ขอบคุณที่สั่งซื้อ</h1>
       <p>เลขคำสั่งซื้อ <strong>{order.orderNumber}</strong></p>
       <div className="order-status"><span>สถานะคำสั่งซื้อ</span><strong>{paymentText(order)}</strong></div>
-      <p className="order-payment-note">{order.payment?.method == null ? 'บันทึกออเดอร์แล้ว ยังไม่ต้องชำระเงิน ร้านจะแจ้งวิธีชำระภายหลัง' : 'บันทึกออเดอร์แล้ว การโอนเงินจะถือว่าสำเร็จหลังแอดมินตรวจเงินจริงและอนุมัติ'}</p>
+      <p className="order-payment-note">{order.payment?.method === 'cod' ? 'ชำระเงินสดกับผู้จัดส่งเมื่อได้รับสินค้า' : order.payment?.method == null ? 'บันทึกออเดอร์แล้ว ยังไม่ต้องชำระเงิน ร้านจะแจ้งวิธีชำระภายหลัง' : 'บันทึกออเดอร์แล้ว การโอนเงินจะถือว่าสำเร็จหลังแอดมินตรวจเงินจริงและอนุมัติ'}</p>
       <div className="order-totals"><span>สินค้า {money(order.subtotalSatang)}</span><span>จัดส่ง {money(order.shippingFeeSatang)}</span><strong>ยอดรวม {money(order.totalSatang)}</strong></div>
       <OrderPaymentPanel order={order} onUpdated={() => setRefreshKey((key) => key + 1)} />
       <Link className="order-secondary" to="/products">เลือกซื้อสินค้าต่อ</Link>

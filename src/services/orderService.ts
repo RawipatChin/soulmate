@@ -6,9 +6,10 @@ import {
 import { getBlob, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from '../lib/firebase';
 import type { StorefrontCartItem } from './cartService';
-import { MAX_ORDER_LINES, ORDER_SHIPPING_SATANG, optionId, optionRef, type SellableOption } from './inventoryService';
+import { MAX_ORDER_LINES, optionId, optionRef, type SellableOption } from './inventoryService';
 import { calculateMembershipTier, getTierRank } from '../utils/membership';
 import type { MembershipTier } from '../types/membership';
+import { getPublicStoreSettings } from './storeSettingsService';
 
 export interface OrderContact {
   firstName: string; lastName: string; phone: string; email: string;
@@ -24,7 +25,7 @@ export interface StoreOrder extends DocumentData {
   ownerType: 'guest' | 'customer'; contact: OrderContact; items: OrderLine[];
   subtotalSatang: number; shippingFeeSatang: number; totalSatang: number;
   status: 'pending_payment' | 'awaiting_review' | 'paid' | 'cancelled' | 'payment_failed' | 'expired';
-  payment: { method: 'manual_promptpay' | 'promptpay' | null; status: string; promptPayPhone?: string | null; chargeId?: string | null; qrUrl?: string | null };
+  payment: { method: 'manual_promptpay' | 'cod' | 'promptpay' | null; status: string; promptPayPhone?: string | null; chargeId?: string | null; qrUrl?: string | null };
   slipPath?: string | null; submittedAt?: Timestamp | null;
   review?: { by: string; at: Timestamp; result: 'approved' | 'cancelled'; reason: string } | null;
   createdAt?: Timestamp; updatedAt?: Timestamp; inventoryRestored?: boolean;
@@ -72,10 +73,15 @@ export async function getPromptPayConfig(): Promise<{ phone: string; payeeName: 
 export async function savePromptPaySettings(phone: string, payeeName: string, enabled = true) {
   const { db: firestore, auth: firebaseAuth } = services();
   if (enabled && !/^0\d{9}$/.test(phone)) throw new Error('เบอร์พร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก');
-  await setDoc(doc(firestore, 'config', 'payment'), {
-    phone, payeeName: payeeName.trim(), enabled,
-    updatedAt: serverTimestamp(), updatedBy: firebaseAuth.currentUser?.uid,
-  });
+  try {
+    await setDoc(doc(firestore, 'config', 'payment'), {
+      phone, payeeName: payeeName.trim(), enabled,
+      updatedAt: serverTimestamp(), updatedBy: firebaseAuth.currentUser?.uid,
+    });
+  } catch (error) {
+    console.error('[SOULMATE Settings] Failed writing config/payment', error);
+    throw new Error(`บันทึกบัญชี PromptPay (config/payment) ไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 export async function findMissingVariantSelection(items: StorefrontCartItem[]): Promise<OrderUnavailableItemError | null> {
   const { db: firestore } = services();
@@ -86,11 +92,25 @@ export async function findMissingVariantSelection(items: StorefrontCartItem[]): 
   const item = withoutVariant[index];
   return new OrderUnavailableItemError(item.productId, null, item.productName);
 }
-export async function createPendingOrder(items: StorefrontCartItem[], contact: OrderContact) {
+export async function createPendingOrder(
+  items: StorefrontCartItem[],
+  contact: OrderContact,
+  shippingMethodId = 'standard',
+  selectedPaymentMethod: 'manual_promptpay' | 'cod' = 'manual_promptpay',
+) {
   const { db: firestore } = services();
   const user = await ensureCheckoutIdentity();
-  const paymentSettings = await getPromptPaySettings();
-  if (!paymentSettings) throw new Error('ร้านยังไม่ได้ตั้งค่าบัญชี PromptPay กรุณาติดต่อร้าน');
+  const publicStoreSettings = await getPublicStoreSettings();
+  const paymentEnabled = publicStoreSettings.paymentMethods
+    ? publicStoreSettings.paymentMethods.some((method) => method.id === (selectedPaymentMethod === 'cod' ? 'cod' : 'promptpay') && method.enabled)
+    : selectedPaymentMethod === 'manual_promptpay';
+  if (!paymentEnabled) throw new Error('วิธีชำระเงินนี้ปิดใช้งานแล้ว กรุณาเลือกวิธีอื่น');
+  const paymentSettings = selectedPaymentMethod === 'manual_promptpay' ? await getPromptPaySettings() : null;
+  if (selectedPaymentMethod === 'manual_promptpay' && !paymentSettings) throw new Error('ร้านยังไม่ได้ตั้งค่าบัญชี PromptPay กรุณาติดต่อร้าน');
+  const activeShippingMethods = publicStoreSettings.shippingMethods?.filter((method) => method.enabled) ?? [];
+  if (!activeShippingMethods.length) activeShippingMethods.push({ id: 'standard', name: 'จัดส่งมาตรฐาน', fee: 30, freeShippingThreshold: null, enabled: true });
+  const shippingMethod = activeShippingMethods.find((method) => method.id === shippingMethodId);
+  if (!shippingMethod) throw new Error('วิธีจัดส่งนี้ไม่พร้อมให้บริการ กรุณาเลือกวิธีจัดส่งใหม่');
   validateContact(contact);
   if (!items.length || items.length > MAX_ORDER_LINES) throw new Error('หนึ่งออเดอร์ใส่สินค้าได้สูงสุด 5 รายการต่างกัน');
   if (items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99)) throw new Error('จำนวนสินค้าไม่ถูกต้อง');
@@ -98,7 +118,7 @@ export async function createPendingOrder(items: StorefrontCartItem[], contact: O
   if (new Set(ids).size !== ids.length) throw new Error('มีสินค้าซ้ำในตะกร้า');
   const missingVariant = await findMissingVariantSelection(items);
   if (missingVariant) throw missingVariant;
-  const fingerprint = JSON.stringify({ contact, items: items.map((item) => [item.productId, item.variantId, item.quantity]) });
+  const fingerprint = JSON.stringify({ contact, shippingMethodId, selectedPaymentMethod, items: items.map((item) => [item.productId, item.variantId, item.quantity]) });
   let saved: { key: string; fingerprint: string } | null = null;
   try { saved = JSON.parse(sessionStorage.getItem(requestKeyName) || 'null'); } catch { /* replace stale key */ }
   const key = saved?.fingerprint === fingerprint ? saved.key : crypto.randomUUID().replaceAll('-', '');
@@ -111,7 +131,11 @@ export async function createPendingOrder(items: StorefrontCartItem[], contact: O
       if (prior.data().ownerUid !== user.uid) throw new Error('คำสั่งซื้อนี้เป็นของบัญชีอื่น');
       return { orderId: key, orderNumber: prior.data().orderNumber as string, ownerType: prior.data().ownerType as 'guest' | 'customer', replay: true };
     }
-    const snapshots = await Promise.all(refs.map((item) => tx.get(item)));
+    const publicSettingsRef = doc(firestore, 'settings', 'public');
+    const [settingsSnapshot, ...snapshots] = await Promise.all([
+      tx.get(publicSettingsRef), ...refs.map((item) => tx.get(item)),
+    ]);
+    const publicSettings = settingsSnapshot.data() ?? {};
     const options = snapshots.map((snapshot) => snapshot.exists() ? snapshot.data() as SellableOption : null);
     const currentItems = options.map((option, index) => ({
       productId: items[index].productId, variantId: items[index].variantId,
@@ -138,15 +162,42 @@ export async function createPendingOrder(items: StorefrontCartItem[], contact: O
       };
     });
     const subtotalSatang = lines.reduce((sum, line) => sum + line.lineTotalSatang, 0);
-    const orderNumber = `SM-${key.slice(0, 10).toUpperCase()}`;
+    const shippingFee = shippingMethod.freeShippingThreshold != null && subtotalSatang >= Math.round(shippingMethod.freeShippingThreshold * 100)
+      ? 0
+      : Math.round(shippingMethod.fee * 100);
+    const orderPrefix = (publicStoreSettings.orderPrefix || 'SM-').trim().slice(0, 20);
+    const sequenceMode = /^\d{8,15}$/.test(orderPrefix);
+    let orderNumber: string;
+    if (sequenceMode) {
+      const configuredLastNumber = Number(orderPrefix);
+      const lastNumber = Number.isSafeInteger(publicSettings.orderSequence)
+        ? publicSettings.orderSequence as number
+        : configuredLastNumber;
+      if (!Number.isSafeInteger(lastNumber) || lastNumber < 0 || lastNumber >= Number.MAX_SAFE_INTEGER) {
+        throw new Error('เลขออเดอร์เกินขอบเขตที่รองรับ กรุณาตรวจการตั้งค่าเลขออเดอร์');
+      }
+      const nextNumber = lastNumber + 1;
+      orderNumber = String(nextNumber).padStart(Math.max(8, orderPrefix.length), '0');
+      tx.set(publicSettingsRef, {
+        orderSequence: nextNumber,
+        orderSequenceText: orderNumber,
+        orderSequenceOrderId: key,
+      }, { merge: true });
+    } else {
+      orderNumber = `${orderPrefix}${key.slice(0, 10).toUpperCase()}`;
+    }
     lines.forEach((line, index) => tx.update(refs[index], {
       available: options[index]!.available - line.quantity, lastOrderId: key, lastOrderLine: index,
     }));
     tx.set(orderRef, {
       schemaVersion: 2, orderNumber, ownerUid: user.uid, ownerType: user.isAnonymous ? 'guest' : 'customer',
-      contact, items: lines, subtotalSatang, shippingFeeSatang: ORDER_SHIPPING_SATANG,
-      totalSatang: subtotalSatang + ORDER_SHIPPING_SATANG, currency: 'THB',
-      status: 'pending_payment', payment: { method: 'manual_promptpay', status: 'pending', promptPayPhone: paymentSettings.phone },
+      contact, items: lines, subtotalSatang, shippingMethodId, shippingFeeSatang: shippingFee,
+      totalSatang: subtotalSatang + shippingFee, currency: 'THB',
+      status: 'pending_payment', payment: {
+        method: selectedPaymentMethod,
+        status: 'pending',
+        promptPayPhone: paymentSettings?.phone ?? null,
+      },
       slipPath: null, submittedAt: null, review: null, inventoryRestored: false,
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     });
@@ -179,7 +230,8 @@ export async function reviewOrder(orderId: string, action: 'approved' | 'cancell
     if (order.schemaVersion !== 2) throw new Error('ออเดอร์รุ่นเดิมต้องจัดการแยกจากระบบใหม่');
     if (order.status === 'paid' || order.status === 'cancelled') return;
     if (action === 'approved') {
-      if (order.status !== 'awaiting_review' || !order.slipPath) throw new Error('ต้องมีสลิปให้ตรวจสอบก่อนอนุมัติ');
+      const isCodCollection = order.payment?.method === 'cod' && order.status === 'pending_payment';
+      if (!isCodCollection && (order.status !== 'awaiting_review' || !order.slipPath)) throw new Error('ต้องมีสลิปให้ตรวจสอบก่อนอนุมัติ');
       const customerRef = order.ownerType === 'customer' ? doc(firestore, 'users', order.ownerUid) : null;
       const customer = customerRef ? await tx.get(customerRef) : null;
       if (customerRef && customer?.exists()) {

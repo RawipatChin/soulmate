@@ -145,7 +145,6 @@ export function StorefrontProductCard({
             <p className="font-bold text-primary">฿{pricing.sellingPrice.toLocaleString('th-TH')}</p>
           </div>
         </div>
-        <AddToCartButton imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} />
       </article>
     );
   }
@@ -173,15 +172,14 @@ export function StorefrontProductCard({
   }
 
   return (
-    <article className={`${cardBaseClass} storefront-product-card--catalog-grid bg-surface-container-lowest rounded-2xl p-3 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all`} data-product-slug={slug}>
-      <div className="cursor-pointer group" data-action="view-product" data-slug={slug}>
+    <article className={`${cardBaseClass} storefront-product-card--catalog-grid bg-surface-container-lowest rounded-2xl p-3 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all cursor-pointer`} data-action="view-product" data-slug={slug} data-product-slug={slug}>
+      <div className="group">
         <ProductImage imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} />
         <span className="font-label-sm text-[11px] text-primary font-semibold uppercase tracking-wider">SOULMATE</span>
         <h3 className="font-headline-sm text-sm text-on-surface font-semibold line-clamp-2 mt-0.5 leading-snug">{product.name}</h3>
       </div>
       <div className="mt-2.5 pt-2 border-t border-surface-container-low flex items-center justify-between">
         <ProductPrice pricing={pricing} variant={variant} />
-        <AddToCartButton imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} />
       </div>
     </article>
   );

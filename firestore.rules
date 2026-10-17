@@ -22,6 +22,23 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
     }
 
+    function advancesOrderSequence() {
+      let data = request.resource.data;
+      let orderPath = /databases/$(database)/documents/orders/$(data.orderSequenceOrderId);
+      let order = getAfter(orderPath).data;
+      return isSignedIn() &&
+        data.diff(resource.data).affectedKeys().hasOnly([
+          'orderSequence', 'orderSequenceText', 'orderSequenceOrderId'
+        ]) &&
+        data.orderSequence is int && data.orderSequence > 0 &&
+        data.orderSequenceText is string && data.orderSequenceText.matches('^[0-9]{8,15}$') &&
+        data.orderSequenceOrderId is string && data.orderSequenceOrderId.size() > 0 &&
+        (!('orderSequence' in resource.data) ||
+          (resource.data.orderSequence is int && data.orderSequence == resource.data.orderSequence + 1)) &&
+        !exists(orderPath) && order.ownerUid == request.auth.uid &&
+        order.orderNumber == data.orderSequenceText;
+    }
+
     function isActiveCustomer() {
       return isSignedIn() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -122,19 +139,53 @@ service cloud.firestore {
       return index < items.size() ? items[index].lineTotalSatang : 0;
     }
 
+    function paymentEnabledAt(methodId, index) {
+      let methods = get(/databases/$(database)/documents/settings/public).data.get('paymentMethods', []);
+      let method = methods is list && index < methods.size() ? methods[index] : {};
+      return methods is list && index < methods.size() && method.get('id', '') == methodId && method.get('enabled', false) == true;
+    }
+
+    function legacyPromptpayEnabled() {
+      let methods = get(/databases/$(database)/documents/settings/public).data.get('paymentMethods', []);
+      let payment = get(/databases/$(database)/documents/config/payment).data;
+      return methods is list && methods.size() == 0 && payment.enabled == true;
+    }
+
+    function shippingMatchesAt(data, index) {
+      let methods = get(/databases/$(database)/documents/settings/public).data.get('shippingMethods', []);
+      let method = methods is list && index < methods.size() ? methods[index] : {};
+      let free = method.get('freeShippingThreshold', null) != null && data.subtotalSatang >= method.get('freeShippingThreshold', null) * 100;
+      return methods is list && index < methods.size() && method.get('id', '') == data.shippingMethodId &&
+        method.get('enabled', false) == true && data.shippingFeeSatang == (free ? 0 : method.get('fee', -1) * 100);
+    }
+
+    function validShipping(data) {
+      let methods = get(/databases/$(database)/documents/settings/public).data.get('shippingMethods', []);
+      return methods is list && methods.size() > 0
+        ? shippingMatchesAt(data, 0) || shippingMatchesAt(data, 1) || shippingMatchesAt(data, 2) || shippingMatchesAt(data, 3) || shippingMatchesAt(data, 4) || shippingMatchesAt(data, 5) || shippingMatchesAt(data, 6) || shippingMatchesAt(data, 7) || shippingMatchesAt(data, 8) || shippingMatchesAt(data, 9)
+        : data.shippingMethodId == 'standard' && data.shippingFeeSatang == 3000;
+    }
+
     function canCreateOrder(orderId) {
       let data = request.resource.data;
       let items = data.items;
+      let sequence = getAfter(/databases/$(database)/documents/settings/public).data;
+      let isSequentialNumber = data.orderNumber is string && data.orderNumber.matches('^[0-9]{8,15}$');
       return isSignedIn() && (isGuest() || isActiveCustomer() || isAdmin()) &&
         data.keys().hasOnly([
           'schemaVersion', 'orderNumber', 'ownerUid', 'ownerType', 'contact', 'items',
-          'subtotalSatang', 'shippingFeeSatang', 'totalSatang', 'currency',
+          'subtotalSatang', 'shippingMethodId', 'shippingFeeSatang', 'totalSatang', 'currency',
           'status', 'payment', 'slipPath', 'submittedAt', 'review',
           'inventoryRestored', 'createdAt', 'updatedAt'
         ]) &&
         data.schemaVersion == 2 && data.ownerUid == request.auth.uid &&
         data.ownerType == (isGuest() ? 'guest' : 'customer') &&
         data.orderNumber is string && data.contact is map &&
+        (!isSequentialNumber || (
+          sequence.get('orderSequenceText', '') == data.orderNumber &&
+          sequence.get('orderSequenceOrderId', '') == orderId &&
+          sequence.get('orderSequence', 0) is int
+        )) &&
         data.contact.keys().hasAll([
           'firstName', 'lastName', 'phone', 'email', 'addressLine1',
           'subdistrict', 'district', 'province', 'postalCode'
@@ -146,15 +197,19 @@ service cloud.firestore {
         data.subtotalSatang ==
           lineTotal(items, 0) + lineTotal(items, 1) + lineTotal(items, 2) +
           lineTotal(items, 3) + lineTotal(items, 4) &&
-        data.shippingFeeSatang == 3000 &&
-        data.totalSatang == data.subtotalSatang + 3000 &&
+        data.shippingMethodId is string && validShipping(data) &&
+        data.totalSatang == data.subtotalSatang + data.shippingFeeSatang &&
         data.currency == 'THB' && data.status == 'pending_payment' &&
         data.payment.status == 'pending' &&
         (
-          (data.payment.method == null && data.payment.promptPayPhone == null) ||
           (data.payment.method == 'manual_promptpay' &&
+            (paymentEnabledAt('promptpay', 0) || paymentEnabledAt('promptpay', 1) || paymentEnabledAt('promptpay', 2) || paymentEnabledAt('promptpay', 3) || paymentEnabledAt('promptpay', 4) || paymentEnabledAt('promptpay', 5) || paymentEnabledAt('promptpay', 6) || paymentEnabledAt('promptpay', 7) || paymentEnabledAt('promptpay', 8) || paymentEnabledAt('promptpay', 9) || legacyPromptpayEnabled()) &&
+            get(/databases/$(database)/documents/config/payment).data.enabled == true &&
             data.payment.promptPayPhone ==
-              get(/databases/$(database)/documents/config/payment).data.phone)
+              get(/databases/$(database)/documents/config/payment).data.phone) ||
+          (data.payment.method == 'cod' &&
+            (paymentEnabledAt('cod', 0) || paymentEnabledAt('cod', 1) || paymentEnabledAt('cod', 2) || paymentEnabledAt('cod', 3) || paymentEnabledAt('cod', 4) || paymentEnabledAt('cod', 5) || paymentEnabledAt('cod', 6) || paymentEnabledAt('cod', 7) || paymentEnabledAt('cod', 8) || paymentEnabledAt('cod', 9)) &&
+            data.payment.promptPayPhone == null)
         ) &&
         data.slipPath == null && data.submittedAt == null &&
         data.review == null && data.inventoryRestored == false &&
@@ -186,12 +241,17 @@ service cloud.firestore {
         request.resource.data.review.at == request.time &&
         request.resource.data.updatedAt == request.time &&
         (
-          (resource.data.status == 'awaiting_review' &&
+          ((resource.data.status == 'awaiting_review' && resource.data.payment.method == 'manual_promptpay' &&
             resource.data.slipPath != null &&
             request.resource.data.status == 'paid' &&
             request.resource.data.payment.status == 'successful' &&
             request.resource.data.inventoryRestored == false &&
             request.resource.data.review.result == 'approved') ||
+          (resource.data.status == 'pending_payment' && resource.data.payment.method == 'cod' &&
+            request.resource.data.status == 'paid' &&
+            request.resource.data.payment.status == 'successful' &&
+            request.resource.data.inventoryRestored == false &&
+            request.resource.data.review.result == 'approved')) ||
           (request.resource.data.status == 'cancelled' &&
             request.resource.data.payment.status == 'cancelled' &&
             request.resource.data.inventoryRestored == true &&
@@ -223,9 +283,12 @@ service cloud.firestore {
     match /settings/public {
       allow get: if true;
       allow list: if false;
-      allow create, update: if isSuperAdmin() &&
+      allow create: if isSuperAdmin() &&
         request.resource.data.updatedBy == request.auth.uid &&
         request.resource.data.updatedAt == request.time;
+      allow update: if (isSuperAdmin() &&
+          request.resource.data.updatedBy == request.auth.uid &&
+          request.resource.data.updatedAt == request.time) || advancesOrderSequence();
       allow delete: if false;
     }
 

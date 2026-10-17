@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocFromServer, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from '../lib/firebase';
 
@@ -17,6 +17,7 @@ export interface StoreSettings {
   lineOfficial?: string;
   storeAddress?: string;
   logoUrl?: string;
+  orderPrefix?: string;
   shippingMethods?: ShippingMethodSetting[];
   paymentMethods?: Array<{ id: string; enabled: boolean }>;
   announcements?: string[];
@@ -29,27 +30,36 @@ export async function getStoreSettings(): Promise<StoreSettings> {
   return snapshot.exists() ? snapshot.data() as StoreSettings : {};
 }
 
-export async function getPublicStoreSettings(): Promise<Pick<StoreSettings, 'logoUrl' | 'announcements'>> {
+export async function getPublicStoreSettings(): Promise<Pick<StoreSettings, 'logoUrl' | 'announcements' | 'orderPrefix' | 'shippingMethods' | 'paymentMethods'>> {
   if (!db) throw new Error('ระบบตั้งค่าร้านยังไม่ได้เชื่อมต่อ Firebase');
-  const snapshot = await getDoc(doc(db, 'settings', 'public'));
-  return snapshot.exists() ? snapshot.data() as Pick<StoreSettings, 'logoUrl' | 'announcements'> : {};
+  const snapshot = await getDocFromServer(doc(db, 'settings', 'public'));
+  return snapshot.exists() ? snapshot.data() as Pick<StoreSettings, 'logoUrl' | 'announcements' | 'orderPrefix' | 'shippingMethods' | 'paymentMethods'> : {};
 }
 
 export async function saveStoreSettings(settings: StoreSettings): Promise<void> {
   if (!db || !auth?.currentUser) throw new Error('กรุณาเข้าสู่ระบบผู้ดูแลก่อนบันทึก');
-  const updatedAt = serverTimestamp();
   const updatedBy = auth.currentUser.uid;
-  await setDoc(doc(db, 'settings', 'store'), {
-    ...settings,
-    updatedAt,
-    updatedBy,
-  }, { merge: true });
-  await setDoc(doc(db, 'settings', 'public'), {
-    logoUrl: settings.logoUrl ?? '',
-    announcements: settings.announcements ?? [],
-    updatedAt: serverTimestamp(),
-    updatedBy,
-  }, { merge: true });
+  const batch = writeBatch(db);
+  try {
+    batch.set(doc(db, 'settings', 'store'), {
+      ...settings,
+      updatedAt: serverTimestamp(),
+      updatedBy,
+    }, { merge: true });
+    batch.set(doc(db, 'settings', 'public'), {
+      logoUrl: settings.logoUrl ?? '',
+      announcements: settings.announcements ?? [],
+      orderPrefix: settings.orderPrefix ?? 'SM-',
+      shippingMethods: settings.shippingMethods ?? [],
+      paymentMethods: settings.paymentMethods ?? [],
+      updatedAt: serverTimestamp(),
+      updatedBy,
+    }, { merge: true });
+    await batch.commit();
+  } catch (error) {
+    console.error('[SOULMATE Settings] Failed writing settings batch', error);
+    throw new Error(`บันทึกการตั้งค่าร้านและหน้าร้านไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 export async function uploadStoreLogo(file: File): Promise<string> {

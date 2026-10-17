@@ -769,7 +769,23 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
   if (storeResult.status === 'fulfilled') store = storeResult.value;
   else if (status) status.textContent = 'โหลดการตั้งค่าร้านเดิมไม่สำเร็จ ระบบจะแสดงค่าเริ่มต้น';
   if (paymentResult.status === 'fulfilled') paymentConfig = paymentResult.value;
+  if (storeResult.status === 'fulfilled' && (store.shippingMethods?.length || store.paymentMethods?.length)) {
+    try {
+      const publicStore = await getPublicStoreSettings();
+      const needsPublicSync = JSON.stringify(publicStore.shippingMethods ?? []) !== JSON.stringify(store.shippingMethods ?? []) ||
+        JSON.stringify(publicStore.paymentMethods ?? []) !== JSON.stringify(store.paymentMethods ?? []) ||
+        (publicStore.orderPrefix ?? 'SM-') !== (store.orderPrefix ?? 'SM-');
+      if (needsPublicSync) await saveStoreSettings(store);
+    } catch (error) {
+      console.warn('[SOULMATE Settings] Could not sync checkout settings to public config', error);
+    }
+  }
   if (store.storeName) (form.elements.namedItem('storeName') as HTMLInputElement).value = store.storeName;
+  const orderPrefixInput = form.elements.namedItem('orderPrefix') as HTMLInputElement | null;
+  if (orderPrefixInput) {
+    orderPrefixInput.value = store.orderPrefix ?? 'SM-';
+    orderPrefixInput.maxLength = 20;
+  }
   for (const key of ['contactEmail', 'contactPhone', 'lineOfficial', 'storeAddress'] as const) {
     const field = form.elements.namedItem(key) as HTMLInputElement | HTMLTextAreaElement | null;
     if (field && store[key] != null) field.value = store[key]!;
@@ -779,7 +795,7 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
   const sidebarLogo = doc.querySelector<HTMLImageElement>('#soulmate-admin-sidebar img[alt="SOULMATE"]');
   if (sidebarLogo && store.logoUrl) sidebarLogo.src = store.logoUrl;
   shipping = store.shippingMethods?.length ? store.shippingMethods.map((item) => ({ ...item })) : [
-    { id: 'standard', name: 'จัดส่งมาตรฐาน', fee: 0, freeShippingThreshold: null, enabled: true },
+    { id: 'standard', name: 'จัดส่งมาตรฐาน', fee: 30, freeShippingThreshold: null, enabled: true },
   ];
   announcements = store.announcements?.length ? [...store.announcements] : [];
 
@@ -809,7 +825,7 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
   doc.getElementById('addShippingMethod')?.remove();
   const addShipping = doc.createElement('button');
   addShipping.id = 'addShippingMethod'; addShipping.type = 'button';
-  addShipping.className = 'self-start rounded-xl border border-outline-variant px-4 py-3 font-medium text-primary hover:bg-primary-container/30';
+  addShipping.className = 'w-full rounded-xl border border-outline-variant px-4 py-3 font-medium text-primary hover:bg-primary-container/30';
   addShipping.textContent = '+ เพิ่มวิธีจัดส่ง';
   shippingSection.append(addShipping);
   addShipping.addEventListener('click', () => {
@@ -833,7 +849,7 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
         row.append(field, remove); announcementList.append(row);
       });
     };
-    const add = doc.createElement('button'); add.type = 'button'; add.className = 'self-start rounded-full bg-primary-container px-3 py-2 text-sm font-semibold text-on-primary-container'; add.textContent = '+ เพิ่มข้อความประกาศ';
+    const add = doc.createElement('button'); add.type = 'button'; add.className = 'w-full rounded-xl border border-outline-variant px-4 py-3 font-medium text-primary hover:bg-primary-container/30'; add.textContent = '+ เพิ่มข้อความประกาศ';
     add.addEventListener('click', () => { announcements.push(''); renderAnnouncements(); markDirty(); const field = announcementList.querySelector('input:last-of-type') as HTMLInputElement | null; field?.focus(); });
     storefrontBody.append(announcementList, add); renderAnnouncements();
   }
@@ -938,6 +954,7 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
       await saveStoreSettings({
         storeName: value('storeName'), contactEmail: value('contactEmail'), contactPhone: value('contactPhone'),
         lineOfficial: value('lineOfficial'), storeAddress: value('storeAddress'), logoUrl: store.logoUrl ?? '',
+        orderPrefix: value('orderPrefix').trim() || 'SM-',
         shippingMethods: shipping, announcements: announcements.map((message) => message.trim()).filter(Boolean),
         paymentMethods: methods.map(({ id, enabled }) => ({ id, enabled })),
       });
@@ -947,6 +964,7 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
       doc.getElementById('toastSuccess')?.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
       return true;
     } catch (error) {
+      console.error('[SOULMATE Settings] Save flow failed', error);
       if (status) status.textContent = (error as Error).message || 'บันทึกการตั้งค่าไม่สำเร็จ';
       return false;
     } finally { buttons.forEach((button) => { button.disabled = false; }); }
@@ -1560,29 +1578,56 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
   }
 }
 
-export function configureCheckoutPaymentMethods(doc: Document) {
+export function configureCheckoutPaymentMethods(
+  doc: Document,
+  configuredMethods?: Array<{ id: string; enabled: boolean }>,
+) {
   const radios = ['cod', 'promptpay', 'card'].map((value) =>
     doc.querySelector<HTMLInputElement>(`#checkoutForm input[name="paymentMethod"][value="${value}"]`)
   );
   const paymentSection = radios.find(Boolean)?.closest('section') ??
     doc.getElementById('checkoutPaymentPendingNotice')?.closest('section');
   radios.forEach((radio) => radio?.closest('label')?.remove());
+  paymentSection?.querySelector('#promptpayOnlyOption')?.remove();
   doc.getElementById('codUnavailableNotice')?.remove();
-  if (paymentSection && !paymentSection.querySelector('#promptpayOnlyOption')) {
-    const option = doc.createElement('label');
-    option.id = 'promptpayOnlyOption';
-    option.className = 'flex items-start gap-3 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950';
-    const radio = doc.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'paymentMethod';
-    radio.value = 'promptpay';
-    radio.checked = true;
-    radio.required = true;
-    radio.className = 'mt-1 accent-emerald-700';
-    const copy = doc.createElement('span');
-    copy.innerHTML = '<strong class="block">PromptPay QR</strong><span class="text-xs">สแกนจ่ายตามยอดรวม ระบบจะแสดง QR หลังยืนยันคำสั่งซื้อ</span>';
-    option.append(radio, copy);
-    paymentSection.appendChild(option);
+  paymentSection?.querySelectorAll('[data-checkout-payment-option]').forEach((option) => option.remove());
+  const enabled = configuredMethods?.filter((method) => method.enabled) ?? [{ id: 'promptpay', enabled: true }];
+  const available = enabled
+    .filter((method) => method.id === 'promptpay' || method.id === 'cod')
+    .sort((a, b) => (a.id === 'promptpay' ? -1 : 1) - (b.id === 'promptpay' ? -1 : 1));
+  if (paymentSection && available.length) {
+    available.forEach((method, index) => {
+      const isPromptPay = method.id === 'promptpay';
+      const option = doc.createElement('label');
+      option.dataset.checkoutPaymentOption = method.id;
+      option.className = `payment-card relative flex items-center gap-3 rounded-xl border p-4 text-sm cursor-pointer transition-colors ${index === 0 ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-white'}`;
+      const radio = doc.createElement('input');
+      radio.type = 'radio'; radio.name = 'paymentMethod'; radio.value = isPromptPay ? 'manual_promptpay' : 'cod';
+      radio.checked = index === 0; radio.required = true; radio.className = 'accent-emerald-700';
+      const copy = doc.createElement('span');
+      copy.innerHTML = isPromptPay
+        ? '<strong class="block">PromptPay QR</strong><span class="text-xs">สแกนจ่ายตามยอดรวม ระบบจะแสดง QR หลังยืนยันคำสั่งซื้อ</span>'
+        : '<strong class="block">เก็บเงินปลายทาง (COD)</strong><span class="text-xs">ชำระเงินสดเมื่อได้รับสินค้า</span>';
+      radio.addEventListener('change', () => {
+        paymentSection.querySelectorAll<HTMLElement>('[data-checkout-payment-option]').forEach((item) => {
+          const selected = item.dataset.checkoutPaymentOption === method.id;
+          item.classList.toggle('border-emerald-300', selected);
+          item.classList.toggle('bg-emerald-50', selected);
+          item.classList.toggle('border-gray-200', !selected);
+          item.classList.toggle('bg-white', !selected);
+        });
+        const note = paymentSection.querySelector<HTMLElement>('#checkoutPaymentPendingNotice');
+        if (note) note.textContent = radio.value === 'cod'
+          ? 'ชำระเงินสดกับผู้จัดส่งเมื่อได้รับสินค้า'
+          : 'ชำระด้วย PromptPay QR ตามยอดออเดอร์ ระบบจะแสดง QR หลังบันทึกคำสั่งซื้อ';
+        const stickyNote = doc.getElementById('checkoutPaymentUnavailable');
+        if (stickyNote) stickyNote.textContent = radio.value === 'cod'
+          ? 'ชำระเงินสดกับผู้จัดส่งเมื่อได้รับสินค้า'
+          : 'ชำระด้วย PromptPay QR ตามยอดออเดอร์ ระบบจะแสดง QR หลังบันทึกออเดอร์';
+      });
+      option.append(radio, copy);
+      paymentSection.appendChild(option);
+    });
   }
   if (paymentSection && !paymentSection.querySelector('#checkoutPaymentPendingNotice')) {
     const note = doc.createElement('p');
@@ -1591,10 +1636,90 @@ export function configureCheckoutPaymentMethods(doc: Document) {
     note.textContent = 'ชำระด้วย PromptPay QR ตามยอดออเดอร์ ระบบจะแสดง QR หลังบันทึกคำสั่งซื้อ';
     paymentSection.appendChild(note);
   }
+  const paymentNotice = paymentSection?.querySelector<HTMLElement>('#checkoutPaymentPendingNotice');
+  const selectedPayment = paymentSection?.querySelector<HTMLInputElement>('input[name="paymentMethod"]:checked');
+  if (paymentNotice && selectedPayment?.value === 'cod') paymentNotice.textContent = 'ชำระเงินสดกับผู้จัดส่งเมื่อได้รับสินค้า';
+  if (paymentNotice && !available.length) paymentNotice.textContent = 'ขณะนี้ร้านยังไม่เปิดวิธีชำระเงิน กรุณาติดต่อร้าน';
+  const stickyNote = doc.getElementById('checkoutPaymentUnavailable');
+  if (stickyNote && selectedPayment) stickyNote.textContent = selectedPayment.value === 'cod'
+    ? 'ชำระเงินสดกับผู้จัดส่งเมื่อได้รับสินค้า'
+    : 'ชำระด้วย PromptPay QR ตามยอดรวม ระบบจะแสดง QR หลังบันทึกออเดอร์';
+  if (stickyNote && !available.length) stickyNote.textContent = 'ขณะนี้ร้านยังไม่เปิดวิธีชำระเงิน กรุณาติดต่อร้าน';
+}
+
+function configureCheckoutShippingMethods(doc: Document, configuredMethods?: ShippingMethodSetting[]) {
+  const section = doc.querySelector<HTMLFormElement>('#checkoutForm section:nth-of-type(3)');
+  if (!section) return;
+  const methods = configuredMethods?.filter((method) => method.enabled) ?? [];
+  const activeMethods = methods.length ? methods : [{ id: 'standard', name: 'จัดส่งมาตรฐาน', fee: 30, freeShippingThreshold: null, enabled: true }];
+  const existing = Array.from(section.querySelectorAll('input[name="shippingMethod"]'));
+  const selectedId = existing.find((input) => (input as HTMLInputElement).checked)?.getAttribute('value');
+  section.querySelectorAll('label').forEach((label) => label.remove());
+  activeMethods.forEach((method, index) => {
+    const label = doc.createElement('label');
+    label.className = 'relative flex items-center justify-between gap-3 rounded-xl border p-3 cursor-pointer transition-all';
+    const left = doc.createElement('span'); left.className = 'flex min-w-0 items-center gap-3';
+    const radio = doc.createElement('input'); radio.type = 'radio'; radio.name = 'shippingMethod'; radio.value = method.id;
+    radio.checked = method.id === selectedId || (!selectedId && index === 0); radio.className = 'text-brand-mintDark';
+    radio.dataset.fee = String(method.fee);
+    radio.dataset.freeThreshold = method.freeShippingThreshold == null ? '' : String(method.freeShippingThreshold);
+    const details = doc.createElement('span');
+    const name = doc.createElement('span'); name.className = 'block text-xs font-semibold text-gray-900'; name.textContent = method.name;
+    const description = doc.createElement('span'); description.className = 'mt-0.5 block text-[11px] text-gray-500';
+    description.textContent = method.freeShippingThreshold == null
+      ? `ค่าจัดส่ง ฿${method.fee.toLocaleString('th-TH')} ต่อคำสั่งซื้อ`
+      : `ส่งฟรีเมื่อซื้อครบ ฿${method.freeShippingThreshold.toLocaleString('th-TH')}`;
+    details.append(name, description); left.append(radio, details);
+    const fee = doc.createElement('span'); fee.className = 'shrink-0 text-xs font-bold text-gray-900'; fee.dataset.shippingFeeDisplay = 'true'; fee.textContent = `฿${method.fee.toLocaleString('th-TH')}`;
+    label.append(left, fee);
+    const updateSelection = () => {
+      section.querySelectorAll('label[data-shipping-card]').forEach((card) => {
+        const isSelected = card.querySelector<HTMLInputElement>('input[name="shippingMethod"]')?.checked ?? false;
+        card.classList.toggle('border-2', isSelected);
+        card.classList.toggle('border-brand-mint', isSelected);
+        card.classList.toggle('bg-brand-mintLight/30', isSelected);
+        card.classList.toggle('border-gray-200', !isSelected);
+        card.classList.toggle('bg-white', !isSelected);
+      });
+    };
+    label.dataset.shippingCard = 'true';
+    radio.addEventListener('change', () => {
+      updateSelection();
+      renderCheckoutSummary(doc, (doc.defaultView as any) || window, (doc as any).__checkoutCart);
+    });
+    section.append(label);
+    updateSelection();
+  });
+}
+
+function configureCheckoutNumericInputs(doc: Document) {
+  const phone = doc.getElementById('custPhone') as HTMLInputElement | null;
+  if (phone) {
+    phone.type = 'tel';
+    phone.inputMode = 'numeric';
+    phone.maxLength = 10;
+    phone.pattern = '0[689][0-9]{8}';
+    phone.setAttribute('aria-describedby', 'custPhoneFormatHint');
+    phone.addEventListener('input', () => {
+      phone.value = phone.value.replace(/\D/g, '').slice(0, 10);
+    });
+  }
+
+  const postalCode = doc.getElementById('shipZip') as HTMLInputElement | null;
+  if (postalCode) {
+    postalCode.type = 'text';
+    postalCode.inputMode = 'numeric';
+    postalCode.maxLength = 5;
+    postalCode.pattern = '[0-9]{5}';
+    postalCode.addEventListener('input', () => {
+      postalCode.value = postalCode.value.replace(/\D/g, '').slice(0, 5);
+    });
+  }
 }
 
 function renderCheckoutSummary(doc: Document, win: any, cart: CartContextType) {
   cart = createEffectiveCart(cart);
+  (doc as any).__checkoutCart = cart;
 
   let container = doc.getElementById('checkoutCartItemsList');
   if (!container) {
@@ -1695,10 +1820,20 @@ function renderCheckoutSummary(doc: Document, win: any, cart: CartContextType) {
     }
 
     const formattedSubtotal = `฿${cart.subtotal.toLocaleString('th-TH')}`;
-    const formattedTotal = `฿${(cart.subtotal + 30).toLocaleString('th-TH')}`;
+    const selectedShipping = doc.querySelector<HTMLInputElement>('input[name="shippingMethod"]:checked');
+    const fee = Number(selectedShipping?.dataset.fee ?? 30);
+    const threshold = Number(selectedShipping?.dataset.freeThreshold ?? 0);
+    const shippingFee = threshold > 0 && cart.subtotal >= threshold ? 0 : fee;
+    doc.querySelectorAll<HTMLElement>('[data-shipping-fee-display]').forEach((display) => {
+      const input = display.closest('label')?.querySelector<HTMLInputElement>('input[name="shippingMethod"]');
+      const methodFee = Number(input?.dataset.fee ?? 0);
+      const methodThreshold = Number(input?.dataset.freeThreshold ?? 0);
+      display.textContent = methodThreshold > 0 && cart.subtotal >= methodThreshold ? 'ฟรี' : `฿${methodFee.toLocaleString('th-TH')}`;
+    });
+    const formattedTotal = `฿${(cart.subtotal + shippingFee).toLocaleString('th-TH')}`;
     if (subtotalEl) subtotalEl.textContent = formattedSubtotal;
     if (discountEl) discountEl.textContent = '-฿0';
-    if (shippingEl) shippingEl.textContent = '฿30';
+    if (shippingEl) shippingEl.textContent = `฿${shippingFee.toLocaleString('th-TH')}`;
     if (grandTotalEl) grandTotalEl.textContent = formattedTotal;
     if (stickyTotalEl) stickyTotalEl.textContent = formattedTotal;
   }
@@ -3286,14 +3421,42 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
     // --- Checkout Screen Wiring ---
     if (location.pathname === '/checkout') {
+      configureCheckoutNumericInputs(doc);
       configureCheckoutPaymentMethods(doc);
       renderCheckoutSummary(doc, win, cart);
+      void getPublicStoreSettings().then((settings) => {
+        configureCheckoutShippingMethods(doc, settings.shippingMethods);
+        configureCheckoutPaymentMethods(doc, settings.paymentMethods);
+        renderCheckoutSummary(doc, win, createEffectiveCart(cart));
+      }).catch((error) => console.warn('[SOULMATE Checkout] Failed loading public store settings', error));
       attachCheckoutEditListeners(doc);
       populateCheckoutFromDoc(doc, auth.customerProfile, auth.user?.email);
+      if (!auth.customerProfile) {
+        try {
+          const savedAddress = JSON.parse(win.localStorage.getItem('soulmate_checkout_address') || 'null');
+          if (savedAddress && typeof savedAddress === 'object') {
+            const savedFields: Record<string, string> = {
+              custFirstName: 'firstName', custLastName: 'lastName', custPhone: 'phone',
+              shipAddress: 'addressLine1', shipSubdistrict: 'subdistrict', shipDistrict: 'district',
+              shipProvince: 'province', shipZip: 'postalCode',
+            };
+            Object.entries(savedFields).forEach(([fieldId, addressKey]) => {
+              const field = doc.getElementById(fieldId) as HTMLInputElement | HTMLTextAreaElement | null;
+              const value = savedAddress[addressKey];
+              if (field && typeof value === 'string' && !field.value) field.value = value;
+            });
+          }
+        } catch (error) {
+          console.warn('[SOULMATE Checkout] Could not load saved guest address', error);
+        }
+      }
       const checkoutNotice = doc.createElement('p');
       checkoutNotice.id = 'checkoutPaymentUnavailable';
       checkoutNotice.className = 'text-[11px] text-emerald-800 text-center px-3 pb-2';
-      checkoutNotice.textContent = 'ชำระด้วย PromptPay QR ตามยอดรวม ระบบจะแสดง QR หลังบันทึกออเดอร์';
+      const selectedPayment = doc.querySelector<HTMLInputElement>('#checkoutForm input[name="paymentMethod"]:checked');
+      checkoutNotice.textContent = selectedPayment?.value === 'cod'
+        ? 'ชำระเงินสดกับผู้จัดส่งเมื่อได้รับสินค้า'
+        : 'ชำระด้วย PromptPay QR ตามยอดรวม ระบบจะแสดง QR หลังบันทึกออเดอร์';
       const existingCheckoutNotice = doc.getElementById('checkoutPaymentUnavailable');
       if (existingCheckoutNotice) existingCheckoutNotice.textContent = checkoutNotice.textContent;
       else doc.getElementById('stickyCheckoutBar')?.prepend(checkoutNotice);
@@ -3354,11 +3517,18 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           ['shipDistrict', contact.district], ['shipProvince', contact.province], ['shipZip', contact.postalCode],
         ] as const;
         const missing = required.find(([, value]) => !value);
-        if (missing || !/^\S+@\S+\.\S+$/.test(contact.email)) {
+        const invalidPhone = !/^0[689]\d{8}$/.test(contact.phone);
+        const invalidPostalCode = !/^\d{5}$/.test(contact.postalCode);
+        if (missing || invalidPhone || invalidPostalCode || !/^\S+@\S+\.\S+$/.test(contact.email)) {
           const invalidId = missing?.[0] ?? 'custEmail';
-          const invalid = doc.getElementById(invalidId) as HTMLInputElement | HTMLTextAreaElement | null;
+          const fieldToFocus = invalidPhone ? 'custPhone' : invalidPostalCode ? 'shipZip' : invalidId;
+          const invalid = doc.getElementById(fieldToFocus) as HTMLInputElement | HTMLTextAreaElement | null;
           invalid?.focus();
-          const message = !contact.email || !/^\S+@\S+\.\S+$/.test(contact.email)
+          const message = invalidPhone
+            ? 'กรุณากรอกเบอร์โทรศัพท์มือถือไทย 10 หลัก (ขึ้นต้นด้วย 06, 08 หรือ 09)'
+            : invalidPostalCode
+              ? 'กรุณากรอกรหัสไปรษณีย์เป็นตัวเลข 5 หลัก'
+              : !contact.email || !/^\S+@\S+\.\S+$/.test(contact.email)
             ? 'กรุณากรอกอีเมลให้ถูกต้อง'
             : 'กรุณากรอกข้อมูลติดต่อและที่อยู่จัดส่งให้ครบถ้วน';
           showCheckoutMessage(message);
@@ -3372,7 +3542,37 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         if (submit) submit.disabled = true;
         if (submitText) submitText.textContent = 'กำลังบันทึกคำสั่งซื้อ…';
         try {
-          const result = await createPendingOrder(effectiveCart.items, contact);
+          const selectedShipping = doc.querySelector<HTMLInputElement>('input[name="shippingMethod"]:checked');
+          const selectedPayment = doc.querySelector<HTMLInputElement>('input[name="paymentMethod"]:checked');
+          const result = await createPendingOrder(
+            effectiveCart.items,
+            contact,
+            selectedShipping?.value || 'standard',
+            selectedPayment?.value === 'cod' ? 'cod' : 'manual_promptpay',
+          );
+          const saveAddress = doc.getElementById('saveAddressCheck') as HTMLInputElement | null;
+          if (saveAddress?.checked) {
+            const savedAddress = {
+              firstName: contact.firstName,
+              lastName: contact.lastName,
+              phone: contact.phone,
+              addressLine1: contact.addressLine1,
+              subdistrict: contact.subdistrict,
+              district: contact.district,
+              province: contact.province,
+              postalCode: contact.postalCode,
+            };
+            try {
+              if (auth.user && auth.updateDefaultShippingAddress) {
+                await auth.updateDefaultShippingAddress(savedAddress);
+              } else {
+                win.localStorage.setItem('soulmate_checkout_address', JSON.stringify(savedAddress));
+              }
+            } catch (error) {
+              console.warn('[SOULMATE Checkout] Could not save address to member profile; using this device instead', error);
+              try { win.localStorage.setItem('soulmate_checkout_address', JSON.stringify(savedAddress)); } catch { /* Storage may be unavailable. */ }
+            }
+          }
           replaceCartItems([]);
           clearPendingOrderRequestKey();
           if (result.ownerType === 'guest' && !result.replay) {
@@ -3412,13 +3612,22 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     if (location.pathname === '/admin/dashboard') {
       const dashboardState = doc.getElementById('dashboard-state');
       const dashboardContent = doc.getElementById('dashboard-content');
-      const periodSelect = doc.querySelector<HTMLSelectElement>('#dashboard-period');
+      const periodButtons = Array.from(doc.querySelectorAll<HTMLButtonElement>('[data-dashboard-period]'));
+      const customRange = doc.getElementById('dashboard-custom-range');
+      const customRangeToggle = doc.getElementById('dashboard-custom-toggle') as HTMLButtonElement | null;
+      const customDateFrom = doc.getElementById('dashboard-date-from') as HTMLInputElement | null;
+      const customDateTo = doc.getElementById('dashboard-date-to') as HTMLInputElement | null;
+      const applyCustomRange = doc.getElementById('dashboard-apply-range');
+      const customRangeError = doc.getElementById('dashboard-range-error');
       const paidSales = doc.getElementById('dashboard-paid-sales');
       const pendingCount = doc.getElementById('dashboard-pending-count');
       const reviewCount = doc.getElementById('dashboard-review-count');
       const cancelledCount = doc.getElementById('dashboard-cancelled-count');
       const orderCount = doc.getElementById('dashboard-order-count');
+      const summaryCards = doc.querySelector('.dashboard-kpis');
       const chart = doc.getElementById('dashboard-chart');
+      const allChartMode = doc.getElementById('dashboard-all-chart-mode');
+      const allChartModeButtons = Array.from(doc.querySelectorAll<HTMLButtonElement>('[data-all-chart-mode]'));
       const ordersBody = doc.getElementById('dashboard-orders-body');
       let dashboardOrders: Awaited<ReturnType<typeof listAdminOrders>> = [];
 
@@ -3427,27 +3636,81 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
       };
       const isPaid = (order: (typeof dashboardOrders)[number]) =>
         order.status === 'paid' || order.payment?.status === 'successful';
+      let activePeriod = 'all';
+      let allTimeChartMode: 'month' | 'year' = 'month';
+      let activeCustomRange: { start: Date; end: Date } | null = null;
+      const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const parseDateInput = (value: string) => {
+        const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (!match) return null;
+        const [, dayText, monthText, yearText] = match;
+        const date = new Date(Number(yearText), Number(monthText) - 1, Number(dayText));
+        return date.getFullYear() === Number(yearText) &&
+          date.getMonth() === Number(monthText) - 1 &&
+          date.getDate() === Number(dayText)
+          ? date
+          : null;
+      };
+      const formatDateInput = (date: Date) => [
+        String(date.getDate()).padStart(2, '0'),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        date.getFullYear(),
+      ].join('/');
+      const attachDateMask = (input: HTMLInputElement | null) => input?.addEventListener('input', () => {
+        const digits = input.value.replace(/\D/g, '').slice(0, 8);
+        input.value = digits.length <= 2
+          ? digits
+          : digits.length <= 4
+            ? digits.slice(0, 2) + '/' + digits.slice(2)
+            : digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
+        if (customRangeError) customRangeError.textContent = '';
+      });
+      attachDateMask(customDateFrom);
+      attachDateMask(customDateTo);
+      const formatShortDate = (date: Date) => date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
       const getPeriod = () => {
         const now = new Date();
-        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const period = periodSelect?.value ?? 'today';
-        if (period === '7d') start.setDate(start.getDate() - 6);
-        if (period === '30d') start.setDate(start.getDate() - 29);
-        if (period === 'month') start.setDate(1);
-        const days = Math.max(1, Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - start.getTime()) / 86400000) + 1);
-        const labels: Record<string, string> = { today: 'วันนี้', '7d': '7 วันล่าสุด', '30d': '30 วันล่าสุด', month: 'เดือนนี้' };
-        return { start, days, label: labels[period] ?? labels.today };
+        const today = startOfDay(now);
+        let filterStart: Date | null = today;
+        let end = now;
+        let label = 'วันนี้';
+        if (activePeriod === 'all') {
+          filterStart = null;
+          const oldestOrderDate = dashboardOrders.map(dateForOrder).filter((date): date is Date => !!date)
+            .reduce<Date | null>((oldest, date) => !oldest || date < oldest ? date : oldest, null);
+          label = 'ทั้งหมด';
+          const chartStart = oldestOrderDate ? startOfDay(oldestOrderDate) : today;
+          const days = Math.max(1, Math.floor((today.getTime() - chartStart.getTime()) / 86400000) + 1);
+          return { start: chartStart, filterStart, end, days, label };
+        }
+        if (activePeriod === '7d') { filterStart = new Date(today); filterStart.setDate(filterStart.getDate() - 6); label = '7 วันล่าสุด'; }
+        if (activePeriod === '30d') { filterStart = new Date(today); filterStart.setDate(filterStart.getDate() - 29); label = '30 วันล่าสุด'; }
+        if (activePeriod === 'week') {
+          filterStart = new Date(today);
+          filterStart.setDate(filterStart.getDate() - ((filterStart.getDay() + 6) % 7));
+          label = 'สัปดาห์นี้';
+        }
+        if (activePeriod === 'month') { filterStart = new Date(now.getFullYear(), now.getMonth(), 1); label = 'เดือนนี้'; }
+        if (activePeriod === 'year') { filterStart = new Date(now.getFullYear(), 0, 1); label = 'ปีนี้'; }
+        if (activePeriod === 'custom' && activeCustomRange) {
+          filterStart = activeCustomRange.start;
+          end = new Date(activeCustomRange.end);
+          end.setHours(23, 59, 59, 999);
+          label = formatShortDate(activeCustomRange.start) + ' – ' + formatShortDate(activeCustomRange.end);
+        }
+        const effectiveStart = filterStart ?? today;
+        const days = Math.max(1, Math.floor((startOfDay(end).getTime() - effectiveStart.getTime()) / 86400000) + 1);
+        return { start: effectiveStart, filterStart: effectiveStart, end, days, label };
       };
       const formatMoney = (satang: number) => `฿${(satang / 100).toLocaleString('th-TH', { maximumFractionDigits: 2 })}`;
       const formatDate = (date: Date | null) => date ? date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '—';
 
       const renderDashboard = () => {
         if (!paidSales || !pendingCount || !orderCount || !chart || !ordersBody) return;
-        const { start, days, label } = getPeriod();
-        const end = new Date();
+        const { start, filterStart, end, days, label } = getPeriod();
         const withinPeriod = dashboardOrders.filter((order) => {
           const date = dateForOrder(order);
-          return !!date && date >= start && date <= end;
+          return !!date && (!filterStart || date >= filterStart) && date <= end;
         });
         const paidOrders = withinPeriod.filter(isPaid);
         const waitingOrders = withinPeriod.filter((order) => order.status === 'pending_payment' && !isPaid(order));
@@ -3459,50 +3722,262 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         if (cancelledCount) cancelledCount.textContent = cancelledOrders.length.toLocaleString('th-TH');
         orderCount.textContent = withinPeriod.length.toLocaleString('th-TH');
         const periodLabel = doc.getElementById('dashboard-period-label');
-        if (periodLabel) periodLabel.textContent = label;
+        if (periodLabel) periodLabel.textContent = 'สรุปตามตัวกรอง: ' + label;
+        summaryCards?.setAttribute('aria-label', 'สรุปคำสั่งซื้อ ตามช่วง ' + label);
+        const isAllTimeChart = activePeriod === 'all';
+        const firstPaidSaleDate = paidOrders.map(dateForOrder).filter((date): date is Date => !!date)
+          .reduce<Date | null>((first, date) => !first || date < first ? date : first, null);
+        const allTimeBucketStart = firstPaidSaleDate
+          ? allTimeChartMode === 'month'
+            ? new Date(firstPaidSaleDate.getFullYear(), firstPaidSaleDate.getMonth(), 1)
+            : new Date(firstPaidSaleDate.getFullYear(), 0, 1)
+          : start;
+        const chartStart = isAllTimeChart ? allTimeBucketStart : start;
+        const chartEnd = end;
+        const chartStartForRange = isAllTimeChart && firstPaidSaleDate ? firstPaidSaleDate : chartStart;
+        const chartRange = doc.getElementById('dashboard-chart-range');
+        if (chartRange) {
+          const rangeEnd = isAllTimeChart
+            ? chartEnd
+            : activePeriod === 'year'
+            ? new Date(start.getFullYear(), 11, 31)
+            : activePeriod === 'month'
+              ? new Date(start.getFullYear(), start.getMonth() + 1, 0)
+              : new Date(start);
+          if (!isAllTimeChart && activePeriod !== 'year' && activePeriod !== 'month') rangeEnd.setDate(rangeEnd.getDate() + days - 1);
+          const formatRangeDate = (date: Date) => date.toLocaleDateString('en-GB', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+          });
+          chartRange.textContent = activePeriod === 'today'
+            ? '00:00 – ปัจจุบัน'
+            : `${formatRangeDate(chartStartForRange)} - ${formatRangeDate(rangeEnd)}`;
+        }
+        if (allChartMode) {
+          allChartMode.toggleAttribute('hidden', !isAllTimeChart);
+          allChartMode.style.display = isAllTimeChart ? 'inline-flex' : 'none';
+        }
+        allChartModeButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.allChartMode === allTimeChartMode)));
+        const topbarPeriod = doc.querySelector('#topbar-active-period-badge span:last-child');
+        if (topbarPeriod) topbarPeriod.textContent = activePeriod === 'custom' ? 'กำหนดเอง' : label;
+        periodButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.dashboardPeriod === activePeriod)));
+        customRangeToggle?.setAttribute('aria-pressed', String(activePeriod === 'custom'));
 
-        const dailySales = Array.from({ length: days }, () => 0);
+        const isMonthView = activePeriod === 'month';
+        const isYearView = activePeriod === 'year';
+        const isTodayView = activePeriod === 'today';
+        const isAllTimeMonthView = isAllTimeChart && allTimeChartMode === 'month';
+        const isAllTimeYearView = isAllTimeChart && allTimeChartMode === 'year';
+        const monthCount = (end.getFullYear() - chartStart.getFullYear()) * 12 + end.getMonth() - chartStart.getMonth() + 1;
+        const yearCount = end.getFullYear() - chartStart.getFullYear() + 1;
+        const bucketCount = isAllTimeMonthView
+          ? Math.max(1, monthCount)
+          : isAllTimeYearView
+            ? Math.max(1, yearCount)
+            : isYearView
+              ? 12
+              : isTodayView
+                ? 24
+              : isMonthView
+                ? new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate()
+                : Math.min(30, days);
+        const chartSales = Array.from({ length: bucketCount }, () => 0);
         paidOrders.forEach((order) => {
           const date = dateForOrder(order);
           if (!date) return;
-          const index = Math.floor((new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() - start.getTime()) / 86400000);
-          if (index >= 0 && index < dailySales.length) dailySales[index] += order.totalSatang || 0;
+          const offset = Math.floor((startOfDay(date).getTime() - startOfDay(chartStart).getTime()) / 86400000);
+          const monthOffset = (date.getFullYear() - chartStart.getFullYear()) * 12 + date.getMonth() - chartStart.getMonth();
+          const index = isAllTimeMonthView
+            ? monthOffset
+            : isAllTimeYearView
+              ? date.getFullYear() - chartStart.getFullYear()
+              : isYearView
+                ? date.getMonth()
+              : isTodayView
+                ? date.getHours()
+                : isMonthView
+                  ? date.getDate() - 1
+                  : Math.min(bucketCount - 1, Math.floor(offset * bucketCount / days));
+          if (index >= 0 && index < chartSales.length) chartSales[index] += order.totalSatang || 0;
         });
-        const maxValue = Math.max(...dailySales);
+        const maxValue = Math.max(...chartSales);
         if (!maxValue) {
           chart.innerHTML = '<div class="dashboard-chart-empty">ยังไม่มีรายการชำระในช่วงนี้</div>';
         } else {
-          const left = 14, right = 586, top = 18, bottom = 166;
-          const points = dailySales.map((value, index) => {
-            const x = days === 1 ? (left + right) / 2 : left + index * (right - left) / (days - 1);
-            const y = bottom - value / maxValue * (bottom - top);
+          // Keep the Y axis close to the chart's left edge while reserving room
+          // for its tick labels before the plotted data begins.
+          const chartWidth = Math.max(320, Math.round(chart.getBoundingClientRect().width || 900));
+          const left = 76, right = chartWidth - 15, top = 20, bottom = 205;
+          const maxBaht = maxValue / 100;
+          const yStepBaht = Math.max(1000, Math.ceil(maxBaht / 4 / 1000) * 1000);
+          const yAxisMaxBaht = Math.ceil(maxBaht / yStepBaht) * yStepBaht;
+          const yAxisMaxSatang = yAxisMaxBaht * 100;
+          const points = chartSales.map((value, index) => {
+            const x = chartSales.length === 1 ? (left + right) / 2 : left + index * (right - left) / (chartSales.length - 1);
+            const y = bottom - value / yAxisMaxSatang * (bottom - top);
             return `${x},${y}`;
           });
           const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
-          svg.setAttribute('viewBox', '0 0 600 190');
+          svg.setAttribute('viewBox', `0 0 ${chartWidth} 260`);
           svg.setAttribute('role', 'img');
-          svg.setAttribute('aria-label', `ยอดขาย ${label} ${formatMoney(paidOrders.reduce((total, order) => total + (order.totalSatang || 0), 0))}`);
-          [top, (top + bottom) / 2, bottom].forEach((y) => {
+          const totalPaid = paidOrders.reduce((total, order) => total + (order.totalSatang || 0), 0);
+          svg.setAttribute('aria-label', 'กราฟยอดขายตามวันที่ ช่วง' + label + ' รวม ' + formatMoney(totalPaid));
+          const appendText = (text: string, x: number, y: number, anchor = 'middle', transform?: string) => {
+            const node = doc.createElementNS(svg.namespaceURI, 'text');
+            node.textContent = text;
+            node.setAttribute('x', String(x)); node.setAttribute('y', String(y));
+            node.setAttribute('text-anchor', anchor);
+            if (transform) node.setAttribute('transform', transform);
+            svg.appendChild(node);
+          };
+          const yTicks = Array.from(
+            { length: Math.round(yAxisMaxBaht / yStepBaht) + 1 },
+            (_, index) => {
+              const valueBaht = yAxisMaxBaht - index * yStepBaht;
+              return {
+                y: top + index * (bottom - top) / (yAxisMaxBaht / yStepBaht),
+                valueBaht,
+              };
+            },
+          );
+          yTicks.forEach(({ y, valueBaht }) => {
             const line = doc.createElementNS(svg.namespaceURI, 'line');
             line.setAttribute('x1', String(left)); line.setAttribute('x2', String(right));
             line.setAttribute('y1', String(y)); line.setAttribute('y2', String(y));
             line.setAttribute('stroke', '#edf1ed'); line.setAttribute('stroke-width', '1');
             svg.appendChild(line);
+            appendText(valueBaht.toLocaleString('th-TH'), left - 10, y + 3, 'end');
           });
-          const path = doc.createElementNS(svg.namespaceURI, 'polyline');
-          path.setAttribute('points', points.join(' ')); path.setAttribute('fill', 'none');
-          path.setAttribute('stroke', '#3d8063'); path.setAttribute('stroke-width', '3');
-          path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
-          svg.appendChild(path);
-          dailySales.forEach((value, index) => {
-            if (!value) return;
+          appendText('ยอดรวม (บาท)', 12, (top + bottom) / 2, 'middle', 'rotate(-90 12 ' + String((top + bottom) / 2) + ')');
+          const bucketLabel = (index: number) => {
+            if (isAllTimeYearView) return String(chartStart.getFullYear() + index);
+            if (isAllTimeMonthView) {
+              return new Date(chartStart.getFullYear(), chartStart.getMonth() + index, 1)
+                .toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+            }
+            if (isYearView) return new Date(start.getFullYear(), index, 1)
+              .toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+            if (isTodayView) return `${start.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })} ${String(index).padStart(2, '0')}:00–${String(index).padStart(2, '0')}:59 น.`;
+            if (isMonthView) return `${index + 1} ${new Date(start.getFullYear(), start.getMonth(), index + 1)
+              .toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}`;
+            const date = new Date(start);
+            date.setDate(date.getDate() + Math.floor(index * days / bucketCount));
+            return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+          };
+          const attachTooltip = (element: Element, index: number) => {
+            const title = doc.createElementNS(svg.namespaceURI, 'title');
+            title.textContent = `${bucketLabel(index)} • ยอดรวม ${formatMoney(chartSales[index])}`;
+            element.appendChild(title);
+            element.setAttribute('tabindex', '0');
+            element.setAttribute('aria-label', title.textContent);
+            const showTooltip = (event: Event) => {
+              const pointer = event as MouseEvent;
+              const bounds = chart.getBoundingClientRect();
+              tooltip.textContent = title.textContent || '';
+              tooltip.style.display = 'block';
+              tooltip.style.left = `${Math.max(8, Math.min(bounds.width - 190, pointer.clientX - bounds.left + 12))}px`;
+              tooltip.style.top = `${Math.max(8, pointer.clientY - bounds.top - 38)}px`;
+            };
+            element.addEventListener('pointerenter', showTooltip);
+            element.addEventListener('pointermove', showTooltip);
+            element.addEventListener('pointerleave', () => { tooltip.style.display = 'none'; });
+            element.addEventListener('focus', () => {
+              tooltip.textContent = title.textContent || '';
+              tooltip.style.display = 'block';
+              tooltip.style.left = '50%';
+              tooltip.style.top = '8px';
+            });
+            element.addEventListener('blur', () => { tooltip.style.display = 'none'; });
+          };
+          const tooltip = doc.createElement('div');
+          tooltip.className = 'dashboard-chart-tooltip';
+          tooltip.setAttribute('role', 'status');
+          tooltip.style.display = 'none';
+          if (isAllTimeChart) {
+            const colors = ['#1685ec', '#8b48ed', '#fb6a21', '#00ad50', '#f43f3f', '#ffb900', '#f15caa', '#0876d1'];
+            const slotWidth = (right - left) / bucketCount;
+            chartSales.forEach((value, index) => {
+              const bar = doc.createElementNS(svg.namespaceURI, 'rect');
+              const barWidth = Math.min(68, Math.max(2, slotWidth * 0.72));
+              const barHeight = value / yAxisMaxSatang * (bottom - top);
+              bar.setAttribute('x', String(left + index * slotWidth + (slotWidth - barWidth) / 2));
+              bar.setAttribute('y', String(bottom - barHeight));
+              bar.setAttribute('width', String(barWidth));
+              bar.setAttribute('height', String(Math.max(0, barHeight)));
+              bar.setAttribute('rx', String(Math.min(5, barWidth / 4)));
+              bar.setAttribute('fill', colors[index % colors.length]);
+              attachTooltip(bar, index);
+              svg.appendChild(bar);
+            });
+          } else {
+            const path = doc.createElementNS(svg.namespaceURI, 'polyline');
+            path.setAttribute('points', points.join(' ')); path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', '#3d8063'); path.setAttribute('stroke-width', '3');
+            path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(path);
+          }
+          const xTicks: Array<{ index: number; label: string }> = [];
+          if (isAllTimeMonthView) {
+            const tickInterval = Math.max(1, Math.ceil(bucketCount / 12));
+            const monthIndices: number[] = [];
+            for (let index = 0; index < bucketCount; index += tickInterval) monthIndices.push(index);
+            if (monthIndices[monthIndices.length - 1] !== bucketCount - 1) monthIndices.push(bucketCount - 1);
+            monthIndices.forEach((index) => {
+              const date = new Date(chartStart.getFullYear(), chartStart.getMonth() + index, 1);
+              xTicks.push({ index, label: date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }) });
+            });
+          } else if (isAllTimeYearView) {
+            for (let index = 0; index < bucketCount; index++) {
+              xTicks.push({ index, label: String(chartStart.getFullYear() + index) });
+            }
+          } else if (isYearView) {
+            for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+              xTicks.push({ index: monthIndex, label: new Date(start.getFullYear(), monthIndex, 1).toLocaleDateString('th-TH', { month: 'long' }) });
+            }
+          } else if (isTodayView) {
+            for (let hour = 0; hour < 24; hour += 3) {
+              xTicks.push({ index: hour, label: `${String(hour).padStart(2, '0')}:00` });
+            }
+          } else if (isMonthView) {
+            const dayOffsets = [0, 7, 14, 21, bucketCount - 1];
+            [...new Set(dayOffsets)].forEach((offset) => xTicks.push({ index: offset, label: String(offset + 1) }));
+          } else {
+            const tickInterval = days <= 7 ? 1 : 5;
+            const offsets: number[] = [];
+            for (let offset = 0; offset < days; offset += tickInterval) offsets.push(offset);
+            if (offsets[offsets.length - 1] !== days - 1) offsets.push(days - 1);
+            offsets.forEach((offset) => {
+              const date = new Date(start);
+              date.setDate(date.getDate() + offset);
+              xTicks.push({ index: Math.min(bucketCount - 1, Math.floor(offset * bucketCount / days)), label: date.toLocaleDateString('en-GB', { day: 'numeric' }) });
+            });
+          }
+          xTicks.forEach(({ index: tickIndex, label: tickLabel }, index) => {
+            const x = isAllTimeChart
+              ? left + (tickIndex + 0.5) * (right - left) / bucketCount
+              : left + (bucketCount <= 1 ? 0 : tickIndex * (right - left) / (bucketCount - 1));
+            const anchor = index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle';
+            appendText(
+              tickLabel,
+              x, bottom + 22, anchor,
+            );
+          });
+          appendText(isAllTimeChart && isAllTimeYearView ? 'ปี' : isAllTimeChart ? 'เดือน' : isTodayView ? 'ชั่วโมง' : 'วันที่', (left + right) / 2, 255);
+          chartSales.forEach((value, index) => {
+            if (isAllTimeChart) return;
             const [cx, cy] = points[index].split(',');
+            const hitArea = doc.createElementNS(svg.namespaceURI, 'circle');
+            hitArea.setAttribute('cx', cx); hitArea.setAttribute('cy', cy); hitArea.setAttribute('r', '10');
+            hitArea.setAttribute('fill', 'transparent'); hitArea.setAttribute('pointer-events', 'all');
+            attachTooltip(hitArea, index);
+            svg.appendChild(hitArea);
+            if (!value) return;
             const dot = doc.createElementNS(svg.namespaceURI, 'circle');
             dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', '4');
             dot.setAttribute('fill', '#3d8063'); dot.setAttribute('stroke', '#fff'); dot.setAttribute('stroke-width', '2');
+            attachTooltip(dot, index);
             svg.appendChild(dot);
           });
-          chart.replaceChildren(svg);
+          chart.replaceChildren(svg, tooltip);
         }
 
         ordersBody.replaceChildren();
@@ -3557,7 +4032,66 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             dashboardState.appendChild(retry);
           }
         };
-        periodSelect?.addEventListener('change', renderDashboard);
+        periodButtons.forEach((button) => button.addEventListener('click', () => {
+          activePeriod = button.dataset.dashboardPeriod || 'all';
+          customRange?.setAttribute('hidden', '');
+          customRangeToggle?.setAttribute('aria-expanded', 'false');
+          if (customRangeError) customRangeError.textContent = '';
+          renderDashboard();
+        }));
+        allChartModeButtons.forEach((button) => button.addEventListener('click', () => {
+          const mode = button.dataset.allChartMode;
+          if (mode !== 'month' && mode !== 'year') return;
+          allTimeChartMode = mode;
+          renderDashboard();
+        }));
+        const closeCustomRange = () => {
+          customRange?.setAttribute('hidden', '');
+          customRangeToggle?.setAttribute('aria-expanded', 'false');
+          customRangeToggle?.focus();
+        };
+        const showCustomRangeError = (message: string) => {
+          if (customRangeError) customRangeError.textContent = message;
+        };
+        customRangeToggle?.addEventListener('click', () => {
+          if (activeCustomRange && customDateFrom && customDateTo) {
+            customDateFrom.value = formatDateInput(activeCustomRange.start);
+            customDateTo.value = formatDateInput(activeCustomRange.end);
+          }
+          customRange?.removeAttribute('hidden');
+          customRangeToggle.setAttribute('aria-expanded', 'true');
+          if (customRangeError) customRangeError.textContent = '';
+          customDateFrom?.focus();
+        });
+        doc.getElementById('dashboard-close-range')?.addEventListener('click', closeCustomRange);
+        doc.getElementById('dashboard-cancel-range')?.addEventListener('click', closeCustomRange);
+        customRange?.querySelector('[data-close-date-dialog="true"]')?.addEventListener('click', closeCustomRange);
+        doc.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && customRange && !customRange.hasAttribute('hidden')) closeCustomRange();
+        });
+        applyCustomRange?.addEventListener('click', () => {
+          const fromValue = customDateFrom?.value || '';
+          const toValue = customDateTo?.value || '';
+          if (!fromValue || !toValue || !customDateFrom || !customDateTo) {
+            showCustomRangeError('กรุณากรอกวันที่เริ่มต้นและวันที่สิ้นสุดในรูปแบบ dd/mm/yyyy');
+            return;
+          }
+          const start = parseDateInput(fromValue);
+          const end = parseDateInput(toValue);
+          if (!start || !end) {
+            showCustomRangeError('วันที่ไม่ถูกต้อง กรุณาตรวจสอบรูปแบบ dd/mm/yyyy');
+            return;
+          }
+          if (start > end) {
+            showCustomRangeError('วันที่เริ่มต้นต้องไม่อยู่หลังวันที่สิ้นสุด');
+            return;
+          }
+          activeCustomRange = { start, end };
+          activePeriod = 'custom';
+          showCustomRangeError('');
+          closeCustomRange();
+          renderDashboard();
+        });
         void loadDashboard();
       }
     }
@@ -4101,7 +4635,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           const heightInput = doc.getElementById('shippingHeight') as HTMLInputElement | null;
           const widthInput = doc.getElementById('shippingWidth') as HTMLInputElement | null;
           const lengthInput = doc.getElementById('shippingLength') as HTMLInputElement | null;
-          const codToggle = doc.getElementById('codToggle') as HTMLInputElement | null;
 
           if (product.shipping) {
             if (weightInput && product.shipping.weight !== undefined && product.shipping.weight !== null) {
@@ -4118,9 +4651,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             }
             if (lengthInput && product.shipping.dimensions?.length != null) {
               lengthInput.value = `${product.shipping.dimensions.length}`;
-            }
-            if (codToggle) {
-              codToggle.checked = product.shipping.codEnabled !== false;
             }
           }
 
@@ -4874,7 +5404,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             .filter(Boolean)
             .join('');
 
-          const codEnabled = product.shipping?.codEnabled !== false;
           const variantsHtml = renderVariantsHtml();
 
           detailHost.innerHTML = `
@@ -4907,11 +5436,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                     }
                   </span>
 
-                  ${
-                    codEnabled
-                      ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-secondary-container text-on-secondary-container">เก็บเงินปลายทางได้</span>`
-                      : ''
-                  }
                 </div>
               </section>
 
@@ -5994,7 +6518,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     }
 
     if (location.pathname === '/checkout') {
-      configureCheckoutPaymentMethods(doc);
       renderCheckoutSummary(doc, win, effectiveCart);
     }
   }, [

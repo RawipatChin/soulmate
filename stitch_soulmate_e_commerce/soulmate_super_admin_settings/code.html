@@ -355,18 +355,18 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
 <!-- Order Prefix -->
 <div class="flex flex-col gap-space-xs">
-<label class="font-label-md text-label-md font-semibold text-on-surface">คำนำหน้าเลขคำสั่งซื้อ</label>
+<label class="font-label-md text-label-md font-semibold text-on-surface">คำนำหน้า / เลขออเดอร์ล่าสุด</label>
 <input class="w-full h-11 px-space-md rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:bg-surface-container transition-colors font-mono" name="orderPrefix" type="text" value="SM-"/>
-<p class="font-label-sm text-label-sm text-secondary">เช่น SM-20250001</p>
+<p id="orderPrefixHint" class="font-label-sm text-label-sm text-secondary">ใส่ตัวเลขล่าสุด เช่น 20260001 แล้วออเดอร์ถัดไปจะเป็น 20260002 หรือใส่คำนำหน้า เช่น SM- เพื่อใช้รหัสสุ่ม</p>
 </div>
 <!-- Default Order Status -->
 <div class="flex flex-col gap-space-xs">
 <label class="font-label-md text-label-md font-semibold text-on-surface">สถานะเริ่มต้นของคำสั่งซื้อใหม่</label>
 <div class="h-11 px-space-md rounded-lg bg-surface-container text-secondary font-body-md text-body-md flex items-center justify-between cursor-not-allowed select-none">
-<span>รอยืนยันคำสั่งซื้อ (Default Status)</span>
+<span id="defaultOrderStatusLabel">รอชำระเงิน (PromptPay)</span>
 <span class="material-symbols-outlined text-[18px]">lock</span>
 </div>
-<p class="font-label-sm text-label-sm text-secondary">กำหนดตามเวิร์กโฟลว์ความปลอดภัย</p>
+<p id="defaultOrderStatusHint" class="font-label-sm text-label-sm text-secondary">สถานะนี้คงไว้เพื่อให้ QR และการส่งสลิปทำงานถูกต้อง</p>
 </div>
 </div>
 </div>

@@ -205,14 +205,14 @@
 <h1 class="font-headline-sm text-headline-sm text-on-surface">Dashboard</h1>
 <span class="hidden sm:inline-flex items-center gap-1 px-space-sm py-0.5 rounded-full bg-primary-container/60 text-on-primary-container font-label-sm text-label-sm border border-primary-container" id="topbar-active-period-badge">
 <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
-<span>วันนี้</span>
+<span>ทั้งหมด</span>
 </span>
 </div>
 </div>
 <div class="flex items-center gap-space-xs sm:gap-space-sm">
 <!-- Cloud Sync Active Badge -->
 <div class="hidden md:flex items-center gap-1.5 px-space-sm py-1 rounded-full bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm border border-surface-container">
-<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
 <span>Cloud Sync Active</span>
 </div>
 <!-- Search Icon Button -->
@@ -248,8 +248,30 @@
     .dashboard-top h2 { margin:0; font-size:22px; line-height:1.2; letter-spacing:-.025em; font-weight:650; }
     .dashboard-top p { margin:5px 0 0; color:#68726c; font-size:13px; }
     .dashboard-tools { display:flex; align-items:center; gap:10px; }
-    .dashboard-select,.dashboard-link { min-height:40px; border:1px solid #e2e7e3; border-radius:11px; padding:0 13px; background:#fff; color:#294f41; font:600 13px system-ui,sans-serif; text-decoration:none; }
-    .dashboard-select { cursor:pointer; }
+    .dashboard-period-filters { display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
+    .dashboard-period-button { min-height:34px; border:1px solid transparent; border-radius:999px; padding:0 12px; background:transparent; color:#52645a; font:600 12px system-ui,sans-serif; cursor:pointer; transition:background-color .15s,color .15s,border-color .15s; }
+    .dashboard-period-button:hover { background:#eff5f1; color:#285b46; }
+    .dashboard-period-button[aria-pressed="true"] { background:#b8ead8; color:#205d49; }
+    .dashboard-period-button[data-custom="true"] { display:inline-flex; align-items:center; gap:5px; border-color:#d9e3dc; background:#fff; }
+    .dashboard-period-button:focus-visible,.dashboard-date-dialog input:focus-visible,.dashboard-date-dialog button:focus-visible { outline:2px solid #3985ee; outline-offset:2px; }
+    .dashboard-link { min-height:40px; border:1px solid #e2e7e3; border-radius:11px; padding:0 13px; background:#fff; color:#294f41; font:600 13px system-ui,sans-serif; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+    .dashboard-link:hover { background:#f1f7f3; }
+    .dashboard-date-dialog { position:fixed; inset:0; z-index:80; display:grid; place-items:center; padding:18px; }
+    .dashboard-date-dialog[hidden] { display:none; }
+    .dashboard-date-backdrop { position:absolute; inset:0; background:rgba(20,35,28,.42); }
+    .dashboard-date-dialog-panel { position:relative; width:min(100%,440px); padding:22px; border-radius:18px; background:#fff; box-shadow:0 20px 60px rgba(25,48,36,.2); }
+    .dashboard-date-dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:6px; }
+    .dashboard-date-dialog-head h3 { margin:0; color:#253e32; font-size:17px; font-weight:700; }
+    .dashboard-date-dialog-head p { margin:5px 0 0; color:#68726c; font-size:12px; }
+    .dashboard-date-close { display:grid; place-items:center; width:34px; height:34px; border:0; border-radius:50%; background:#f3f6f3; color:#435b4d; cursor:pointer; }
+    .dashboard-custom-range-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:18px 0 8px; }
+    .dashboard-custom-range-fields label { display:grid; gap:6px; color:#46594e; font-size:12px; font-weight:600; }
+    .dashboard-custom-range-fields input { width:100%; min-height:42px; padding:0 12px; border:1px solid #dce5de; border-radius:10px; background:#fff; color:#294f41; font:500 14px system-ui,sans-serif; font-variant-numeric:tabular-nums; }
+    .dashboard-custom-range-error { min-height:18px; color:#9e3838; font-size:11px; }
+    .dashboard-date-dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+    .dashboard-date-dialog-actions button { min-height:38px; padding:0 15px; border:1px solid #dce5de; border-radius:10px; background:#fff; color:#294f41; font:600 12px system-ui,sans-serif; cursor:pointer; }
+    .dashboard-date-dialog-actions #dashboard-apply-range { border-color:#286b55; background:#286b55; color:#fff; }
+    .dashboard-chart svg text { font-family:system-ui,sans-serif; font-size:10px; fill:#68726c; }
     .dashboard-link { display:inline-flex; align-items:center; justify-content:center; }
     .dashboard-link:hover { background:#f1f7f3; }
     .dashboard-kpis { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; margin-bottom:16px; }
@@ -261,9 +283,16 @@
     .dashboard-panel { padding:18px 20px; margin-bottom:16px; }
     .dashboard-panel-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
     .dashboard-panel-head h3 { margin:0; font-size:15px; font-weight:650; letter-spacing:-.01em; }
-    .dashboard-chart { min-height:210px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-    .dashboard-chart svg { display:block; width:100%; height:210px; overflow:visible; }
-    .dashboard-chart-empty,.dashboard-state { color:#78827c; text-align:center; }
+    .dashboard-chart-tools { display:flex; align-items:center; justify-content:flex-end; gap:14px; }
+    .dashboard-all-chart-mode { display:inline-flex; align-items:center; gap:4px; padding:3px; border:1px solid #e8ece9; border-radius:999px; background:#f7f8f6; }
+    .dashboard-all-chart-mode[hidden] { display:none !important; }
+    .dashboard-all-chart-mode button { min-height:30px; padding:0 12px; border:0; border-radius:999px; background:transparent; color:#68726c; font:600 12px system-ui,sans-serif; cursor:pointer; }
+    .dashboard-all-chart-mode button[aria-pressed="true"] { background:#286b55; color:#fff; }
+    .dashboard-chart-range { color:#293b32; font-size:13px; font-weight:650; font-style:italic; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .dashboard-chart { min-height:280px; display:block; position:relative; overflow:hidden; }
+    .dashboard-chart-tooltip { position:absolute; z-index:2; max-width:240px; padding:7px 10px; border-radius:8px; background:#213b30; color:#fff; font:600 12px system-ui,sans-serif; box-shadow:0 4px 14px #15251e33; pointer-events:none; white-space:nowrap; }
+    .dashboard-chart svg { display:block; width:100%; height:280px; overflow:visible; }
+    .dashboard-chart-empty,.dashboard-state { color:#68726c; text-align:center; }
     .dashboard-state { padding:28px 14px; border:1px solid #e8ece9; border-radius:14px; background:#fff; margin-bottom:16px; }
     .dashboard-state[data-kind="error"] { color:#9e3838; }
     .dashboard-orders-wrap { overflow:auto; }
@@ -282,24 +311,58 @@
       .dashboard-top { align-items:flex-start; flex-direction:column; gap:12px; margin-bottom:15px; }
       .dashboard-top h2 { font-size:20px; }
       .dashboard-tools { width:100%; }
-      .dashboard-select,.dashboard-link { flex:1; }
+      .dashboard-period-filters { width:100%; }
+      .dashboard-period-button { flex:1 0 auto; }
+      .dashboard-period-button[data-custom="true"] { flex:0 0 auto; }
+      .dashboard-date-dialog { padding:14px; }
+      .dashboard-date-dialog-panel { padding:18px; }
+      .dashboard-custom-range-fields { grid-template-columns:1fr; }
       .dashboard-kpis { grid-template-columns:1fr; gap:9px; margin-bottom:12px; }
       .dashboard-kpi { padding:14px 16px; }
       .dashboard-kpi-value { margin-top:4px; font-size:24px; }
       .dashboard-panel { padding:15px 13px; border-radius:14px; margin-bottom:12px; }
-      .dashboard-chart,.dashboard-chart svg { min-height:180px; height:180px; }
+      .dashboard-panel-head { align-items:flex-start; }
+      .dashboard-chart-tools { flex-direction:column; align-items:flex-end; gap:7px; }
+      .dashboard-chart-range { font-size:11px; }
+      .dashboard-chart { min-height:230px; }
+      .dashboard-chart svg { height:230px; }
       .dashboard-orders { min-width:620px; }
     }
     @media(prefers-reduced-motion:reduce) { .dashboard-link { scroll-behavior:auto; } }
   </style>
   <div class="dashboard-inner">
     <div class="dashboard-top">
-      <div><h2>ภาพรวม</h2><p id="dashboard-period-label">วันนี้</p></div>
+      <div><h2>ภาพรวม</h2><p id="dashboard-period-label">ทั้งหมด</p></div>
       <div class="dashboard-tools">
-        <select class="dashboard-select" id="dashboard-period" aria-label="ช่วงเวลา">
-          <option value="today">วันนี้</option><option value="7d">7 วัน</option><option value="30d">30 วัน</option><option value="month">เดือนนี้</option>
-        </select>
+        <div class="dashboard-period-filters" id="dashboard-period-filters" role="group" aria-label="กรองช่วงเวลาคำสั่งซื้อ">
+          <button class="dashboard-period-button" type="button" data-dashboard-period="today" aria-pressed="false">วันนี้</button>
+          <button class="dashboard-period-button" type="button" data-dashboard-period="7d" aria-pressed="false">7 วันล่าสุด</button>
+          <button class="dashboard-period-button" type="button" data-dashboard-period="30d" aria-pressed="false">30 วันล่าสุด</button>
+          <button class="dashboard-period-button" type="button" data-dashboard-period="week" aria-pressed="false">สัปดาห์นี้</button>
+          <button class="dashboard-period-button" type="button" data-dashboard-period="month" aria-pressed="false">เดือนนี้</button>
+          <button class="dashboard-period-button" type="button" data-dashboard-period="year" aria-pressed="false">ปีนี้</button>
+          <button class="dashboard-period-button" type="button" data-dashboard-period="all" aria-pressed="true">ทั้งหมด</button>
+          <button class="dashboard-period-button" type="button" data-custom="true" id="dashboard-custom-toggle" aria-expanded="false" aria-controls="dashboard-custom-range"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px">calendar_month</span>เลือกช่วงวันที่</button>
+        </div>
       </div>
+    </div>
+    <div class="dashboard-date-dialog" id="dashboard-custom-range" hidden>
+      <div class="dashboard-date-backdrop" data-close-date-dialog="true"></div>
+      <section class="dashboard-date-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="dashboard-date-title" aria-describedby="dashboard-date-description">
+        <div class="dashboard-date-dialog-head">
+          <div><h3 id="dashboard-date-title">เลือกช่วงวันที่</h3><p id="dashboard-date-description">ระบุวันเริ่มต้นและวันสิ้นสุดเพื่อกรองข้อมูลบน Dashboard</p></div>
+          <button class="dashboard-date-close" id="dashboard-close-range" type="button" aria-label="ปิด"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+        </div>
+        <div class="dashboard-custom-range-fields">
+          <label>ตั้งแต่วันที่<input id="dashboard-date-from" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="dd/mm/yyyy" aria-label="วันที่เริ่มต้น วัน เดือน ปี" /></label>
+          <label>ถึงวันที่<input id="dashboard-date-to" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="dd/mm/yyyy" aria-label="วันที่สิ้นสุด วัน เดือน ปี" /></label>
+        </div>
+        <span class="dashboard-custom-range-error" id="dashboard-range-error" role="alert" aria-live="polite"></span>
+        <div class="dashboard-date-dialog-actions">
+          <button id="dashboard-cancel-range" type="button">ยกเลิก</button>
+          <button id="dashboard-apply-range" type="button">ใช้ช่วงวันที่</button>
+        </div>
+      </section>
     </div>
     <div class="dashboard-state" id="dashboard-state" role="status" aria-live="polite">กำลังโหลดข้อมูล…</div>
     <div id="dashboard-content" hidden>
@@ -311,7 +374,16 @@
         <article class="dashboard-kpi"><div class="dashboard-kpi-label">ออเดอร์ทั้งหมด</div><div class="dashboard-kpi-value" id="dashboard-order-count">0</div></article>
       </section>
       <section class="dashboard-panel" aria-labelledby="dashboard-chart-title">
-        <div class="dashboard-panel-head"><h3 id="dashboard-chart-title">ยอดขาย</h3></div>
+        <div class="dashboard-panel-head">
+          <h3 id="dashboard-chart-title">ยอดขาย</h3>
+          <div class="dashboard-chart-tools">
+            <div class="dashboard-all-chart-mode" id="dashboard-all-chart-mode" role="group" aria-label="รูปแบบกราฟยอดขายทั้งหมด" hidden>
+              <button type="button" data-all-chart-mode="year" aria-pressed="false">รายปี</button>
+              <button type="button" data-all-chart-mode="month" aria-pressed="true">รายเดือน</button>
+            </div>
+            <span class="dashboard-chart-range" id="dashboard-chart-range"></span>
+          </div>
+        </div>
         <div class="dashboard-chart" id="dashboard-chart" role="img" aria-label="กราฟยอดขาย"></div>
       </section>
       <section class="dashboard-panel" aria-labelledby="dashboard-orders-title">

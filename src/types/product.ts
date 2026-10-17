@@ -42,7 +42,6 @@ export interface ProductShipping {
   dimensions: ProductDimensions;
   feeMode?: 'default' | 'custom';
   customFee?: number | null;
-  codEnabled: boolean;
 }
 
 export interface ProductImage {

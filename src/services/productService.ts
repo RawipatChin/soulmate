@@ -122,7 +122,6 @@ function mapProductDoc(id: string, d: any): Product {
       },
       feeMode: d.shipping.feeMode === 'custom' ? 'custom' : 'default',
       customFee: typeof d.shipping.customFee === 'number' ? d.shipping.customFee : null,
-      codEnabled: !!d.shipping.codEnabled,
     };
   }
 
@@ -502,7 +501,6 @@ export async function createProduct(
       },
       feeMode: input.shipping.feeMode === 'custom' ? 'custom' : 'default',
       customFee: input.shipping.feeMode === 'custom' && typeof input.shipping.customFee === 'number' ? Number(input.shipping.customFee) : null,
-      codEnabled: !!input.shipping.codEnabled,
     };
   }
 
@@ -597,7 +595,6 @@ export async function updateProduct(
       },
       feeMode: input.shipping.feeMode === 'custom' ? 'custom' : 'default',
       customFee: input.shipping.feeMode === 'custom' && typeof input.shipping.customFee === 'number' ? Number(input.shipping.customFee) : null,
-      codEnabled: !!input.shipping.codEnabled,
     };
   }
 
@@ -773,7 +770,6 @@ export function buildProductPayload(
   const heightInput = doc.getElementById('shippingHeight') as HTMLInputElement | null;
   const widthInput = doc.getElementById('shippingWidth') as HTMLInputElement | null;
   const lengthInput = doc.getElementById('shippingLength') as HTMLInputElement | null;
-  const codToggle = doc.getElementById('codToggle') as HTMLInputElement | null;
 
   const name = nameInput?.value.trim() || '';
   const slug = slugInput?.value.trim() || (name ? generateSlug(name) : (defaultSlug || ''));
@@ -796,7 +792,6 @@ export function buildProductPayload(
   const shippingHeight = heightInput && heightInput.value.trim() !== '' ? (parseFloat(heightInput.value) || null) : null;
   const shippingWidth = widthInput && widthInput.value.trim() !== '' ? (parseFloat(widthInput.value) || null) : null;
   const shippingLength = lengthInput && lengthInput.value.trim() !== '' ? (parseFloat(lengthInput.value) || null) : null;
-  const isCodEnabled = codToggle ? codToggle.checked : true;
 
   const shipping: ProductShipping = {
     weight: shippingWeight,
@@ -809,7 +804,6 @@ export function buildProductPayload(
     },
     feeMode: 'default',
     customFee: null,
-    codEnabled: isCodEnabled,
   };
 
   const variantState = variantMgr.getState();
