@@ -22,6 +22,59 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
     }
 
+    function superAdminChangesRole() {
+      return isSuperAdmin() &&
+        resource.data.status == 'active' &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.role in ['customer', 'admin', 'super_admin'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt']) &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    function validOperationalPaymentMethod(method) {
+      return method is map &&
+        method.keys().hasOnly(['id', 'enabled']) &&
+        method.keys().hasAll(['id', 'enabled']) &&
+        method.id in ['promptpay', 'cod'] &&
+        method.enabled is bool;
+    }
+
+    function validOperationalPaymentMethods(methods) {
+      return methods is list && methods.size() <= 2 &&
+          (methods.size() == 0 || validOperationalPaymentMethod(methods[0])) &&
+          (methods.size() < 2 || validOperationalPaymentMethod(methods[1])) &&
+          (methods.size() < 2 || methods[0].id != methods[1].id);
+    }
+
+    function adminCreatesOperationalSettings() {
+      return isAdmin() &&
+        request.resource.data.keys().hasOnly(['shippingMethods', 'announcements', 'paymentMethods', 'updatedAt', 'updatedBy']) &&
+        validOperationalPaymentMethods(request.resource.data.get('paymentMethods', [])) &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    function adminUpdatesOperationalSettings() {
+      return isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'shippingMethods', 'announcements', 'paymentMethods', 'updatedAt', 'updatedBy'
+        ]) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['paymentMethods']) ||
+          validOperationalPaymentMethods(request.resource.data.get('paymentMethods', []))) &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    function adminChangesPaymentAvailability() {
+      return isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enabled', 'updatedAt', 'updatedBy']) &&
+        request.resource.data.phone == resource.data.phone &&
+        request.resource.data.payeeName == resource.data.payeeName &&
+        request.resource.data.enabled is bool &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.updatedAt == request.time;
+    }
+
     function formatOrderNumber(year, sequence) {
       let value = string(sequence);
       let padded = sequence < 10 ? '000' + value :
@@ -91,8 +144,9 @@ service cloud.firestore {
       allow get: if (isOwner(userId) && resource.data.status == 'active') || isAdmin();
       allow list: if isAdmin();
       // A customer may edit their profile, but cannot grant themselves admin access.
-      allow create: if isSuperAdmin() || customerCreatesOwnProfile(userId);
-      allow update: if isSuperAdmin() ||
+      allow create: if customerCreatesOwnProfile(userId);
+      allow update: if (superAdminChangesRole()) ||
+        (isSuperAdmin() && request.resource.data.role == resource.data.role) ||
         (isAdmin() && request.resource.data.role == resource.data.role && request.resource.data.status == resource.data.status) ||
         customerUpdatesOwnProfile(userId);
       allow delete: if isSuperAdmin();
@@ -151,36 +205,49 @@ service cloud.firestore {
       return index < items.size() ? items[index].lineTotalSatang : 0;
     }
 
-    function paymentEnabledAt(methodId, index) {
-      let methods = get(/databases/$(database)/documents/settings/public).data.get('paymentMethods', []);
-      let method = methods is list && index < methods.size() ? methods[index] : {};
-      return methods is list && index < methods.size() && method.get('id', '') == methodId && method.get('enabled', false) == true;
+    function paymentEnabledAt(methods, methodId, index) {
+      return index < methods.size() && methods[index].get('id', '') == methodId && methods[index].get('enabled', false) == true;
     }
 
-    function legacyPromptpayEnabled() {
-      let methods = get(/databases/$(database)/documents/settings/public).data.get('paymentMethods', []);
-      let payment = get(/databases/$(database)/documents/config/payment).data;
-      return methods is list && methods.size() == 0 && payment.enabled == true;
+    function paymentEnabled(methods, methodId) {
+      return methods is list && (
+        paymentEnabledAt(methods, methodId, 0) || paymentEnabledAt(methods, methodId, 1) ||
+        paymentEnabledAt(methods, methodId, 2) || paymentEnabledAt(methods, methodId, 3) ||
+        paymentEnabledAt(methods, methodId, 4) || paymentEnabledAt(methods, methodId, 5) ||
+        paymentEnabledAt(methods, methodId, 6) || paymentEnabledAt(methods, methodId, 7) ||
+        paymentEnabledAt(methods, methodId, 8) || paymentEnabledAt(methods, methodId, 9)
+      );
     }
 
-    function shippingMatchesAt(data, index) {
-      let methods = get(/databases/$(database)/documents/settings/public).data.get('shippingMethods', []);
-      let method = methods is list && index < methods.size() ? methods[index] : {};
-      let free = method.get('freeShippingThreshold', null) != null && data.subtotalSatang >= method.get('freeShippingThreshold', null) * 100;
-      return methods is list && index < methods.size() && method.get('id', '') == data.shippingMethodId &&
-        method.get('enabled', false) == true && data.shippingFeeSatang == (free ? 0 : method.get('fee', -1) * 100);
+    function validPayment(data, methods) {
+      return data.payment.method == 'cod'
+        ? paymentEnabled(methods, 'cod') && data.payment.promptPayPhone == null
+        : data.payment.method == 'manual_promptpay' &&
+          (paymentEnabled(methods, 'promptpay') || (methods is list && methods.size() == 0)) &&
+          get(/databases/$(database)/documents/config/payment).data.enabled == true &&
+          data.payment.promptPayPhone == get(/databases/$(database)/documents/config/payment).data.phone;
     }
 
-    function validShipping(data) {
-      let methods = get(/databases/$(database)/documents/settings/public).data.get('shippingMethods', []);
+    function shippingMatchesAt(data, methods, index) {
+      let method = index < methods.size() ? methods[index] : {};
+      // Check the selected method before calculating its fee. Eager calculations
+      // for every candidate can exhaust Firestore's 1,000-expression budget.
+      return index < methods.size() && method.get('id', '') == data.shippingMethodId &&
+        method.get('enabled', false) == true && data.shippingFeeSatang == (
+          method.get('freeShippingThreshold', null) != null && data.subtotalSatang >= method.get('freeShippingThreshold', null) * 100
+            ? 0 : method.get('fee', -1) * 100);
+    }
+
+    function validShipping(data, methods) {
       return methods is list && methods.size() > 0
-        ? shippingMatchesAt(data, 0) || shippingMatchesAt(data, 1) || shippingMatchesAt(data, 2) || shippingMatchesAt(data, 3) || shippingMatchesAt(data, 4) || shippingMatchesAt(data, 5) || shippingMatchesAt(data, 6) || shippingMatchesAt(data, 7) || shippingMatchesAt(data, 8) || shippingMatchesAt(data, 9)
+        ? shippingMatchesAt(data, methods, 0) || shippingMatchesAt(data, methods, 1) || shippingMatchesAt(data, methods, 2) || shippingMatchesAt(data, methods, 3) || shippingMatchesAt(data, methods, 4) || shippingMatchesAt(data, methods, 5) || shippingMatchesAt(data, methods, 6) || shippingMatchesAt(data, methods, 7) || shippingMatchesAt(data, methods, 8) || shippingMatchesAt(data, methods, 9)
         : data.shippingMethodId == 'standard' && data.shippingFeeSatang == 3000;
     }
 
     function canCreateOrder(orderId) {
       let data = request.resource.data;
       let items = data.items;
+      let settings = get(/databases/$(database)/documents/settings/public).data;
       let sequence = getAfter(/databases/$(database)/documents/settings/public).data;
       let isSequentialNumber = data.orderNumber is string && data.orderNumber.matches('^SM-[0-9]{8,}$');
       return isSignedIn() && (isGuest() || isActiveCustomer() || isAdmin()) &&
@@ -210,22 +277,13 @@ service cloud.firestore {
         data.subtotalSatang ==
           lineTotal(items, 0) + lineTotal(items, 1) + lineTotal(items, 2) +
           lineTotal(items, 3) + lineTotal(items, 4) &&
-        data.shippingMethodId is string && validShipping(data) &&
+        data.shippingMethodId is string && validShipping(data, settings.get('shippingMethods', [])) &&
         data.totalSatang == data.subtotalSatang + data.shippingFeeSatang &&
         data.currency == 'THB' && data.status == 'pending_payment' &&
         data.payment.status == 'pending' &&
         data.fulfillmentStatus == (data.payment.method == 'cod' ? 'awaiting_cod_acceptance' : 'awaiting_payment') &&
         data.codAcceptance == null && data.shippingRevision == 0 &&
-        (
-          (data.payment.method == 'manual_promptpay' &&
-            (paymentEnabledAt('promptpay', 0) || paymentEnabledAt('promptpay', 1) || paymentEnabledAt('promptpay', 2) || paymentEnabledAt('promptpay', 3) || paymentEnabledAt('promptpay', 4) || paymentEnabledAt('promptpay', 5) || paymentEnabledAt('promptpay', 6) || paymentEnabledAt('promptpay', 7) || paymentEnabledAt('promptpay', 8) || paymentEnabledAt('promptpay', 9) || legacyPromptpayEnabled()) &&
-            get(/databases/$(database)/documents/config/payment).data.enabled == true &&
-            data.payment.promptPayPhone ==
-              get(/databases/$(database)/documents/config/payment).data.phone) ||
-          (data.payment.method == 'cod' &&
-            (paymentEnabledAt('cod', 0) || paymentEnabledAt('cod', 1) || paymentEnabledAt('cod', 2) || paymentEnabledAt('cod', 3) || paymentEnabledAt('cod', 4) || paymentEnabledAt('cod', 5) || paymentEnabledAt('cod', 6) || paymentEnabledAt('cod', 7) || paymentEnabledAt('cod', 8) || paymentEnabledAt('cod', 9)) &&
-            data.payment.promptPayPhone == null)
-        ) &&
+        validPayment(data, settings.get('paymentMethods', [])) &&
         data.slipPath == null && data.submittedAt == null &&
         data.review == null && data.inventoryRestored == false &&
         data.createdAt == request.time && data.updatedAt == request.time;
@@ -352,33 +410,42 @@ service cloud.firestore {
     match /config/payment {
       allow get: if isSignedIn();
       allow list: if false;
-      allow create, update: if isSuperAdmin() &&
+      allow create: if isSuperAdmin() &&
         request.resource.data.keys().hasOnly(['phone', 'payeeName', 'enabled', 'updatedAt', 'updatedBy']) &&
         (request.resource.data.phone == '' || request.resource.data.phone.matches('^0[0-9]{9}$')) &&
         request.resource.data.enabled is bool &&
         request.resource.data.updatedBy == request.auth.uid &&
         request.resource.data.updatedAt == request.time;
+      allow update: if (isSuperAdmin() &&
+        request.resource.data.keys().hasOnly(['phone', 'payeeName', 'enabled', 'updatedAt', 'updatedBy']) &&
+        (request.resource.data.phone == '' || request.resource.data.phone.matches('^0[0-9]{9}$')) &&
+        request.resource.data.enabled is bool &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.updatedAt == request.time) || adminChangesPaymentAvailability();
       allow delete: if false;
     }
 
     match /settings/store {
       allow get: if isAdmin();
       allow list: if false;
-      allow create, update: if isSuperAdmin() &&
+      allow create: if (isSuperAdmin() &&
         request.resource.data.updatedBy == request.auth.uid &&
-        request.resource.data.updatedAt == request.time;
+        request.resource.data.updatedAt == request.time) || adminCreatesOperationalSettings();
+      allow update: if (isSuperAdmin() &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.updatedAt == request.time) || adminUpdatesOperationalSettings();
       allow delete: if false;
     }
 
     match /settings/public {
       allow get: if true;
       allow list: if false;
-      allow create: if isSuperAdmin() &&
+      allow create: if (isSuperAdmin() &&
         request.resource.data.updatedBy == request.auth.uid &&
-        request.resource.data.updatedAt == request.time;
+        request.resource.data.updatedAt == request.time) || adminCreatesOperationalSettings();
       allow update: if (isSuperAdmin() &&
           request.resource.data.updatedBy == request.auth.uid &&
-          request.resource.data.updatedAt == request.time) || advancesOrderSequence();
+          request.resource.data.updatedAt == request.time) || adminUpdatesOperationalSettings() || advancesOrderSequence();
       allow delete: if false;
     }
 

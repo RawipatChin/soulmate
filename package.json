@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit",
     "test": "node --experimental-strip-types --test src/utils/accountAccess.test.ts src/services/orderFailure.test.ts src/services/orderNumber.test.ts src/services/promptPayQr.test.ts",
     "test:orders:emulator": "firebase emulators:exec --only auth,firestore,storage --project demo-soulmate \"node scripts/order-emulator-smoke.mjs\"",
-    "test:orders:browser": "firebase emulators:exec --only auth,firestore,storage --project demo-soulmate \"node scripts/order-browser-emulator-smoke.mjs\""
+    "test:orders:browser": "firebase emulators:exec --only auth,firestore,storage --project demo-soulmate \"node scripts/order-browser-emulator-smoke.mjs\"",
+    "test:admin:browser": "firebase emulators:exec --only auth,firestore --project demo-soulmate \"node scripts/admin-role-emulator-smoke.mjs\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

@@ -25,7 +25,9 @@ try {
     const { React, createRoot, flushSync } = shell;
     await shell.installDashboardAdminShell(document, '/admin/settings');
     shell.normalizeAdminShellSizing(document);
-    shell.mountAdminSidebarNav(document, '/admin/settings');
+    shell.mountAdminSidebarNav(document, '/admin/settings', false);
+    const adminRoleLinkCount = document.querySelectorAll('#soulmate-admin-sidebar nav a').length;
+    shell.mountAdminSidebarNav(document, '/admin/settings', true);
     shell.installAdminSurfaceStyles(document, '/admin/settings');
     const warnings = [];
     const originalError = console.error;
@@ -49,6 +51,8 @@ try {
       sidebarPadding: getComputedStyle(document.querySelector('#soulmate-admin-sidebar')).paddingLeft,
       settingsCurrent: document.querySelector('#soulmate-admin-sidebar a[aria-current="page"]')?.getAttribute('href'),
       linkCount: document.querySelectorAll('#soulmate-admin-sidebar nav a').length,
+      adminRoleLinkCount,
+      roleManagementLink: document.querySelector('#soulmate-admin-sidebar a[href="/admin/admins"]')?.textContent?.trim(),
       notificationHosts: document.querySelectorAll('.admin-notification-host').length,
     };
   });
@@ -56,7 +60,9 @@ try {
   assert.deepEqual(result.warnings, [], 'Switching to a native page must not synchronously unmount an embedded React root');
   assert.equal(result.sidebarPadding, '0px', 'Settings save-bar styles must not alter the shared sidebar');
   assert.equal(result.settingsCurrent, '/admin/settings');
-  assert.equal(result.linkCount, 8);
+  assert.equal(result.adminRoleLinkCount, 8, 'Admin navigation must hide role management');
+  assert.equal(result.linkCount, 9, 'Super Admin navigation must include role management');
+  assert.equal(result.roleManagementLink, 'ผู้ดูแลและสิทธิ์');
   assert.equal(result.notificationHosts, 0);
   assert.deepEqual(pageErrors, [], 'The harness must not pass after a component crashes');
   for (const width of [390, 768]) {

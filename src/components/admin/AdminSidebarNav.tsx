@@ -9,6 +9,7 @@ export const adminSidebarLinks = [
   { path: '/admin/banners', key: 'admin-banners', label: 'Banners', icon: 'view_carousel' },
   { path: '/admin/coupons', key: 'admin-coupons', label: 'Coupons', icon: 'confirmation_number' },
   { path: '/admin/settings', key: 'admin-settings', label: 'Settings', icon: 'settings' },
+  { path: '/admin/admins', key: 'admin-roles', label: 'ผู้ดูแลและสิทธิ์', icon: 'manage_accounts', requiredRole: 'super_admin' },
 ];
 
 export function isAdminSidebarLinkCurrent(path: string, pathname: string) {
@@ -23,9 +24,9 @@ export function adminSidebarLinkClass(active: boolean) {
     : 'flex items-center gap-space-sm px-space-md py-space-sm rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all';
 }
 
-export function AdminSidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: (path: string) => void }) {
+export function AdminSidebarNav({ pathname, onNavigate, isSuperAdmin = false }: { pathname: string; onNavigate?: (path: string) => void; isSuperAdmin?: boolean }) {
   return <>
-    {adminSidebarLinks.map((item) => {
+    {adminSidebarLinks.filter((item) => !('requiredRole' in item) || isSuperAdmin).map((item) => {
       const active = isAdminSidebarLinkCurrent(item.path, pathname);
       return <a
         key={item.key}

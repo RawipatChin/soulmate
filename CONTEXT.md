@@ -52,3 +52,9 @@ Placing an order without first signing in to or creating a permanent customer ac
 
 **Customer account**:
 A persistent identity through which a customer manages personal details and views orders linked to that identity.
+
+**Admin**:
+An active staff role that manages day-to-day store operations, including products, orders, customers, shipping options, and storefront announcements.
+
+**Super Admin**:
+An active staff role with all Admin access and authority to manage staff roles, store identity, and payment configuration.

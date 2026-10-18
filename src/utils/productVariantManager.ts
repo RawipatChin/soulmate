@@ -496,26 +496,26 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
 
     variants.forEach((v) => {
       html += `
-        <tr class="hover:bg-surface-container-low/40 transition-colors" data-variant-row="${v.id}">
+        <tr class="hover:bg-surface-container-low/40 transition-colors" data-variant-row="${escapeHtml(v.id)}">
           <!-- Image Control -->
           <td class="py-3 px-space-md text-center align-middle">
             <div class="relative w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center overflow-hidden mx-auto border border-outline/20 group/vimg">
               ${
                 v.imageURL
-                  ? `<img src="${v.imageURL}" alt="${escapeHtml(v.displayName)}" class="w-full h-full object-cover" />
+                  ? `<img src="${escapeHtml(v.imageURL)}" alt="${escapeHtml(v.displayName)}" class="w-full h-full object-cover" />
                      <div class="absolute inset-0 bg-inverse-surface/60 opacity-0 group-hover/vimg:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                       <button type="button" data-upload-variant-img="${v.id}" class="w-5 h-5 rounded-full bg-white text-on-surface hover:text-primary flex items-center justify-center cursor-pointer shadow-xs" title="เปลี่ยนรูป">
+                       <button type="button" data-upload-variant-img="${escapeHtml(v.id)}" class="w-5 h-5 rounded-full bg-white text-on-surface hover:text-primary flex items-center justify-center cursor-pointer shadow-xs" title="เปลี่ยนรูป">
                          <span class="material-symbols-outlined text-[12px]">edit</span>
                        </button>
-                       <button type="button" data-delete-variant-img="${v.id}" class="w-5 h-5 rounded-full bg-white text-error hover:bg-error-container flex items-center justify-center cursor-pointer shadow-xs" title="ลบรูป">
+                       <button type="button" data-delete-variant-img="${escapeHtml(v.id)}" class="w-5 h-5 rounded-full bg-white text-error hover:bg-error-container flex items-center justify-center cursor-pointer shadow-xs" title="ลบรูป">
                          <span class="material-symbols-outlined text-[12px]">close</span>
                        </button>
                      </div>`
-                  : `<button type="button" data-upload-variant-img="${v.id}" class="w-full h-full flex flex-col items-center justify-center text-outline hover:text-primary hover:bg-primary-container/20 transition-colors cursor-pointer" title="อัปโหลดรูปตัวเลือก">
+                  : `<button type="button" data-upload-variant-img="${escapeHtml(v.id)}" class="w-full h-full flex flex-col items-center justify-center text-outline hover:text-primary hover:bg-primary-container/20 transition-colors cursor-pointer" title="อัปโหลดรูปตัวเลือก">
                        <span class="material-symbols-outlined text-[20px]">add_photo_alternate</span>
                      </button>`
               }
-              <div id="variantSpinner_${v.id}" class="hidden absolute inset-0 bg-surface-container-lowest/80 flex items-center justify-center">
+              <div id="variantSpinner_${escapeHtml(v.id)}" class="hidden absolute inset-0 bg-surface-container-lowest/80 flex items-center justify-center">
                 <span class="material-symbols-outlined text-primary text-[18px] animate-spin">progress_activity</span>
               </div>
             </div>
@@ -537,7 +537,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
                 type="number"
                 min="0"
                 step="0.01"
-                data-var-price="${v.id}"
+                data-var-price="${escapeHtml(v.id)}"
                 value="${v.price !== undefined ? v.price : ''}"
                 placeholder="0.00"
                 class="w-full h-10 pl-7 pr-space-sm rounded-xl bg-surface-container-low text-on-surface font-semibold text-sm focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-tertiary/40 border border-outline/20"
@@ -552,7 +552,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
                 type="number"
                 min="0"
                 step="1"
-                data-var-stock="${v.id}"
+                data-var-stock="${escapeHtml(v.id)}"
                 value="${v.stock !== undefined ? v.stock : ''}"
                 placeholder="0"
                 class="w-full h-10 px-space-sm rounded-xl bg-surface-container-low text-on-surface font-semibold text-sm focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-tertiary/40 border border-outline/20"
@@ -564,7 +564,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
           <td class="py-3 px-space-md align-middle">
             <input
               type="text"
-              data-var-sku="${v.id}"
+              data-var-sku="${escapeHtml(v.id)}"
               value="${escapeHtml(v.sku || '')}"
               placeholder="SKU-001"
               class="w-full h-10 px-space-sm rounded-xl bg-surface-container-low text-on-surface font-mono text-xs uppercase focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-tertiary/40 border border-outline/20"
@@ -585,25 +585,25 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
 
     variants.forEach((v) => {
       html += `
-        <div class="p-space-md rounded-2xl bg-surface-container-lowest border border-surface-container-high shadow-xs space-y-space-sm" data-variant-card="${v.id}">
+        <div class="p-space-md rounded-2xl bg-surface-container-lowest border border-surface-container-high shadow-xs space-y-space-sm" data-variant-card="${escapeHtml(v.id)}">
           <div class="flex items-center gap-space-sm">
             <div class="relative w-14 h-14 rounded-xl bg-surface-container-low flex items-center justify-center overflow-hidden border border-outline/20 shrink-0">
               ${
                 v.imageURL
-                  ? `<img src="${v.imageURL}" alt="${escapeHtml(v.displayName)}" class="w-full h-full object-cover" />
+                  ? `<img src="${escapeHtml(v.imageURL)}" alt="${escapeHtml(v.displayName)}" class="w-full h-full object-cover" />
                      <div class="absolute inset-0 bg-inverse-surface/60 opacity-90 flex items-center justify-center gap-1">
-                       <button type="button" data-upload-variant-img="${v.id}" class="w-6 h-6 rounded-full bg-white text-on-surface hover:text-primary flex items-center justify-center cursor-pointer shadow-xs" title="เปลี่ยนรูป">
+                       <button type="button" data-upload-variant-img="${escapeHtml(v.id)}" class="w-6 h-6 rounded-full bg-white text-on-surface hover:text-primary flex items-center justify-center cursor-pointer shadow-xs" title="เปลี่ยนรูป">
                          <span class="material-symbols-outlined text-[14px]">edit</span>
                        </button>
-                       <button type="button" data-delete-variant-img="${v.id}" class="w-6 h-6 rounded-full bg-white text-error flex items-center justify-center cursor-pointer shadow-xs" title="ลบรูป">
+                       <button type="button" data-delete-variant-img="${escapeHtml(v.id)}" class="w-6 h-6 rounded-full bg-white text-error flex items-center justify-center cursor-pointer shadow-xs" title="ลบรูป">
                          <span class="material-symbols-outlined text-[14px]">close</span>
                        </button>
                      </div>`
-                  : `<button type="button" data-upload-variant-img="${v.id}" class="w-full h-full flex flex-col items-center justify-center text-outline hover:text-primary transition-colors cursor-pointer" title="อัปโหลดรูปตัวเลือก">
+                  : `<button type="button" data-upload-variant-img="${escapeHtml(v.id)}" class="w-full h-full flex flex-col items-center justify-center text-outline hover:text-primary transition-colors cursor-pointer" title="อัปโหลดรูปตัวเลือก">
                        <span class="material-symbols-outlined text-[22px]">add_photo_alternate</span>
                      </button>`
               }
-              <div id="variantSpinner_m_${v.id}" class="hidden absolute inset-0 bg-surface-container-lowest/80 flex items-center justify-center">
+              <div id="variantSpinner_m_${escapeHtml(v.id)}" class="hidden absolute inset-0 bg-surface-container-lowest/80 flex items-center justify-center">
                 <span class="material-symbols-outlined text-primary text-[18px] animate-spin">progress_activity</span>
               </div>
             </div>
@@ -620,7 +620,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
                 type="number"
                 min="0"
                 step="0.01"
-                data-var-price="${v.id}"
+                data-var-price="${escapeHtml(v.id)}"
                 value="${v.price !== undefined ? v.price : ''}"
                 placeholder="0.00"
                 class="w-full h-10 px-space-sm rounded-xl bg-surface-container-low text-on-surface font-semibold text-sm border border-outline/20"
@@ -632,7 +632,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
                 type="number"
                 min="0"
                 step="1"
-                data-var-stock="${v.id}"
+                data-var-stock="${escapeHtml(v.id)}"
                 value="${v.stock !== undefined ? v.stock : ''}"
                 placeholder="0"
                 class="w-full h-10 px-space-sm rounded-xl bg-surface-container-low text-on-surface font-semibold text-sm border border-outline/20"
@@ -644,7 +644,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
             <label class="block font-label-sm text-label-sm text-secondary mb-1">เลขสินค้า (SKU) <span class="text-error">*</span></label>
             <input
               type="text"
-              data-var-sku="${v.id}"
+              data-var-sku="${escapeHtml(v.id)}"
               value="${escapeHtml(v.sku || '')}"
               placeholder="SKU-001"
               class="w-full h-10 px-space-sm rounded-xl bg-surface-container-low text-on-surface font-mono text-xs uppercase border border-outline/20"

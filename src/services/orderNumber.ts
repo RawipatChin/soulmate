@@ -18,3 +18,18 @@ export function formatOrderNumber(year: number, sequence: number): string {
   }
   return `SM-${year}${String(sequence).padStart(4, '0')}`;
 }
+
+export function compareOrderNumbers(a: string, b: string): number {
+  const parse = (value: string) => {
+    const match = /^SM-(\d{4})(\d+)$/.exec(value.trim());
+    return match ? [Number(match[1]), Number(match[2])] as const : null;
+  };
+  const left = parse(a);
+  const right = parse(b);
+  if (left && right) {
+    return left[0] === right[0]
+      ? Math.sign(left[1] - right[1])
+      : Math.sign(left[0] - right[0]);
+  }
+  return a.localeCompare(b, 'en');
+}

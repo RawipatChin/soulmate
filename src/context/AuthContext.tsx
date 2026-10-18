@@ -12,6 +12,7 @@ import {
 import {
   doc,
   getDoc,
+  onSnapshot,
   setDoc,
   updateDoc,
   serverTimestamp,
@@ -240,6 +241,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe();
   }, []);
+
+  const profileUid = user && !user.isAnonymous ? user.uid : '';
+  useEffect(() => {
+    if (!db || !profileUid) return;
+    return onSnapshot(doc(db, 'users', profileUid), (snapshot) => {
+      if (!snapshot.exists()) {
+        setCustomerProfile(null);
+        setProfileNotFound(true);
+        return;
+      }
+      const data = snapshot.data();
+      setCustomerProfile((previous) => previous?.uid === profileUid
+        ? { ...previous, role: data.role || 'customer', status: data.status || '' }
+        : previous);
+      setProfileError(null);
+    }, (error) => {
+      console.warn('[SOULMATE Auth] Profile authorization updates unavailable:', error);
+      if (error.code === 'permission-denied') {
+        setCustomerProfile(null);
+        setProfileError('ไม่สามารถตรวจสอบสิทธิ์บัญชีได้ กรุณาเข้าสู่ระบบอีกครั้ง');
+      }
+    });
+  }, [profileUid]);
 
   const clearError = () => {
     setAuthError(null);

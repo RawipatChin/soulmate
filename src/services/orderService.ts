@@ -10,7 +10,7 @@ import { MAX_ORDER_LINES, optionId, optionRef, type SellableOption } from './inv
 import { calculateMembershipTier, getTierRank } from '../utils/membership';
 import type { MembershipTier } from '../types/membership';
 import { getPublicStoreSettings } from './storeSettingsService';
-import { formatOrderNumber, getBangkokOrderYear } from './orderNumber';
+import { compareOrderNumbers, formatOrderNumber, getBangkokOrderYear } from './orderNumber';
 
 export type FulfillmentStatus = 'awaiting_payment' | 'awaiting_cod_acceptance' | 'ready_to_prepare' | 'ready_to_ship' | 'shipped';
 
@@ -400,7 +400,12 @@ export async function getOrder(orderId: string): Promise<StoreOrder | null> {
   return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } as StoreOrder : null;
 }
 function newestFirst(orders: StoreOrder[]) {
-  return orders.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+  return orders.sort((a, b) => {
+    const byCreatedAt = (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0);
+    if (byCreatedAt !== 0) return byCreatedAt;
+    const byOrderNumber = compareOrderNumbers(b.orderNumber ?? '', a.orderNumber ?? '');
+    return byOrderNumber || b.id.localeCompare(a.id, 'en');
+  });
 }
 export async function listMyOrders(): Promise<StoreOrder[]> {
   const { auth: firebaseAuth, db: firestore } = services();

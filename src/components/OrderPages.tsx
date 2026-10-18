@@ -70,7 +70,7 @@ export function AdminOrderShell({ children, title = 'คำสั่งซื้
       <div>
         <div className="admin-order-logo"><Link to="/admin/dashboard" onClick={() => setDrawerOpen(false)}><img src="/logo-soulmate.png" alt="SOULMATE" /></Link><button className="admin-order-close" aria-label="ปิดเมนู" onClick={() => setDrawerOpen(false)}><span className="material-symbols-outlined" aria-hidden="true">close</span></button></div>
         <p className="admin-order-nav-label">Navigation</p>
-        <nav aria-label="เมนูแอดมิน"><AdminSidebarNav pathname={location.pathname} onNavigate={(path) => { navigate(path); setDrawerOpen(false); }} /></nav>
+        <nav aria-label="เมนูแอดมิน"><AdminSidebarNav pathname={location.pathname} isSuperAdmin={auth.customerProfile?.role === 'super_admin'} onNavigate={(path) => { navigate(path); setDrawerOpen(false); }} /></nav>
       </div>
       <div className="admin-order-sidebar-bottom"><div className="admin-order-profile"><div className="admin-order-role"><span>สิทธิ์การใช้งาน</span><strong>ผู้ดูแลระบบ</strong></div><div className="admin-order-user"><span className="admin-order-avatar"><UserRound size={18} /></span><span><strong>ทีม SOULMATE</strong><small>{auth.customerProfile?.email || ''}</small></span></div></div><button className="admin-order-logout" onClick={logout}><LogOut size={18} />ออกจากระบบ</button></div>
     </aside>

@@ -131,7 +131,17 @@ export function StorefrontShell({
       </nav>
 
       <footer className="storefront-footer">
-        <div className="storefront-footer-inner">
+        <div className="storefront-footer-inner storefront-footer-desktop">
+          <Link className="storefront-footer-brand" to="/">SOULMATE</Link>
+          <nav aria-label="ข้อมูลเพิ่มเติม">
+            <Link to="/about">เกี่ยวกับเรา</Link>
+            <Link to="/contact">ติดต่อเรา</Link>
+            <Link to="/privacy">นโยบายความเป็นส่วนตัว</Link>
+            <Link to="/terms">ข้อกำหนดการใช้งาน</Link>
+          </nav>
+          <span>Health &amp; Beauty</span>
+        </div>
+        <div className="storefront-footer-inner storefront-footer-mobile">
           <div className="storefront-footer-groups">
             <details className="storefront-footer-group">
               <summary>เกี่ยวกับ SOULMATE</summary>

@@ -40,8 +40,9 @@ function client(name) {
   return { auth, db, storage };
 }
 
-async function place(buyer, quantity, { id = randomUUID().replaceAll('-', ''), price = 12950, total, method = 'manual_promptpay', orderNumberOverride, stockProductId = productId, shippingMethodId = 'standard', shippingFeeSatang = 3000 } = {}) {
-  const orderStockPath = `inventory/${stockProductId}/options/base`;
+async function place(buyer, quantity, { id = randomUUID().replaceAll('-', ''), price = 12950, total, method = 'manual_promptpay', orderNumberOverride, stockProductId = productId, variantId = null, shippingMethodId = 'standard', shippingFeeSatang = 3000 } = {}) {
+  const stockOptionId = variantId == null ? 'base' : `v_${variantId}`;
+  const orderStockPath = `inventory/${stockProductId}/options/${stockOptionId}`;
   await runTransaction(buyer.db, async (tx) => {
     const orderRef = doc(buyer.db, 'orders', id);
     if ((await tx.get(orderRef)).exists()) return;
@@ -58,7 +59,7 @@ async function place(buyer, quantity, { id = randomUUID().replaceAll('-', ''), p
     tx.set(orderRef, {
       schemaVersion: 2, orderNumber,
       ownerUid: buyer.auth.currentUser.uid, ownerType: buyer.auth.currentUser.isAnonymous ? 'guest' : 'customer',
-      contact, items: [{ productId: stockProductId, optionId: 'base', productName: 'Rules smoke product', variantId: null, variantName: null, unitPriceSatang: price, quantity, productImage: null, lineTotalSatang: price * quantity }],
+      contact, items: [{ productId: stockProductId, optionId: stockOptionId, productName: 'Rules smoke product', variantId, variantName: null, unitPriceSatang: price, quantity, productImage: null, lineTotalSatang: price * quantity }],
       subtotalSatang: price * quantity, shippingMethodId, shippingFeeSatang, totalSatang: total ?? price * quantity + shippingFeeSatang,
       currency: 'THB', status: 'pending_payment',
       payment: { method, status: 'pending', promptPayPhone: method === 'cod' ? null : '0812345678' },
@@ -95,8 +96,8 @@ async function main() {
   await adminDb.doc('config/payment').set({ phone: '0812345678', payeeName: 'SOULMATE', enabled: true });
   await adminDb.doc('settings/public').set({
     shippingMethods: [
-      { id: 'standard', name: 'Standard', fee: 30, freeShippingThreshold: null, enabled: true },
-      { id: 'express-province', name: 'Express province', fee: 45, freeShippingThreshold: 2000, enabled: true },
+      { id: 'standard', name: 'Standard', fee: 40, freeShippingThreshold: 1500, enabled: true },
+      { id: 'express-province', name: 'Express province', fee: 100, freeShippingThreshold: 2000, enabled: true },
     ],
     paymentMethods: [{ id: 'promptpay', enabled: true }, { id: 'cod', enabled: true }], orderPrefix: 'SM-',
   });
@@ -118,23 +119,66 @@ async function main() {
   await setDoc(doc(admin.db, 'config', 'payment'), { phone: '0812345678', payeeName: 'SOULMATE', enabled: true, updatedAt: serverTimestamp(), updatedBy: adminUser.uid });
   await adminDb.doc(`users/${adminUser.uid}`).update({ role: 'admin' });
 
-  // Checkout combinations: each payment method with each shipping option,
+  const matrixCustomer = client('rules-matrix-customer');
+  const matrixCustomerUser = (await createUserWithEmailAndPassword(matrixCustomer.auth, `matrix-${randomUUID()}@example.test`, 'test-password-123')).user;
+  await adminDb.doc(`users/${matrixCustomerUser.uid}`).set({ role: 'customer', status: 'active' });
+
+  // Checkout combinations: guests and signed-in customers, each payment method with each shipping option,
   // both below and above the express free-shipping threshold.
   for (const shipping of [
-    { id: 'standard', fee: 3000, threshold: null },
-    { id: 'express-province', fee: 4500, threshold: 2000 },
+    { id: 'standard', fee: 4000, threshold: 1500 },
+    { id: 'express-province', fee: 10000, threshold: 2000 },
   ]) {
     for (const method of ['manual_promptpay', 'cod']) {
       for (const price of [12950, 250000]) {
         const free = shipping.threshold != null && price >= shipping.threshold * 100;
         const shippingFeeSatang = free ? 0 : shipping.fee;
         await adminDb.doc(`inventory/${shippingMatrixProductId}/options/base`).update({ unitPriceSatang: price });
-        await place(buyer, 1, {
-          method, price, stockProductId: shippingMatrixProductId,
-          shippingMethodId: shipping.id, shippingFeeSatang,
-        });
+        for (const actor of [buyer, matrixCustomer]) {
+          const scenario = `${actor.auth.currentUser.isAnonymous ? 'guest' : 'customer'} ${shipping.id} ${method} ${price}`;
+          console.log(`CHECK checkout: ${scenario}`);
+          const id = await place(actor, 1, {
+            method, price, stockProductId: shippingMatrixProductId,
+            shippingMethodId: shipping.id, shippingFeeSatang,
+          });
+          const order = (await adminDb.doc(`orders/${id}`).get()).data();
+          assert.equal(order.payment.method, method);
+          assert.equal(order.shippingMethodId, shipping.id);
+          assert.equal(order.totalSatang, price + shippingFeeSatang);
+          console.log(`PASS checkout: ${scenario}`);
+        }
       }
     }
+  }
+
+  // Match the reported mixed-pack variant, amount and COD/express fee.
+  const mixedVariantId = 'mixed-pack';
+  const mixedStockPath = `inventory/${shippingMatrixProductId}/options/v_${mixedVariantId}`;
+  await adminDb.doc(mixedStockPath).set({
+    productId: shippingMatrixProductId, variantId: mixedVariantId, unitPriceSatang: 161900,
+    available: 10, stock: 10, active: true,
+  });
+  const mixedOrderArgs = { price: 161900, method: 'cod', stockProductId: shippingMatrixProductId,
+    variantId: mixedVariantId, shippingMethodId: 'express-province', shippingFeeSatang: 10000 };
+  const mixedId = await place(matrixCustomer, 1, mixedOrderArgs);
+  assert.equal((await adminDb.doc(`orders/${mixedId}`).get()).data().totalSatang, 171900);
+  assert.equal((await adminDb.doc(mixedStockPath).get()).data().available, 9);
+  console.log('PASS checkout: customer mixed-pack express COD total 171900');
+  for (const changes of [{ shippingFeeSatang: 0 }, { shippingMethodId: 'unknown' }, { method: 'unknown' }, { total: 1 }]) {
+    await assert.rejects(place(matrixCustomer, 1, { ...mixedOrderArgs, ...changes }), { code: 'permission-denied' });
+  }
+  await adminDb.doc('settings/public').update({ paymentMethods: [{ id: 'promptpay', enabled: true }, { id: 'cod', enabled: false }] });
+  await assert.rejects(place(matrixCustomer, 1, mixedOrderArgs), { code: 'permission-denied' });
+  assert.equal((await adminDb.doc(mixedStockPath).get()).data().available, 9);
+  console.log('PASS checkout: forged fee/total, unknown methods and disabled COD rejected without reserving stock');
+  // The remaining fulfillment tests use the original flat-rate fixture.
+  await adminDb.doc('settings/public').update({
+    shippingMethods: [{ id: 'standard', name: 'Standard', fee: 30, freeShippingThreshold: null, enabled: true }],
+    paymentMethods: [{ id: 'promptpay', enabled: true }, { id: 'cod', enabled: true }],
+  });
+  if (process.argv.includes('--checkout-only')) {
+    console.log('PASS checkout regression: 16 combinations, mixed variant and rejected tampering');
+    return;
   }
 
   const adminOrderId = await place(admin, 1);
@@ -214,7 +258,7 @@ async function main() {
       schemaVersion: 2, orderNumber,
       ownerUid: buyer.auth.currentUser.uid, ownerType: 'guest', contact,
       items: fiveIds.map((id) => ({ productId: id, optionId: 'base', productName: 'Rules smoke product', variantId: null, variantName: null, unitPriceSatang: 12950, quantity: 1, productImage: null, lineTotalSatang: 12950 })),
-      subtotalSatang: 64750, shippingFeeSatang: 3000, totalSatang: 67750, currency: 'THB',
+      subtotalSatang: 64750, shippingMethodId: 'standard', shippingFeeSatang: 3000, totalSatang: 67750, currency: 'THB',
       status: 'pending_payment', payment: { method: 'manual_promptpay', status: 'pending', promptPayPhone: '0812345678' },
       fulfillmentStatus: 'awaiting_payment', codAcceptance: null, shippingRevision: 0,
       slipPath: null, submittedAt: null, review: null, inventoryRestored: false,
@@ -250,7 +294,7 @@ async function main() {
       schemaVersion: 2, orderNumber,
       ownerUid: adminUser.uid, ownerType: 'customer', contact,
       items: adminMultiIds.map((id) => ({ productId: id, optionId: 'base', productName: 'Admin checkout product', variantId: null, variantName: null, unitPriceSatang: 12950, quantity: 1, productImage: null, lineTotalSatang: 12950 })),
-      subtotalSatang: 25900, shippingFeeSatang: 3000, totalSatang: 28900, currency: 'THB',
+      subtotalSatang: 25900, shippingMethodId: 'standard', shippingFeeSatang: 3000, totalSatang: 28900, currency: 'THB',
       status: 'pending_payment', payment: { method: 'manual_promptpay', status: 'pending', promptPayPhone: '0812345678' },
       fulfillmentStatus: 'awaiting_payment', codAcceptance: null, shippingRevision: 0,
       slipPath: null, submittedAt: null, review: null, inventoryRestored: false,
@@ -283,7 +327,7 @@ async function main() {
       schemaVersion: 2, orderNumber,
       ownerUid: customerUser.uid, ownerType: 'customer', contact,
       items: variantIds.map(({ productId: id, variantId }) => ({ productId: id, optionId: `v_${variantId}`, productName: 'Variant checkout product', variantId, variantName: '1 item', unitPriceSatang: 39900, quantity: 1, productImage: null, lineTotalSatang: 39900 })),
-      subtotalSatang: 119700, shippingFeeSatang: 3000, totalSatang: 122700, currency: 'THB',
+      subtotalSatang: 119700, shippingMethodId: 'standard', shippingFeeSatang: 3000, totalSatang: 122700, currency: 'THB',
       status: 'pending_payment', payment: { method: 'manual_promptpay', status: 'pending', promptPayPhone: '0812345678' },
       fulfillmentStatus: 'awaiting_payment', codAcceptance: null, shippingRevision: 0,
       slipPath: null, submittedAt: null, review: null, inventoryRestored: false,

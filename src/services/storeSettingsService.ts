@@ -62,6 +62,38 @@ export async function saveStoreSettings(settings: StoreSettings): Promise<void> 
   }
 }
 
+export async function saveOperationalStoreSettings(settings: Pick<StoreSettings, 'shippingMethods' | 'announcements' | 'paymentMethods'>): Promise<void> {
+  if (!db || !auth?.currentUser) throw new Error('กรุณาเข้าสู่ระบบผู้ดูแลก่อนบันทึก');
+  const operationalSettings = {
+    shippingMethods: settings.shippingMethods ?? [],
+    announcements: settings.announcements ?? [],
+    ...(settings.paymentMethods ? { paymentMethods: settings.paymentMethods } : {}),
+    updatedAt: serverTimestamp(),
+    updatedBy: auth.currentUser.uid,
+  };
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'settings', 'store'), operationalSettings, { merge: true });
+  batch.set(doc(db, 'settings', 'public'), operationalSettings, { merge: true });
+  if (settings.paymentMethods) {
+    const paymentRef = doc(db, 'config', 'payment');
+    const paymentSnapshot = await getDoc(paymentRef);
+    const promptpay = settings.paymentMethods.find((method) => method.id === 'promptpay');
+    if (paymentSnapshot.exists() && promptpay) {
+      batch.update(paymentRef, {
+        enabled: promptpay.enabled,
+        updatedAt: serverTimestamp(),
+        updatedBy: auth.currentUser.uid,
+      });
+    }
+  }
+  try {
+    await batch.commit();
+  } catch (error) {
+    console.error('[SOULMATE Settings] Failed writing operational settings', error);
+    throw new Error(`บันทึกการจัดส่งและประกาศหน้าร้านไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 export async function uploadStoreLogo(file: File): Promise<string> {
   if (!storage || !auth?.currentUser) throw new Error('กรุณาเข้าสู่ระบบผู้ดูแลก่อนอัปโหลด');
   if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 5 * 1024 * 1024) {

@@ -15,6 +15,7 @@ import { StorefrontArticlePage, StorefrontContentPage, userFacingPages } from '.
 import { AdminOrdersPage, AdminPaymentSettingsPage, CustomerOrdersPage, OrderConfirmationPage } from './components/OrderPages';
 import { AdminFulfillmentPage } from './components/AdminFulfillmentPage';
 import { AdminBannersPage, AdminBannerFormPage } from './components/AdminBannersPage';
+import { AdminRoleManagementPage } from './components/AdminRoleManagementPage';
 
 function getScreen(id: string): ScreenDefinition {
   const found = SCREENS.find((s) => s.id === id);
@@ -352,9 +353,13 @@ export default function App() {
               }
             />
             <Route
+              path="/admin/admins"
+              element={<AdminProtectedRoute requiredRole="super_admin"><AdminRoleManagementPage /></AdminProtectedRoute>}
+            />
+            <Route
               path="/admin/settings"
               element={
-                <AdminProtectedRoute requiredRole="super_admin">
+                <AdminProtectedRoute>
                   <ScreenRenderer
                     screen={adminSettingsScreen}
                     routeType="admin"

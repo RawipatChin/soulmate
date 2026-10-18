@@ -53,7 +53,7 @@ import { renderStorefrontProductCard } from './storefront/StorefrontProductCard'
 import { clearPendingOrderRequestKey, createPendingOrder, findMissingVariantSelection, listAdminOrders, OrderReviewError, OrderUnavailableItemError } from '../services/orderService';
 import { orderFailureMessage } from '../services/orderFailure';
 import { getPromptPayConfig, getPromptPaySettings, savePromptPaySettings } from '../services/orderService';
-import { getPublicStoreSettings, getStoreSettings, saveStoreSettings, uploadStoreLogo, type ShippingMethodSetting } from '../services/storeSettingsService';
+import { getPublicStoreSettings, getStoreSettings, saveOperationalStoreSettings, saveStoreSettings, uploadStoreLogo, type ShippingMethodSetting } from '../services/storeSettingsService';
 import { getActiveBanners } from '../services/bannerService';
 import type { StoreBanner } from '../services/bannerService';
 
@@ -529,7 +529,7 @@ const dashboardHtmlPath =
 let dashboardShellRequest: Promise<string> | null = null;
 const adminSidebarRoots = new WeakMap<HTMLElement, Root>();
 const adminNotificationRoots = new WeakMap<HTMLElement, Root>();
-function mountAdminSidebarNav(doc: Document, pathname: string) {
+function mountAdminSidebarNav(doc: Document, pathname: string, isSuperAdmin: boolean) {
   const nav = doc.querySelector<HTMLElement>('#soulmate-admin-sidebar nav');
   if (!nav) return;
   let root = adminSidebarRoots.get(nav);
@@ -537,7 +537,26 @@ function mountAdminSidebarNav(doc: Document, pathname: string) {
     root = createRoot(nav);
     adminSidebarRoots.set(nav, root);
   }
-  root.render(<AdminSidebarNav pathname={pathname} />);
+  root.render(<AdminSidebarNav pathname={pathname} isSuperAdmin={isSuperAdmin} />);
+}
+
+function configureAdminAccount(doc: Document, profile: ReturnType<typeof useAuth>['customerProfile'], user: ReturnType<typeof useAuth>['user']) {
+  const displayName = profile?.displayName?.trim() ||
+    [profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim() ||
+    user?.displayName?.trim() || user?.email?.split('@')[0] || 'ผู้ดูแลระบบ';
+  const email = user?.email || profile?.email || '';
+  const role = profile?.role === 'super_admin' ? 'Super Admin' : 'Admin';
+
+  doc.querySelectorAll<HTMLElement>('[data-admin-account-name]').forEach((element) => {
+    element.textContent = displayName;
+  });
+  doc.querySelectorAll<HTMLElement>('[data-admin-account-email]').forEach((element) => {
+    element.textContent = email;
+    element.title = email;
+  });
+  doc.querySelectorAll<HTMLElement>('[data-admin-account-role]').forEach((element) => {
+    element.textContent = role;
+  });
 }
 
 function mountAdminNotificationBell(doc: Document, navigate: (path: string) => void) {
@@ -758,25 +777,42 @@ async function applyPublicStoreSettings(doc: Document, pathname: string) {
   }
 }
 
-async function configureAdminSettingsPage(doc: Document, win: any) {
+async function configureAdminSettingsPage(doc: Document, win: any, isSuperAdmin: boolean) {
   const form = doc.getElementById('settingsForm') as HTMLFormElement | null;
   if (!form) return;
   const storeSection = doc.getElementById('storeSettingsSection1');
   const shippingSection = doc.getElementById('storeSettingsSection2');
+  const orderSection = doc.getElementById('storeSettingsSection3');
   const paymentSection = doc.getElementById('storeSettingsSection4');
   const storefrontSection = doc.getElementById('storeSettingsSection5');
   const systemSection = doc.getElementById('storeSettingsSection6');
+  if (!isSuperAdmin) {
+    storeSection?.remove();
+  }
   systemSection?.remove();
   doc.querySelector('main > div > header')?.remove();
   doc.getElementById('unsavedBanner')?.remove();
-  if (!storeSection || !shippingSection || !paymentSection || !storefrontSection) return;
+  if (!shippingSection || !storefrontSection || !paymentSection || (isSuperAdmin && !storeSection)) return;
+  const defaultOrderStatus = doc.getElementById('defaultOrderStatus') as HTMLSelectElement | null;
+  if (defaultOrderStatus) {
+    defaultOrderStatus.disabled = true;
+    defaultOrderStatus.setAttribute('aria-describedby', 'order-status-readonly-note');
+    const note = doc.createElement('p');
+    note.id = 'order-status-readonly-note';
+    note.className = 'text-xs text-on-surface-variant';
+    note.textContent = 'ระบบกำหนดสถานะเริ่มต้นเป็น “รอชำระเงิน” อัตโนมัติ';
+    defaultOrderStatus.insertAdjacentElement('afterend', note);
+  }
 
   const inputClass = 'w-full h-10 px-3 rounded-lg border border-outline-variant/60 bg-white text-on-surface';
   const status = doc.getElementById('saveStatusNote');
   const saveBar = doc.getElementById('settings-save-bar');
+  let currentSettingsSnapshot = () => '';
+  let initialSettingsSnapshot = '';
   const markDirty = () => {
-    if (win.__soulmateSettingsGuard) win.__soulmateSettingsGuard.dirty = true;
-    if (saveBar) saveBar.hidden = false;
+    const dirty = currentSettingsSnapshot() !== initialSettingsSnapshot;
+    if (win.__soulmateSettingsGuard) win.__soulmateSettingsGuard.dirty = dirty;
+    if (saveBar) saveBar.hidden = !dirty;
   };
   form.addEventListener('input', markDirty);
   form.addEventListener('change', markDirty);
@@ -809,6 +845,7 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
       .payment-method-switch-thumb { width: 20px; height: 20px; border-radius: 999px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.2); transform: translateX(0); transition: transform 150ms ease; }
       .payment-method-switch[aria-checked="true"] .payment-method-switch-track { background: #2d6857; }
       .payment-method-switch[aria-checked="true"] .payment-method-switch-thumb { transform: translateX(18px); }
+      .payment-method-switch:disabled { cursor: not-allowed; opacity: .55; }
       .payment-method-switch:focus-visible { outline: 2px solid #2d6857; outline-offset: 2px; border-radius: 999px; }
       @media (prefers-reduced-motion: reduce) { .payment-method-switch-track, .payment-method-switch-thumb { transition: none; } }
     `;
@@ -828,11 +865,14 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
   let announcements: string[] = [];
   let paymentConfig: { phone: string; payeeName: string; enabled: boolean } | null = null;
   let store: Awaited<ReturnType<typeof getStoreSettings>> = {};
-  const [storeResult, paymentResult] = await Promise.allSettled([getStoreSettings(), getPromptPayConfig()]);
+  const [storeResult, paymentResult] = await Promise.allSettled([
+    getStoreSettings(),
+    getPromptPayConfig(),
+  ]);
   if (storeResult.status === 'fulfilled') store = storeResult.value;
   else if (status) status.textContent = 'โหลดการตั้งค่าร้านเดิมไม่สำเร็จ ระบบจะแสดงค่าเริ่มต้น';
   if (paymentResult.status === 'fulfilled') paymentConfig = paymentResult.value;
-  if (storeResult.status === 'fulfilled' && (store.shippingMethods?.length || store.paymentMethods?.length)) {
+  if (isSuperAdmin && storeResult.status === 'fulfilled' && (store.shippingMethods?.length || store.paymentMethods?.length)) {
     try {
       const publicStore = await getPublicStoreSettings();
       const needsPublicSync = JSON.stringify(publicStore.shippingMethods ?? []) !== JSON.stringify(store.shippingMethods ?? []) ||
@@ -842,13 +882,16 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
       console.warn('[SOULMATE Settings] Could not sync checkout settings to public config', error);
     }
   }
-  if (store.storeName) (form.elements.namedItem('storeName') as HTMLInputElement).value = store.storeName;
-  for (const key of ['contactEmail', 'contactPhone', 'lineOfficial', 'storeAddress'] as const) {
-    const field = form.elements.namedItem(key) as HTMLInputElement | HTMLTextAreaElement | null;
-    if (field && store[key] != null) field.value = store[key]!;
+  if (isSuperAdmin) {
+    const storeName = form.elements.namedItem('storeName') as HTMLInputElement | null;
+    if (storeName && store.storeName) storeName.value = store.storeName;
+    for (const key of ['contactEmail', 'contactPhone', 'lineOfficial', 'storeAddress'] as const) {
+      const field = form.elements.namedItem(key) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (field && store[key] != null) field.value = store[key]!;
+    }
   }
   const logoPreview = doc.getElementById('storeLogoPreview') as HTMLImageElement | null;
-  if (logoPreview && store.logoUrl) logoPreview.src = store.logoUrl;
+  if (isSuperAdmin && logoPreview && store.logoUrl) logoPreview.src = store.logoUrl;
   const sidebarLogo = doc.querySelector<HTMLImageElement>('#soulmate-admin-sidebar img[alt="SOULMATE"]');
   if (sidebarLogo && store.logoUrl) sidebarLogo.src = store.logoUrl;
   shipping = store.shippingMethods?.length ? store.shippingMethods.map((item) => ({ ...item })) : [
@@ -912,16 +955,18 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
   }
 
   // Payment methods use compact rows; PromptPay details live in a focused dialog.
-  const paymentHeader = paymentSection.querySelector(':scope > div:first-child');
+  const paymentSettingsSection = paymentSection ?? doc.createElement('section');
+  const paymentHeader = paymentSettingsSection.querySelector(':scope > div:first-child');
   const paymentEditor = doc.createElement('div'); paymentEditor.className = 'flex flex-col gap-3';
-  paymentSection.querySelectorAll(':scope > div').forEach((element) => { if (element !== paymentHeader) element.remove(); });
-  paymentSection.append(paymentEditor);
+  paymentSettingsSection.querySelectorAll(':scope > div').forEach((element) => { if (element !== paymentHeader) element.remove(); });
+  paymentSettingsSection.append(paymentEditor);
   const storedCodMethod = store.paymentMethods?.find((method) => method.id === 'cod');
+  const storedPromptpayMethod = store.paymentMethods?.find((method) => method.id === 'promptpay');
   const methods = [
-    { id: 'promptpay', label: 'PromptPay / QR Payment', icon: 'qr_code_2', enabled: paymentConfig?.enabled ?? true, removable: false },
+    { id: 'promptpay', label: 'PromptPay / QR Payment', icon: 'qr_code_2', enabled: Boolean(paymentConfig?.enabled && (storedPromptpayMethod?.enabled ?? true)), removable: false },
     ...(store.paymentMethods?.length && !storedCodMethod ? [] : [{ id: 'cod', label: 'เก็บเงินปลายทาง (Cash on Delivery - COD)', icon: 'local_atm', enabled: storedCodMethod?.enabled ?? true, removable: true }]),
   ];
-  if (paymentSection.querySelector('#paymentAccountFields')) paymentSection.querySelector('#paymentAccountFields')?.remove();
+  if (paymentSettingsSection.querySelector('#paymentAccountFields')) paymentSettingsSection.querySelector('#paymentAccountFields')?.remove();
   const payeeFields = doc.createElement('div'); payeeFields.id = 'paymentAccountFields'; payeeFields.className = 'grid grid-cols-1 gap-3 rounded-xl border border-outline-variant/50 bg-surface-container-low p-3 sm:grid-cols-2';
   const payeeName = makeInput('ชื่อบัญชีรับเงิน', 'promptpayPayeeName'); payeeName.value = paymentConfig?.payeeName ?? '';
   const payeePhone = makeInput('เบอร์ที่ผูกกับ PromptPay', 'promptpayPhone', 'tel'); payeePhone.value = paymentConfig?.phone ?? ''; payeePhone.placeholder = '08XXXXXXXX'; payeePhone.maxLength = 10; payeePhone.inputMode = 'numeric';
@@ -954,10 +999,10 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
   dialogFooter.append(dialogDone);
   paymentDialog.append(dialogHeader, payeeFields, dialogFooter);
   paymentDialog.addEventListener('click', (event) => { if (event.target === paymentDialog) paymentDialog.close(); });
-  doc.body.append(paymentDialog);
+  if (isSuperAdmin) doc.body.append(paymentDialog);
   const renderPaymentMethods = () => {
     paymentEditor.replaceChildren();
-    const count = paymentSection.querySelector('#paymentMethodCount');
+    const count = paymentSettingsSection.querySelector('#paymentMethodCount');
     if (count) count.textContent = `เปิดใช้ ${methods.filter((method) => method.enabled).length} วิธี`;
     methods.forEach((method) => {
       const row = doc.createElement('div'); row.className = 'grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-outline-variant/50 bg-white p-3';
@@ -967,23 +1012,55 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
       info.append(label);
       const actions = doc.createElement('div'); actions.className = 'flex flex-wrap items-center justify-end gap-3';
       const toggle = makeSwitch(`เปิดใช้ ${method.label}`, method.enabled);
+      const accountConfigured = Boolean(paymentConfig?.phone && paymentConfig?.payeeName);
+      if (!isSuperAdmin && method.id === 'promptpay' && !accountConfigured) {
+        toggle.wrap.disabled = true;
+        toggle.wrap.title = 'ต้องตั้งค่าบัญชีรับเงินโดย Super Admin ก่อน';
+      }
       if (method.id === 'promptpay') {
-        const setup = doc.createElement('button'); setup.type = 'button'; setup.className = 'rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium hover:bg-surface-container-low'; setup.textContent = 'ตั้งค่า PromptPay';
-        setup.addEventListener('click', () => paymentDialog.showModal());
-        actions.append(setup, toggle.wrap);
+        if (isSuperAdmin) {
+          const setup = doc.createElement('button'); setup.type = 'button'; setup.className = 'rounded-lg border border-outline-variant px-3 py-2 text-sm font-medium hover:bg-surface-container-low'; setup.textContent = 'ตั้งค่า PromptPay';
+          setup.addEventListener('click', () => paymentDialog.showModal());
+          actions.append(setup, toggle.wrap);
+        } else {
+          const details = doc.createElement('p'); details.className = 'mt-1 text-xs text-on-surface-variant';
+          details.textContent = accountConfigured
+            ? `${paymentConfig!.payeeName} · ${paymentConfig!.phone}`
+            : 'ยังไม่ได้ตั้งค่าบัญชีรับเงิน กรุณาติดต่อ Super Admin';
+          info.append(details);
+          actions.append(toggle.wrap);
+        }
       } else if (method.removable) {
-        const remove = doc.createElement('button'); remove.type = 'button'; remove.className = 'rounded-lg border border-outline-variant px-3 py-2 text-sm'; remove.textContent = 'ลบวิธีการออก'; remove.addEventListener('click', () => { methods.splice(methods.indexOf(method), 1); renderPaymentMethods(); markDirty(); }); actions.append(remove, toggle.wrap);
+        if (isSuperAdmin) {
+          const remove = doc.createElement('button'); remove.type = 'button'; remove.className = 'rounded-lg border border-outline-variant px-3 py-2 text-sm'; remove.textContent = 'ลบวิธีการออก'; remove.addEventListener('click', () => { methods.splice(methods.indexOf(method), 1); renderPaymentMethods(); markDirty(); }); actions.append(remove, toggle.wrap);
+        } else actions.append(toggle.wrap);
       } else {
         actions.append(toggle.wrap);
       }
-      toggle.wrap.addEventListener('click', () => { method.enabled = !method.enabled; toggle.setChecked(method.enabled); markDirty(); renderPaymentMethods(); });
+      toggle.wrap.addEventListener('click', () => { if (toggle.wrap.disabled) return; method.enabled = !method.enabled; toggle.setChecked(method.enabled); markDirty(); renderPaymentMethods(); });
       row.append(icon, info, actions); paymentEditor.append(row);
     });
-    const add = doc.createElement('button'); add.type = 'button'; add.className = 'rounded-xl border border-outline-variant px-4 py-3 font-medium text-primary hover:bg-primary-container/30'; add.textContent = '+ เพิ่มวิธีชำระเงิน';
-    add.addEventListener('click', () => { if (!methods.some((method) => method.id === 'cod')) methods.push({ id: 'cod', label: 'เก็บเงินปลายทาง (Cash on Delivery - COD)', icon: 'local_atm', enabled: true, removable: true }); else { const next = methods.find((method) => method.id === 'card'); if (!next) methods.push({ id: 'card', label: 'บัตรเครดิต / บัตรเดบิต', icon: 'credit_card', enabled: false, removable: true }); } renderPaymentMethods(); markDirty(); });
-    paymentEditor.append(add);
+    if (isSuperAdmin && !methods.some((method) => method.id === 'cod')) {
+      const add = doc.createElement('button'); add.type = 'button'; add.className = 'rounded-xl border border-outline-variant px-4 py-3 font-medium text-primary hover:bg-primary-container/30'; add.textContent = '+ เพิ่มเก็บเงินปลายทาง';
+      add.addEventListener('click', () => { methods.push({ id: 'cod', label: 'เก็บเงินปลายทาง (Cash on Delivery - COD)', icon: 'local_atm', enabled: true, removable: true }); renderPaymentMethods(); markDirty(); });
+      paymentEditor.append(add);
+    }
   };
   renderPaymentMethods();
+  currentSettingsSnapshot = () => JSON.stringify({
+    fields: Array.from(form.elements).map((element) => {
+      const field = element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      if (!field.name || (field.tagName === 'INPUT' && (field as HTMLInputElement).type === 'file')) return null;
+      return [field.name, 'checked' in field ? field.checked : field.value];
+    }).filter(Boolean),
+    shipping,
+    announcements,
+    methods,
+    ...(isSuperAdmin ? { promptpayPhone: payeePhone.value, promptpayName: payeeName.value, logoUrl: store.logoUrl ?? '' } : {}),
+  });
+  initialSettingsSnapshot = currentSettingsSnapshot();
+  if (saveBar) saveBar.hidden = true;
+  win.__soulmateSettingsGuard.dirty = false;
   const logoInput = doc.getElementById('storeLogoInput') as HTMLInputElement | null;
   logoInput?.addEventListener('change', async () => {
     const file = logoInput.files?.[0]; if (!file || !logoPreview) return;
@@ -1002,19 +1079,28 @@ async function configureAdminSettingsPage(doc: Document, win: any) {
     try {
       const value = (name: string) => (form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null)?.value.trim() ?? '';
       const promptpay = methods.find((method) => method.id === 'promptpay');
-      if (promptpay?.enabled && (!payeeName.value.trim() || !/^0\d{9}$/.test(payeePhone.value.trim()))) {
+      if (isSuperAdmin && promptpay?.enabled && (!payeeName.value.trim() || !/^0\d{9}$/.test(payeePhone.value.trim()))) {
         if (status) status.textContent = 'กรอกชื่อบัญชีและเบอร์ PromptPay 10 หลักก่อนบันทึก';
         if (!paymentDialog.open) paymentDialog.showModal();
         (payeeName.value.trim() ? payeePhone : payeeName).focus();
         return false;
       }
-      await saveStoreSettings({
-        storeName: value('storeName'), contactEmail: value('contactEmail'), contactPhone: value('contactPhone'),
-        lineOfficial: value('lineOfficial'), storeAddress: value('storeAddress'), logoUrl: store.logoUrl ?? '',
-        shippingMethods: shipping, announcements: announcements.map((message) => message.trim()).filter(Boolean),
-        paymentMethods: methods.map(({ id, enabled }) => ({ id, enabled })),
-      });
-      await savePromptPaySettings(payeePhone.value.trim(), payeeName.value.trim(), promptpay?.enabled ?? false);
+      if (isSuperAdmin) {
+        await saveStoreSettings({
+          storeName: value('storeName'), contactEmail: value('contactEmail'), contactPhone: value('contactPhone'),
+          lineOfficial: value('lineOfficial'), storeAddress: value('storeAddress'), logoUrl: store.logoUrl ?? '',
+          shippingMethods: shipping, announcements: announcements.map((message) => message.trim()).filter(Boolean),
+          paymentMethods: methods.map(({ id, enabled }) => ({ id, enabled })),
+        });
+        await savePromptPaySettings(payeePhone.value.trim(), payeeName.value.trim(), promptpay?.enabled ?? false);
+      } else {
+        await saveOperationalStoreSettings({
+          shippingMethods: shipping,
+          announcements: announcements.map((message) => message.trim()).filter(Boolean),
+          paymentMethods: methods.map(({ id, enabled }) => ({ id, enabled })),
+        });
+      }
+      initialSettingsSnapshot = currentSettingsSnapshot();
       win.__soulmateSettingsGuard.dirty = false;
       if (saveBar) saveBar.hidden = true;
       if (status) status.textContent = 'บันทึกการตั้งค่าแล้ว';
@@ -1066,6 +1152,11 @@ function resolveAdminNavigationTarget(rawTarget: string): string {
     '/coupons': '/admin/coupons',
     'admin-coupons': '/admin/coupons',
     '/admin/coupons': '/admin/coupons',
+
+    'admin-roles': '/admin/admins',
+    '/admin/admins': '/admin/admins',
+    'admins': '/admin/admins',
+    'ผู้ดูแลและสิทธิ์': '/admin/admins',
 
     'settings': '/admin/settings',
     '/settings': '/admin/settings',
@@ -1545,20 +1636,20 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
         .map((item) => {
           const lineTotal = item.unitPrice * item.quantity;
           return `
-          <article class="bg-surface-container-lowest rounded-xl p-space-md flex flex-col gap-space-sm shadow-xs" data-cart-item-id="${item.id}">
+          <article class="bg-surface-container-lowest rounded-xl p-space-md flex flex-col gap-space-sm shadow-xs" data-cart-item-id="${escapeHtml(item.id)}">
             <div class="flex gap-space-md">
               <div class="w-20 h-20 rounded-lg bg-surface-container-low flex items-center justify-center overflow-hidden shrink-0">
                 ${
                   item.productImage
-                    ? `<img class="w-full h-full object-cover" src="${item.productImage}" alt="${item.productName}">`
+                    ? `<img class="w-full h-full object-cover" src="${escapeHtml(item.productImage)}" alt="${escapeHtml(item.productName)}">`
                     : `<span class="material-symbols-outlined text-primary text-[32px]">spa</span>`
                 }
               </div>
               <div class="flex flex-col flex-1 min-w-0 justify-between">
                 <div>
                   <span class="font-label-sm text-label-sm text-primary font-semibold">SOULMATE</span>
-                  <h3 class="font-headline-sm text-headline-sm text-on-surface truncate">${item.productName}</h3>
-                  ${item.variantName ? `<p class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">${item.variantName}</p>` : ''}
+                  <h3 class="font-headline-sm text-headline-sm text-on-surface truncate">${escapeHtml(item.productName)}</h3>
+                  ${item.variantName ? `<p class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">${escapeHtml(item.variantName)}</p>` : ''}
                 </div>
                 <div class="flex items-center justify-between mt-space-xs">
                   <span class="font-headline-sm text-headline-sm text-on-surface font-bold">฿${item.unitPrice.toLocaleString('th-TH')}</span>
@@ -1568,16 +1659,16 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
             </div>
             <!-- Stepper & Actions -->
             <div class="flex items-center justify-between pt-space-xs bg-surface-container-low/50 px-space-sm py-1.5 rounded-lg">
-              <button class="flex items-center gap-1 text-on-surface-variant hover:text-error transition-colors text-label-sm font-label-sm" data-cart-action="remove" data-cart-id="${item.id}" type="button">
+              <button class="flex items-center gap-1 text-on-surface-variant hover:text-error transition-colors text-label-sm font-label-sm" data-cart-action="remove" data-cart-id="${escapeHtml(item.id)}" type="button">
                 <span class="material-symbols-outlined text-[18px]">delete</span>
                 <span>ลบ</span>
               </button>
               <div class="flex items-center bg-surface-container-lowest rounded-full shadow-xs px-1">
-                <button aria-label="ลดจำนวน" class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary active:scale-90 transition-transform font-bold" data-cart-action="decrease" data-cart-id="${item.id}" type="button">
+                <button aria-label="ลดจำนวน" class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary active:scale-90 transition-transform font-bold" data-cart-action="decrease" data-cart-id="${escapeHtml(item.id)}" type="button">
                   <span class="material-symbols-outlined text-[16px]">remove</span>
                 </button>
                 <span class="w-8 text-center font-label-md text-label-md font-semibold text-on-surface select-none">${item.quantity}</span>
-                <button aria-label="เพิ่มจำนวน" class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary active:scale-90 transition-transform font-bold" data-cart-action="increase" data-cart-id="${item.id}" type="button">
+                <button aria-label="เพิ่มจำนวน" class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary active:scale-90 transition-transform font-bold" data-cart-action="increase" data-cart-id="${escapeHtml(item.id)}" type="button">
                   <span class="material-symbols-outlined text-[16px]">add</span>
                 </button>
               </div>
@@ -1821,13 +1912,13 @@ function renderCheckoutSummary(doc: Document, win: any, cart: CartContextType) {
                   <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0">
                     ${
                       item.productImage
-                        ? `<img src="${item.productImage}" class="w-full h-full object-cover" alt="${item.productName}" />`
+                        ? `<img src="${escapeHtml(item.productImage)}" class="w-full h-full object-cover" alt="${escapeHtml(item.productName)}" />`
                         : `<span class="material-symbols-outlined text-gray-400 text-base">spa</span>`
                     }
                   </div>
                   <div class="min-w-0 flex-1">
-                    <p class="font-medium text-gray-900 truncate">${item.productName}</p>
-                    ${item.variantName ? `<p class="text-[10px] text-gray-500">${item.variantName}</p>` : ''}
+                    <p class="font-medium text-gray-900 truncate">${escapeHtml(item.productName)}</p>
+                    ${item.variantName ? `<p class="text-[10px] text-gray-500">${escapeHtml(item.variantName)}</p>` : ''}
                     <p class="text-[10px] text-gray-400">฿${item.unitPrice.toLocaleString('th-TH')} × ${item.quantity}</p>
                   </div>
                 </div>
@@ -2019,10 +2110,10 @@ function wireProductImageUpload(
         productImages.forEach((img, idx) => {
           const isPrimary = !!img.isPrimary;
           html += `
-            <div class="aspect-square rounded-2xl bg-surface-container-low flex flex-col items-center justify-center p-space-sm relative text-center group overflow-hidden ${isPrimary ? 'border-2 border-primary ring-2 ring-primary/20' : 'border border-surface-container-high/60'}" data-image-id="${img.id}">
+            <div class="aspect-square rounded-2xl bg-surface-container-low flex flex-col items-center justify-center p-space-sm relative text-center group overflow-hidden ${isPrimary ? 'border-2 border-primary ring-2 ring-primary/20' : 'border border-surface-container-high/60'}" data-image-id="${escapeHtml(img.id)}">
               ${
                 img.url
-                  ? `<img src="${img.url}" alt="รูปสินค้า ${idx + 1}" class="w-full h-full object-cover rounded-xl" onerror="this.onerror=null; this.classList.add('hidden'); this.parentElement.querySelector('.broken-fallback')?.classList.remove('hidden');" />
+                  ? `<img src="${escapeHtml(img.url)}" alt="รูปสินค้า ${idx + 1}" class="w-full h-full object-cover rounded-xl" onerror="this.onerror=null; this.classList.add('hidden'); this.parentElement.querySelector('.broken-fallback')?.classList.remove('hidden');" />
                      <div class="broken-fallback hidden absolute inset-0 flex flex-col items-center justify-center bg-surface-container-high/80 text-on-surface-variant p-2 text-center">
                        <span class="material-symbols-outlined text-[28px] text-secondary">broken_image</span>
                        <span class="text-[11px] text-secondary mt-1 font-medium">ไม่สามารถแสดงรูปภาพ</span>
@@ -2040,7 +2131,7 @@ function wireProductImageUpload(
                         <span class="material-symbols-outlined text-[14px]">star</span>
                         <span>รูปหน้าปก</span>
                        </span>`
-                    : `<button type="button" data-set-cover-id="${img.id}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest/95 hover:bg-surface-container-lowest text-on-surface hover:text-primary font-label-sm text-[11px] font-medium shadow-sm transition-colors cursor-pointer" title="ตั้งเป็นรูปหน้าปก">
+                    : `<button type="button" data-set-cover-id="${escapeHtml(img.id)}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest/95 hover:bg-surface-container-lowest text-on-surface hover:text-primary font-label-sm text-[11px] font-medium shadow-sm transition-colors cursor-pointer" title="ตั้งเป็นรูปหน้าปก">
                         <span class="material-symbols-outlined text-[15px] text-amber-500">star_outline</span>
                         <span>ตั้งเป็นหน้าปก</span>
                        </button>`
@@ -2048,7 +2139,7 @@ function wireProductImageUpload(
               </div>
               <!-- Remove Button (Top-Right) -->
               <div class="absolute top-2 right-2 z-10 opacity-90 group-hover:opacity-100 transition-opacity">
-                <button type="button" data-remove-image-id="${img.id}" class="w-7 h-7 rounded-full bg-surface-container-lowest/95 hover:bg-error hover:text-white text-on-surface-variant shadow-sm flex items-center justify-center transition-colors cursor-pointer" title="ลบรูปภาพ">
+                <button type="button" data-remove-image-id="${escapeHtml(img.id)}" class="w-7 h-7 rounded-full bg-surface-container-lowest/95 hover:bg-error hover:text-white text-on-surface-variant shadow-sm flex items-center justify-center transition-colors cursor-pointer" title="ลบรูปภาพ">
                   <span class="material-symbols-outlined text-[16px]">close</span>
                 </button>
               </div>
@@ -2079,10 +2170,10 @@ function wireProductImageUpload(
           productImages.forEach((img, idx) => {
             const isPrimary = !!img.isPrimary;
             html += `
-              <div class="relative group rounded-2xl overflow-hidden aspect-square bg-surface-container-low transition-all shadow-xs ${isPrimary ? 'border-2 border-primary ring-2 ring-primary/20' : 'border border-surface-container-high/60'}" data-image-id="${img.id}">
+              <div class="relative group rounded-2xl overflow-hidden aspect-square bg-surface-container-low transition-all shadow-xs ${isPrimary ? 'border-2 border-primary ring-2 ring-primary/20' : 'border border-surface-container-high/60'}" data-image-id="${escapeHtml(img.id)}">
                 ${
                   img.url
-                    ? `<img class="w-full h-full object-cover" src="${img.url}" alt="รูปสินค้า ${idx + 1}" onerror="this.onerror=null; this.classList.add('hidden'); this.parentElement.querySelector('.broken-fallback')?.classList.remove('hidden');" />
+                    ? `<img class="w-full h-full object-cover" src="${escapeHtml(img.url)}" alt="รูปสินค้า ${idx + 1}" onerror="this.onerror=null; this.classList.add('hidden'); this.parentElement.querySelector('.broken-fallback')?.classList.remove('hidden');" />
                        <div class="broken-fallback hidden absolute inset-0 flex flex-col items-center justify-center bg-surface-container-high/80 text-on-surface-variant p-2 text-center">
                          <span class="material-symbols-outlined text-[28px] text-secondary">broken_image</span>
                          <span class="text-[11px] text-secondary mt-1 font-medium">ไม่สามารถแสดงรูปภาพ</span>
@@ -2100,7 +2191,7 @@ function wireProductImageUpload(
                           <span class="material-symbols-outlined text-[14px]">star</span>
                           <span>รูปหน้าปก</span>
                          </span>`
-                      : `<button type="button" data-set-cover-id="${img.id}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest/95 hover:bg-surface-container-lowest text-on-surface hover:text-primary font-label-sm text-[11px] font-medium shadow-sm transition-colors cursor-pointer" title="ตั้งเป็นรูปหน้าปก">
+                      : `<button type="button" data-set-cover-id="${escapeHtml(img.id)}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest/95 hover:bg-surface-container-lowest text-on-surface hover:text-primary font-label-sm text-[11px] font-medium shadow-sm transition-colors cursor-pointer" title="ตั้งเป็นรูปหน้าปก">
                           <span class="material-symbols-outlined text-[15px] text-amber-500">star_outline</span>
                           <span>ตั้งเป็นหน้าปก</span>
                          </button>`
@@ -2108,7 +2199,7 @@ function wireProductImageUpload(
                 </div>
                 <!-- Remove Button (Top-Right) -->
                 <div class="absolute top-2 right-2 z-10 opacity-90 group-hover:opacity-100 transition-opacity">
-                  <button type="button" data-remove-image-id="${img.id}" class="w-7 h-7 rounded-full bg-surface-container-lowest/95 hover:bg-error hover:text-white text-on-surface-variant shadow-sm flex items-center justify-center transition-colors cursor-pointer" title="ลบรูปภาพ">
+                  <button type="button" data-remove-image-id="${escapeHtml(img.id)}" class="w-7 h-7 rounded-full bg-surface-container-lowest/95 hover:bg-error hover:text-white text-on-surface-variant shadow-sm flex items-center justify-center transition-colors cursor-pointer" title="ลบรูปภาพ">
                     <span class="material-symbols-outlined text-[16px]">close</span>
                   </button>
                 </div>
@@ -2511,12 +2602,14 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         console.error('[SOULMATE Admin] Dashboard navigation failed to load:', error);
       }
       normalizeAdminShellSizing(doc);
-      mountAdminSidebarNav(doc, location.pathname);
+      configureAdminAccount(doc, auth.customerProfile, auth.user);
+      mountAdminSidebarNav(doc, location.pathname, auth.customerProfile?.role === 'super_admin');
       configureAdminTopbar(doc);
       adminNotificationCleanupRef.current = mountAdminNotificationBell(doc, navigate);
       installAdminSurfaceStyles(doc, location.pathname);
       if (location.pathname === '/admin/settings') {
-        void configureAdminSettingsPage(doc, win).catch((error) => console.error('[SOULMATE Settings] Initialization failed:', error));
+        void configureAdminSettingsPage(doc, win, auth.customerProfile?.role === 'super_admin')
+          .catch((error) => console.error('[SOULMATE Settings] Initialization failed:', error));
       }
     }
 
@@ -4170,7 +4263,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                 <div class="w-10 h-10 rounded-lg bg-surface-container-low overflow-hidden mx-auto flex items-center justify-center">
                   ${
                     imgUrl
-                      ? `<img src="${imgUrl}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover" onerror="this.onerror=null; this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');" />
+                      ? `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover" onerror="this.onerror=null; this.classList.add('hidden'); this.nextElementSibling?.classList.remove('hidden');" />
                          <div class="hidden w-full h-full">${renderMissingProductImage()}</div>`
                       : renderMissingProductImage()
                   }
@@ -6417,7 +6510,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
   const iframe = (
     <iframe
-      key={`${screen.id}:${screen.htmlPath}:${location.pathname}:${location.search}`}
+      key={`${screen.id}:${screen.htmlPath}:${location.pathname}:${location.search}:${routeType === 'admin' ? auth.customerProfile?.role || '' : ''}`}
       ref={iframeRef}
       src={screen.htmlPath}
       title={screen.title}
