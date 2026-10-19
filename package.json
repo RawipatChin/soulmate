@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
+    "dev": "node scripts/build-home-css.mjs && vite --port=3000 --host=0.0.0.0",
+    "build": "node scripts/build-home-css.mjs && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/utils/accountAccess.test.ts src/services/orderFailure.test.ts src/services/orderNumber.test.ts src/services/promptPayQr.test.ts",
+    "test": "node --experimental-strip-types --test src/utils/accountAccess.test.ts src/services/orderFailure.test.ts src/services/orderNumber.test.ts src/services/orderSequenceRetry.test.ts src/services/promptPayQr.test.ts",
     "test:orders:emulator": "firebase emulators:exec --only auth,firestore,storage --project demo-soulmate \"node scripts/order-emulator-smoke.mjs\"",
     "test:orders:browser": "firebase emulators:exec --only auth,firestore,storage --project demo-soulmate \"node scripts/order-browser-emulator-smoke.mjs\"",
     "test:admin:browser": "firebase emulators:exec --only auth,firestore --project demo-soulmate \"node scripts/admin-role-emulator-smoke.mjs\""

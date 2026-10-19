@@ -40,7 +40,7 @@ function client(name) {
   return { auth, db, storage };
 }
 
-async function place(buyer, quantity, { id = randomUUID().replaceAll('-', ''), price = 12950, total, method = 'manual_promptpay', orderNumberOverride, stockProductId = productId, variantId = null, shippingMethodId = 'standard', shippingFeeSatang = 3000 } = {}) {
+async function place(buyer, quantity, { id = randomUUID().replaceAll('-', ''), price = 12950, total, method = 'manual_promptpay', orderNumberOverride, stockProductId = productId, variantId = null, shippingMethodId = 'standard', shippingFeeSatang = 3000, skipReservation = false } = {}) {
   const stockOptionId = variantId == null ? 'base' : `v_${variantId}`;
   const orderStockPath = `inventory/${stockProductId}/options/${stockOptionId}`;
   await runTransaction(buyer.db, async (tx) => {
@@ -55,7 +55,7 @@ async function place(buyer, quantity, { id = randomUUID().replaceAll('-', ''), p
     const sequence = Number(settings.orderSequenceYear) === currentOrderYear ? Number(settings.orderSequence ?? 0) + 1 : 1;
     const orderNumber = orderNumberOverride ?? `SM-${currentOrderYear}${String(sequence).padStart(4, '0')}`;
     tx.set(settingsRef, { orderSequenceYear: currentOrderYear, orderSequence: sequence, orderSequenceText: orderNumber, orderSequenceOrderId: id }, { merge: true });
-    tx.update(stockRef, { available: stock.available - quantity, lastOrderId: id, lastOrderLine: 0 });
+    if (!skipReservation) tx.update(stockRef, { available: stock.available - quantity, lastOrderId: id, lastOrderLine: 0 });
     tx.set(orderRef, {
       schemaVersion: 2, orderNumber,
       ownerUid: buyer.auth.currentUser.uid, ownerType: buyer.auth.currentUser.isAnonymous ? 'guest' : 'customer',
@@ -167,10 +167,48 @@ async function main() {
   for (const changes of [{ shippingFeeSatang: 0 }, { shippingMethodId: 'unknown' }, { method: 'unknown' }, { total: 1 }]) {
     await assert.rejects(place(matrixCustomer, 1, { ...mixedOrderArgs, ...changes }), { code: 'permission-denied' });
   }
+  await assert.rejects(place(matrixCustomer, 1, { ...mixedOrderArgs, skipReservation: true }), { code: 'permission-denied' });
   await adminDb.doc('settings/public').update({ paymentMethods: [{ id: 'promptpay', enabled: true }, { id: 'cod', enabled: false }] });
   await assert.rejects(place(matrixCustomer, 1, mixedOrderArgs), { code: 'permission-denied' });
   assert.equal((await adminDb.doc(mixedStockPath).get()).data().available, 9);
   console.log('PASS checkout: forged fee/total, unknown methods and disabled COD rejected without reserving stock');
+
+  // Regression for the reported four-product ฿3,090 PromptPay order with free provincial shipping.
+  const reportedPrices = [74600, 56600, 107900, 69900];
+  const reportedProducts = reportedPrices.map(() => `rules-four-line-${randomUUID()}`);
+  for (let index = 0; index < reportedProducts.length; index++) {
+    await adminDb.doc(`inventory/${reportedProducts[index]}/options/base`).set({
+      productId: reportedProducts[index], variantId: null, productName: `Reported product ${index + 1}`,
+      variantName: null, unitPriceSatang: reportedPrices[index], stock: 1, available: 1,
+      active: true, productImage: null, lastOrderId: null, lastOrderLine: null,
+    });
+  }
+  const reportedOrderId = randomUUID().replaceAll('-', '');
+  await runTransaction(matrixCustomer.db, async (tx) => {
+    const orderRef = doc(matrixCustomer.db, 'orders', reportedOrderId);
+    const settingsRef = doc(matrixCustomer.db, 'settings', 'public');
+    const refs = reportedProducts.map((id) => doc(matrixCustomer.db, 'inventory', id, 'options', 'base'));
+    await tx.get(orderRef);
+    const settings = (await tx.get(settingsRef)).data() ?? {};
+    const stocks = await Promise.all(refs.map((item) => tx.get(item)));
+    const sequence = Number(settings.orderSequenceYear) === currentOrderYear ? Number(settings.orderSequence ?? 0) + 1 : 1;
+    const orderNumber = `SM-${currentOrderYear}${String(sequence).padStart(4, '0')}`;
+    tx.set(settingsRef, { orderSequenceYear: currentOrderYear, orderSequence: sequence, orderSequenceText: orderNumber, orderSequenceOrderId: reportedOrderId }, { merge: true });
+    refs.forEach((item, index) => tx.update(item, { available: stocks[index].data().available - 1, lastOrderId: reportedOrderId, lastOrderLine: index }));
+    tx.set(orderRef, {
+      schemaVersion: 2, orderNumber, ownerUid: matrixCustomerUser.uid, ownerType: 'customer', contact,
+      items: reportedProducts.map((id, index) => ({ productId: id, optionId: 'base', productName: `Reported product ${index + 1}`, variantId: null, variantName: null, unitPriceSatang: reportedPrices[index], quantity: 1, productImage: null, lineTotalSatang: reportedPrices[index] })),
+      subtotalSatang: 309000, shippingMethodId: 'express-province', shippingFeeSatang: 0, totalSatang: 309000,
+      currency: 'THB', status: 'pending_payment', payment: { method: 'manual_promptpay', status: 'pending', promptPayPhone: '0812345678' },
+      fulfillmentStatus: 'awaiting_payment', codAcceptance: null, shippingRevision: 0,
+      slipPath: null, submittedAt: null, review: null, inventoryRestored: false,
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+  });
+  assert.equal((await adminDb.doc(`orders/${reportedOrderId}`).get()).data().totalSatang, 309000);
+  for (const id of reportedProducts) assert.equal((await adminDb.doc(`inventory/${id}/options/base`).get()).data().available, 0);
+  console.log('PASS checkout regression: four products, subtotal 309000 satang, free provincial shipping');
+
   // The remaining fulfillment tests use the original flat-rate fixture.
   await adminDb.doc('settings/public').update({
     shippingMethods: [{ id: 'standard', name: 'Standard', fee: 30, freeShippingThreshold: null, enabled: true }],
@@ -236,10 +274,18 @@ async function main() {
     productId: concurrentProductId, variantId: null, productName: 'Concurrent number product', variantName: null,
     unitPriceSatang: 12950, stock: 2, available: 2, active: true, productImage: null, lastOrderId: null, lastOrderLine: null,
   });
-  const concurrentNumberOrders = await Promise.all([
+  const concurrentNumberAttempts = await Promise.allSettled([
     place(buyer, 1, { stockProductId: concurrentProductId }),
     place(outsider, 1, { stockProductId: concurrentProductId }),
   ]);
+  const concurrentNumberOrders = concurrentNumberAttempts.filter((attempt) => attempt.status === 'fulfilled').map((attempt) => attempt.value);
+  for (const attempt of concurrentNumberAttempts) {
+    if (attempt.status === 'rejected') {
+      assert.equal(attempt.reason?.code, 'permission-denied');
+      console.warn('WARN concurrent numbering: one request was denied; retrying after the sequence advanced');
+      concurrentNumberOrders.push(await place(buyer, 1, { stockProductId: concurrentProductId }));
+    }
+  }
   const concurrentNumbers = await Promise.all(concurrentNumberOrders.map(async (id) => (await adminDb.doc(`orders/${id}`).get()).data()?.orderNumber));
   assert.equal(new Set(concurrentNumbers).size, 2);
   assert.ok(concurrentNumbers.every((number) => typeof number === 'string' && number.startsWith(`SM-${currentOrderYear}`)));

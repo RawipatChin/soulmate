@@ -60,10 +60,10 @@
 <!-- TOP DEV/STATE CONTROLLER BAR -->
 
 <!-- 1. CHECKOUT HEADER -->
-<header class="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-100 z-40 px-4 py-3.5 flex items-center justify-between">
+<header id="checkoutHeader" class="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-100 z-40 px-4 py-3.5 flex items-center justify-between">
 <div class="flex items-center">
 <!-- Back Arrow Button -> returns to cart fallback /cart -->
-<button aria-label="กลับไปหน้าตะกร้า" class="w-9 h-9 rounded-full flex items-center justify-center -ml-1 text-gray-700 hover:text-brand-black active:scale-95 transition-all" onclick="handleBackToCart()" type="button">
+<button aria-label="กลับไปหน้าตะกร้า" data-path="cart" class="w-9 h-9 rounded-full flex items-center justify-center -ml-1 text-gray-700 hover:text-brand-black active:scale-95 transition-all" type="button">
 <span class="material-symbols-outlined text-[22px]">arrow_back</span>
 </button>
 </div>
@@ -495,11 +495,6 @@
         stickyBar.classList.add('hidden');
         btnError.className = 'px-2 py-0.5 rounded bg-brand-mint text-brand-black font-semibold text-[10px] transition-all';
       }
-    }
-
-    // Navigation fallback -> /cart
-    function handleBackToCart() {
-      showToast('กำลังกลับไปยังตะกร้าสินค้า (/cart)');
     }
 
     // Member Profile Prefill Toggle

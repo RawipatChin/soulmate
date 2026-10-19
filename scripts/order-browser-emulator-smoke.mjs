@@ -61,18 +61,17 @@ async function checkout(page) {
   await frame.locator('#btnSubmitOrder').click();
   await page.waitForURL('**/order-success?orderId=*', { timeout: 20000 });
   await page.getByText('บันทึกคำสั่งซื้อแล้ว', { exact: true }).waitFor();
-  await page.getByText('บันทึกแล้ว · รอแจ้งชำระเงิน').first().waitFor();
-  assert.equal(await page.getByRole('button', { name: 'ชำระผ่าน PromptPay' }).count(), 0);
-  assert.equal(await page.getByAltText(/QR พร้อมเพย์ยอด/).count(), 0);
-  assert.equal(await page.locator('input[type="file"]').count(), 0);
+  await page.getByText('รอชำระเงิน', { exact: true }).first().waitFor();
+  await page.getByAltText(/QR พร้อมเพย์ยอด/).waitFor();
+  assert.equal(await page.locator('input[type="file"]').count(), 1);
   const dismiss = page.getByRole('button', { name: 'รับทราบ' });
   if (await dismiss.count()) await dismiss.click();
   const orderId = new URL(page.url()).searchParams.get('orderId');
   assert.ok(orderId);
   const snapshot = await getAdminFirestore(adminApp).doc(`orders/${orderId}`).get();
   assert.equal(snapshot.data()?.status, 'pending_payment');
-  assert.equal(snapshot.data()?.payment?.method, null);
-  assert.equal(snapshot.data()?.payment?.promptPayPhone, null);
+  assert.equal(snapshot.data()?.payment?.method, 'manual_promptpay');
+  assert.equal(snapshot.data()?.payment?.promptPayPhone, '0812345678');
   return orderId;
 }
 
@@ -161,6 +160,12 @@ async function assertPrintLayout(page, layout, expectedLabels = 1, expectedPages
 }
 
 async function main() {
+  await getAdminFirestore(adminApp).doc('config/payment').set({ phone: '0812345678', payeeName: 'SOULMATE', enabled: true });
+  await getAdminFirestore(adminApp).doc('settings/public').set({
+    shippingMethods: [{ id: 'standard', name: 'Standard', fee: 30, freeShippingThreshold: null, enabled: true }],
+    paymentMethods: [{ id: 'promptpay', enabled: true }, { id: 'cod', enabled: true }],
+    orderPrefix: 'SM-',
+  });
   await getAdminFirestore(adminApp).doc(`products/${productId}`).set({
     name: 'Browser smoke product', status: 'active', price: 129.5, stock: 10,
   });
@@ -260,13 +265,14 @@ async function main() {
     for (const orderNumber of paidNumbers) await adminPage.getByRole('checkbox', { name: `เลือก ${orderNumber}` }).check();
     await adminPage.getByRole('button', { name: 'ตัวอย่างใบปะหน้า' }).click();
     const paidPreview = adminPage.getByRole('dialog');
-    await paidPreview.getByText('0800000000', { exact: false }).waitFor();
-    await paidPreview.getByText('99/1 ถนนสุขุมวิท', { exact: false }).waitFor();
+    await paidPreview.getByText('0800000000', { exact: false }).first().waitFor();
+    await paidPreview.getByText('99/1 ถนนสุขุมวิท', { exact: false }).first().waitFor();
     await paidPreview.getByRole('button', { name: 'สร้างและพิมพ์' }).click();
     for (const orderId of paidOrderIds) assert.equal((await waitForLabelGeneration(orderId)).size, 1);
     await adminPage.waitForFunction(() => document.querySelector('.fulfillment-print-root')?.textContent?.includes('ไม่ต้องเก็บเงิน'));
     for (const orderId of paidOrderIds) assert.equal((await getAdminFirestore(adminApp).doc(`orders/${orderId}`).get()).data()?.fulfillmentStatus, 'ready_to_prepare');
     await assertPrintLayout(adminPage, 'four', 5, 2);
+    for (const orderNumber of paidNumbers) await adminPage.getByRole('checkbox', { name: `เลือก ${orderNumber}` }).uncheck();
 
     await adminPage.getByLabel('สถานะจัดส่ง').selectOption('awaiting_cod_acceptance');
     await adminPage.getByText(codNumber).waitFor();
@@ -284,7 +290,7 @@ async function main() {
     await adminPage.waitForFunction(() => document.querySelector('.fulfillment-print-root')?.textContent?.includes('เก็บเงินปลายทาง'));
     await assertPrintLayout(adminPage, 'two');
     await adminPage.goto(`${origin}/admin/orders/${codOrderId}`);
-    await adminPage.getByLabel(/เลข Tracking/).fill('TH123456789');
+    await adminPage.getByRole('textbox', { name: 'เลข Tracking' }).fill('TH123456789');
     await adminPage.getByRole('button', { name: 'บันทึกเลข' }).click();
     const trackedOrder = await waitForOrder(codOrderId, (order) => order.trackingNumber === 'TH123456789');
     assert.equal(trackedOrder.fulfillmentStatus, 'ready_to_prepare');

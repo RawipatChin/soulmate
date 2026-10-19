@@ -9,6 +9,7 @@ import type { ProductImage } from '../types/product';
 
 export const MAX_PRODUCT_IMAGES = 8;
 export const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_PRODUCT_IMAGE_DIMENSION = 1600;
 
 export interface FileValidationResult {
   validFiles: File[];
@@ -145,6 +146,26 @@ async function prepareImageFile(file: File): Promise<PreparedImageUpload> {
     throw new Error(
       'ไฟล์ที่เลือกไม่ใช่รูป JPG, PNG หรือ WEBP ที่สมบูรณ์ กรุณาเลือกรูปใหม่'
     );
+  }
+
+  try {
+    const image = await createImageBitmap(new Blob([arrayBuffer], { type: detected.mimeType }));
+    const scale = Math.min(1, MAX_PRODUCT_IMAGE_DIMENSION / Math.max(image.width, image.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const webp = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.82));
+      if (webp && webp.size > 0 && webp.size < bytes.byteLength) {
+        image.close();
+        return { bytes: new Uint8Array(await webp.arrayBuffer()), mimeType: 'image/webp', extension: 'webp' };
+      }
+    }
+    image.close();
+  } catch (error) {
+    console.warn('[SOULMATE Product Image] Could not optimize selected image:', error);
   }
 
   return {

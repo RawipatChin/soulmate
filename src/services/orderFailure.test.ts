@@ -10,7 +10,7 @@ test('an opaque Firebase error has an actionable checkout message', () => {
 });
 
 test('a denied transaction and a review error have distinct messages', () => {
-  assert.match(orderFailureMessage({ code: 'permission-denied' }), /ราคาและสต็อก/);
+  assert.match(orderFailureMessage({ code: 'permission-denied' }), /ระบบไม่อนุญาตให้บันทึกออเดอร์/);
   assert.equal(
     orderFailureMessage({ code: 'failed-precondition', message: 'ราคาสินค้าเปลี่ยนแล้ว' }),
     'ราคาสินค้าเปลี่ยนแล้ว',

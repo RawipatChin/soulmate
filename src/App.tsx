@@ -1,23 +1,29 @@
-import { AdminCustomersPage, AdminCustomerDetailPage } from './components/AdminCustomersPage';
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SCREENS } from './screensData';
 import { ScreenRenderer } from './components/ScreenRenderer';
-import { NotFoundPage } from './components/NotFoundPage';
-import { DevShowcase } from './components/DevShowcase';
-import { ScreenDefinition } from './types';
+import type { ScreenDefinition } from './types';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { CustomerProtectedRoute } from './components/CustomerProtectedRoute';
 import { AdminProtectedRoute } from './components/AdminProtectedRoute';
-import { AccountAuthPage } from './components/AccountAuthPage';
 import { StorefrontArticlePage, StorefrontContentPage, userFacingPages } from './components/storefront/StorefrontContentPage';
-import { StorefrontLegalPage } from './components/storefront/StorefrontLegalPage';
-import { AdminOrdersPage, AdminPaymentSettingsPage, CustomerOrdersPage, OrderConfirmationPage } from './components/OrderPages';
-import { AdminFulfillmentPage } from './components/AdminFulfillmentPage';
-import { AdminBannersPage, AdminBannerFormPage } from './components/AdminBannersPage';
-import { AdminRoleManagementPage } from './components/AdminRoleManagementPage';
-import { ResetPasswordActionPage } from './components/ResetPasswordActionPage';
+
+const NotFoundPage = lazy(() => import('./components/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
+const DevShowcase = lazy(() => import('./components/DevShowcase').then((module) => ({ default: module.DevShowcase })));
+const AccountAuthPage = lazy(() => import('./components/AccountAuthPage').then((module) => ({ default: module.AccountAuthPage })));
+const StorefrontLegalPage = lazy(() => import('./components/storefront/StorefrontLegalPage').then((module) => ({ default: module.StorefrontLegalPage })));
+const AdminCustomersPage = lazy(() => import('./components/AdminCustomersPage').then((module) => ({ default: module.AdminCustomersPage })));
+const AdminCustomerDetailPage = lazy(() => import('./components/AdminCustomersPage').then((module) => ({ default: module.AdminCustomerDetailPage })));
+const AdminOrdersPage = lazy(() => import('./components/OrderPages').then((module) => ({ default: module.AdminOrdersPage })));
+const AdminPaymentSettingsPage = lazy(() => import('./components/OrderPages').then((module) => ({ default: module.AdminPaymentSettingsPage })));
+const CustomerOrdersPage = lazy(() => import('./components/OrderPages').then((module) => ({ default: module.CustomerOrdersPage })));
+const OrderConfirmationPage = lazy(() => import('./components/OrderPages').then((module) => ({ default: module.OrderConfirmationPage })));
+const AdminFulfillmentPage = lazy(() => import('./components/AdminFulfillmentPage').then((module) => ({ default: module.AdminFulfillmentPage })));
+const AdminBannersPage = lazy(() => import('./components/AdminBannersPage').then((module) => ({ default: module.AdminBannersPage })));
+const AdminBannerFormPage = lazy(() => import('./components/AdminBannersPage').then((module) => ({ default: module.AdminBannerFormPage })));
+const AdminRoleManagementPage = lazy(() => import('./components/AdminRoleManagementPage').then((module) => ({ default: module.AdminRoleManagementPage })));
+const ResetPasswordActionPage = lazy(() => import('./components/ResetPasswordActionPage').then((module) => ({ default: module.ResetPasswordActionPage })));
 
 function getScreen(id: string): ScreenDefinition {
   const found = SCREENS.find((s) => s.id === id);
@@ -62,6 +68,7 @@ export default function App() {
     <AuthProvider>
       <CartProvider>
         <BrowserRouter>
+          <Suspense fallback={<div role="status" className="p-6">กำลังโหลดหน้า…</div>}>
           <Routes>
             {/* ========================================================= */}
             {/* CUSTOMER STOREFRONT ROUTES                               */}
@@ -387,6 +394,7 @@ export default function App() {
             {/* 404 Fallback */}
             <Route path="*" element={<RouteNotFound />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </CartProvider>
     </AuthProvider>

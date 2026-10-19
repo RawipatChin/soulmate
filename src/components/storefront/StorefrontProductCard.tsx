@@ -19,7 +19,7 @@ export type StorefrontProductCardProps = {
   index?: number;
 };
 
-function ProductImage({ product, imageUrl, variant }: StorefrontProductCardProps) {
+function ProductImage({ product, imageUrl, variant, index = 0 }: StorefrontProductCardProps) {
   const imageContainerClass = {
     home: 'relative w-full aspect-square bg-surface-container-low overflow-hidden flex items-center justify-center',
     'catalog-grid': 'relative w-full aspect-square rounded-xl bg-surface-container-low overflow-hidden mb-2.5 flex items-center justify-center',
@@ -31,7 +31,16 @@ function ProductImage({ product, imageUrl, variant }: StorefrontProductCardProps
     <div className={`storefront-product-card__image ${imageContainerClass}`}>
       {imageUrl ? (
         <>
-          <img alt={product.name} className="h-full w-full object-cover" data-storefront-product-image src={imageUrl} />
+          <img
+            alt={product.name}
+            className="h-full w-full object-cover"
+            data-storefront-product-image
+            src={imageUrl}
+            width="400"
+            height="400"
+            loading={variant === 'home' ? (index < 2 ? 'eager' : 'lazy') : variant === 'catalog-grid' && index < 4 ? 'eager' : 'lazy'}
+            decoding="async"
+          />
           <div className="storefront-product-card__image-empty hidden absolute inset-0 flex-col items-center justify-center text-on-surface-variant" aria-label="ยังไม่มีรูปสินค้า">
             <span aria-hidden="true" className="material-symbols-outlined">image_not_supported</span>
             {variant === 'home' && <span>ยังไม่มีรูปสินค้า</span>}
@@ -95,7 +104,7 @@ export function StorefrontProductCard({
   if (variant === 'related') {
     return (
       <a className={`${cardBaseClass} storefront-product-card--related block rounded-xl bg-surface-container-lowest p-3 transition-colors hover:border-primary/40`} href={`/products/${encodeURIComponent(slug)}`}>
-        <ProductImage imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} />
+        <ProductImage imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} index={index} />
         <span className="line-clamp-2 font-semibold">{product.name}</span>
       </a>
     );
@@ -105,7 +114,7 @@ export function StorefrontProductCard({
     return (
       <article className={`${cardBaseClass} storefront-product-card--catalog-list flex items-center gap-3 rounded-xl bg-surface-container-lowest p-3 shadow-xs`}>
         <div className="storefront-product-card__list-link flex min-w-0 flex-1 cursor-pointer items-center gap-3" data-action="view-product" data-slug={slug}>
-          <ProductImage imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} />
+          <ProductImage imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} index={index} />
           <div className="min-w-0">
             <h3 className="font-semibold text-on-surface line-clamp-2">{product.name}</h3>
             <p className="font-bold text-primary">฿{pricing.sellingPrice.toLocaleString('th-TH')}</p>
@@ -125,7 +134,7 @@ export function StorefrontProductCard({
         role="button"
         tabIndex={0}
       >
-        <ProductImage imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} />
+        <ProductImage imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} index={index} />
         <div className="p-3">
           <h3 className="text-sm font-semibold text-on-surface leading-snug line-clamp-2 min-h-[40px]">{product.name}</h3>
           <div className="mt-2 flex items-end justify-between gap-2">
@@ -139,7 +148,7 @@ export function StorefrontProductCard({
   return (
     <article className={`${cardBaseClass} storefront-product-card--catalog-grid bg-surface-container-lowest rounded-2xl p-3 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all cursor-pointer`} data-action="view-product" data-slug={slug} data-product-slug={slug}>
       <div className="group">
-        <ProductImage imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} />
+        <ProductImage imageUrl={imageUrl} pricing={pricing} product={product} variant={variant} index={index} />
         <span className="font-label-sm text-[11px] text-primary font-semibold uppercase tracking-wider">SOULMATE</span>
         <h3 className="font-headline-sm text-sm text-on-surface font-semibold line-clamp-2 mt-0.5 leading-snug">{product.name}</h3>
       </div>

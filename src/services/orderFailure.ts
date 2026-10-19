@@ -12,7 +12,7 @@ export function orderFailureCode(cause: unknown): string {
 
 export function orderFailureMessage(cause: unknown): string {
   const code = orderFailureCode(cause);
-  if (code === 'permission-denied') return 'บันทึกออเดอร์ไม่ได้ กรุณาตรวจสอบราคาและสต็อกสินค้าแล้วลองอีกครั้ง';
+  if (code === 'permission-denied') return 'ระบบไม่อนุญาตให้บันทึกออเดอร์ กรุณารีเฟรชหน้าแล้วลองอีกครั้ง หากยังพบปัญหาให้ติดต่อร้าน';
   if (code === 'unauthenticated') return 'ไม่สามารถยืนยันตัวตนสำหรับสั่งซื้อได้ กรุณาลองอีกครั้ง';
   if (code === 'unavailable' || code === 'deadline-exceeded') return 'เชื่อมต่อระบบคำสั่งซื้อไม่ได้ กรุณาลองอีกครั้ง';
   if (code === 'unknown') return 'บันทึกคำสั่งซื้อไม่สำเร็จ กรุณาลองอีกครั้ง หากยังมีปัญหาให้แจ้งร้าน';

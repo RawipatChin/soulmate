@@ -1,0 +1,17 @@
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/home-banner-sm25.webp
+  Cache-Control: public, max-age=86400
+
+/home-banner-sm25-480.webp
+  Cache-Control: public, max-age=86400
+
+/home-banner-sm25-960.webp
+  Cache-Control: public, max-age=86400
+
+/heart-mascot.webp
+  Cache-Control: public, max-age=86400
+
+/home-template.css
+  Cache-Control: public, max-age=86400

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, Clock3, ExternalLink, LogOut, RefreshCw, Search, UserRound, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, ClipboardCheck, Clock3, CreditCard, ExternalLink, LogOut, Package, RefreshCw, Search, Truck, UserRound, XCircle } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -16,6 +16,7 @@ import {
   getLabelGenerations,
   updateOrderContact,
   updateOrderTrackingNumber,
+  effectiveFulfillmentStatus,
   savePromptPaySettings,
   submitOrderSlip,
   type StoreOrder,
@@ -131,6 +132,8 @@ function AdminReviewPanel({ order, onUpdated }: { order: StoreOrder; onUpdated: 
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [pendingAction, setPendingAction] = useState<'approved' | 'cancelled' | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
   const slipUrl = slipPreview?.orderId === order.id && slipPreview.slipPath === order.slipPath ? slipPreview.url : '';
   useEffect(() => {
     let alive = true;
@@ -150,12 +153,13 @@ function AdminReviewPanel({ order, onUpdated }: { order: StoreOrder; onUpdated: 
   const codNeedsAcceptance = order.payment?.method === 'cod' && order.status === 'pending_payment' && !order.codAcceptance;
   const codCanCollect = order.payment?.method === 'cod' && order.status === 'pending_payment' && Boolean(order.codAcceptance) && order.fulfillmentStatus === 'shipped';
   const act = async (action: 'approved' | 'cancelled') => {
-    const approvePrompt = order.payment?.method === 'cod' ? 'ยืนยันว่าได้รับเงินสดจากผู้จัดส่งแล้วและปิดออเดอร์?' : 'ตรวจเงินเข้าบัญชีแล้วและยืนยันให้ออเดอร์สำเร็จ?';
-    if (!window.confirm(action === 'approved' ? approvePrompt : 'ยกเลิกออเดอร์และคืนสต็อก?')) return;
-    const reason = action === 'cancelled' ? window.prompt('เหตุผลที่ยกเลิกออเดอร์', '') : '';
-    if (reason === null) return;
+    setPendingAction(action);
+    setCancelReason('');
+  };
+  const confirmAction = async () => {
+    if (!pendingAction) return;
     setBusy(true); setError('');
-    try { await reviewOrder(order.id, action, reason ?? ''); onUpdated(); }
+    try { await reviewOrder(order.id, pendingAction, pendingAction === 'cancelled' ? cancelReason.trim() : ''); setPendingAction(null); onUpdated(); }
     catch (cause) { setError((cause as Error).message || 'บันทึกผลตรวจไม่สำเร็จ'); }
     finally { setBusy(false); }
   };
@@ -176,6 +180,23 @@ function AdminReviewPanel({ order, onUpdated }: { order: StoreOrder; onUpdated: 
     </>}
     {order.review && <p>ผลตรวจ: {order.review.result === 'approved' ? 'อนุมัติ' : 'ยกเลิก'} · UID {order.review.by}</p>}
     {error && <p className="order-error" role="alert">{error}</p>}
+    {pendingAction && <div className="order-action-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setPendingAction(null); }}>
+      <section aria-labelledby="order-action-title" aria-modal="true" className="order-action-modal" role="dialog">
+        <button aria-label="ปิด" className="order-action-modal-close" disabled={busy} onClick={() => setPendingAction(null)}>×</button>
+        <span className={`order-action-modal-icon${pendingAction === 'cancelled' ? ' is-cancel' : ''}`} aria-hidden="true">{pendingAction === 'cancelled' ? '!' : '✓'}</span>
+        <h2 id="order-action-title">{pendingAction === 'cancelled' ? 'ยืนยันยกเลิกออเดอร์' : 'ยืนยันอนุมัติออเดอร์'}</h2>
+        <p>{pendingAction === 'cancelled'
+          ? 'ออเดอร์จะถูกยกเลิกและคืนสต็อกให้สินค้า'
+          : order.payment?.method === 'cod' ? 'ยืนยันว่าได้รับเงินสดจากผู้จัดส่งแล้วและปิดออเดอร์?' : 'ตรวจเงินเข้าบัญชีแล้วและยืนยันให้ออเดอร์สำเร็จ?'}</p>
+        {pendingAction === 'cancelled' && <label className="order-action-modal-label" htmlFor="order-cancel-reason">เหตุผลที่ยกเลิก <span>(ไม่บังคับ)</span>
+          <textarea id="order-cancel-reason" autoFocus maxLength={240} rows={3} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="ระบุเหตุผลสำหรับบันทึกไว้ในรายการออเดอร์" />
+        </label>}
+        <div className="order-action-modal-actions">
+          <button className="order-secondary" disabled={busy} onClick={() => setPendingAction(null)}>กลับไปตรวจสอบ</button>
+          <button className={pendingAction === 'cancelled' ? 'order-danger' : 'order-primary'} disabled={busy} onClick={() => void confirmAction()}>{busy ? 'กำลังบันทึก…' : pendingAction === 'cancelled' ? 'ยืนยันยกเลิก' : 'ยืนยันอนุมัติ'}</button>
+        </div>
+      </section>
+    </div>}
   </div>;
 }
 
@@ -188,6 +209,52 @@ function fulfillmentText(order: StoreOrder) {
     case 'shipped': return 'ส่งแล้ว';
     default: return order.status === 'paid' ? 'พร้อมจัดเตรียม' : 'สถานะจัดส่งยังไม่พร้อมใช้งาน';
   }
+}
+
+function CustomerOrderProgress({ order }: { order: StoreOrder }) {
+  const cancelled = ['cancelled', 'payment_failed', 'expired'].includes(order.status);
+  const fulfillmentStatus = effectiveFulfillmentStatus(order);
+  const activeStep = fulfillmentStatus === 'awaiting_payment' || fulfillmentStatus === 'awaiting_cod_acceptance'
+    ? 1
+    : fulfillmentStatus === 'ready_to_prepare' ? 2 : 3;
+  const steps = [
+    { label: 'รับออเดอร์', Icon: ClipboardCheck },
+    { label: 'ยืนยันชำระเงิน', Icon: CreditCard },
+    { label: 'เตรียมสินค้า', Icon: Package },
+    { label: 'ส่งให้ขนส่ง', Icon: Truck },
+  ];
+  const currentMessage = cancelled
+    ? order.status === 'cancelled' ? `ออเดอร์ถูกยกเลิก${order.review?.reason ? ` · ${order.review.reason}` : ''}` : paymentText(order)
+    : order.status === 'awaiting_review' ? 'ร้านกำลังตรวจสอบสลิป'
+      : fulfillmentStatus === 'awaiting_cod_acceptance' ? 'รอร้านยืนยันรับออเดอร์ COD'
+        : fulfillmentStatus === 'awaiting_payment' ? paymentText(order)
+          : fulfillmentStatus === 'ready_to_prepare' ? 'ร้านกำลังเตรียมสินค้า'
+            : fulfillmentStatus === 'ready_to_ship' ? 'สินค้าแพ็กเรียบร้อย พร้อมส่ง'
+              : 'ส่งมอบพัสดุให้ขนส่งแล้ว';
+  const progress = (activeStep / (steps.length - 1)) * 100;
+
+  return <section className={`customer-order-progress${cancelled ? ' is-cancelled' : ''}`} aria-label="ความคืบหน้าคำสั่งซื้อ">
+    <div className="customer-order-progress-heading">
+      <h2>ความคืบหน้าคำสั่งซื้อ</h2>
+      <strong>{currentMessage}</strong>
+    </div>
+    {cancelled ? <p className="customer-order-progress-cancelled">{currentMessage}</p> : <>
+      <div className="customer-order-progress-steps">
+        <div className="customer-order-progress-rail" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
+        <ol>
+          {steps.map(({ label, Icon }, index) => {
+            const complete = index < activeStep || (fulfillmentStatus === 'shipped' && index === activeStep);
+            const current = index === activeStep;
+            return <li key={label} className={`${complete ? 'is-complete ' : ''}${current ? 'is-current' : ''}`} aria-current={current ? 'step' : undefined}>
+              <span className="customer-order-progress-icon">{complete ? <Check size={19} strokeWidth={3} /> : <Icon size={18} strokeWidth={2.2} />}</span>
+              <span className="customer-order-progress-label">{label}</span>
+            </li>;
+          })}
+        </ol>
+      </div>
+      {order.trackingNumber && <p className="customer-order-tracking"><span>เลขติดตามพัสดุ</span><strong>{order.trackingNumber}</strong></p>}
+    </>}
+  </section>;
 }
 
 function AdminFulfillmentPanel({ order, onUpdated }: { order: StoreOrder; onUpdated: () => void }) {
@@ -406,5 +473,5 @@ export function OrderConfirmationPage() {
 }
 
 function OrderDetail({ order, busy, error, admin = false, onUpdated }: { order: StoreOrder | null; busy: boolean; error: string; admin?: boolean; onUpdated: () => void }) {
-  return <main className="order-page"><Link className="order-back" to={admin ? '/admin/orders' : '/account/orders'}>← กลับไปรายการคำสั่งซื้อ</Link>{busy ? <p className="order-empty">กำลังโหลดคำสั่งซื้อ…</p> : error || !order ? <p className="order-error">{error || 'ไม่พบคำสั่งซื้อ'}</p> : <section className="order-panel"><p className="order-eyebrow">รายละเอียดคำสั่งซื้อ</p><h1>{order.orderNumber}</h1><p>{dateText(order)} · {paymentText(order)}</p>{admin && <div className="order-contact"><strong>{order.contact.firstName} {order.contact.lastName}</strong><span>{order.contact.email}</span><span>{order.contact.phone}</span><span>{order.contact.addressLine1}, {order.contact.subdistrict}, {order.contact.district}, {order.contact.province} {order.contact.postalCode}</span></div>}<div className="order-items">{order.items.map((item, index) => <div className="order-item" key={`${item.productId}-${item.variantId}-${index}`}><span>{item.productName}{item.variantName ? ` · ${item.variantName}` : ''} × {item.quantity}</span><strong>{money(item.lineTotalSatang)}</strong></div>)}</div><div className="order-totals"><span>สินค้า {money(order.subtotalSatang)}</span><span>จัดส่ง {money(order.shippingFeeSatang)}</span><strong>รวม {money(order.totalSatang)}</strong></div>{admin ? <><AdminReviewPanel order={order} onUpdated={onUpdated} /><AdminFulfillmentPanel order={order} onUpdated={onUpdated} /></> : <OrderPaymentPanel order={order} onUpdated={onUpdated} />}</section>}</main>;
+  return <main className="order-page"><Link className="order-back" to={admin ? '/admin/orders' : '/account/orders'}>← กลับไปรายการคำสั่งซื้อ</Link>{busy ? <p className="order-empty">กำลังโหลดคำสั่งซื้อ…</p> : error || !order ? <p className="order-error">{error || 'ไม่พบคำสั่งซื้อ'}</p> : <section className="order-panel"><p className="order-eyebrow">รายละเอียดคำสั่งซื้อ</p><h1>{order.orderNumber}</h1><p>{dateText(order)} · {paymentText(order)}</p>{!admin && <CustomerOrderProgress order={order} />}{admin && <div className="order-contact"><strong>{order.contact.firstName} {order.contact.lastName}</strong><span>{order.contact.email}</span><span>{order.contact.phone}</span><span>{order.contact.addressLine1}, {order.contact.subdistrict}, {order.contact.district}, {order.contact.province} {order.contact.postalCode}</span></div>}<div className="order-items">{order.items.map((item, index) => <div className="order-item" key={`${item.productId}-${item.variantId}-${index}`}><span>{item.productName}{item.variantName ? ` · ${item.variantName}` : ''} × {item.quantity}</span><strong>{money(item.lineTotalSatang)}</strong></div>)}</div><div className="order-totals"><span>สินค้า {money(order.subtotalSatang)}</span><span>จัดส่ง {money(order.shippingFeeSatang)}</span><strong>รวม {money(order.totalSatang)}</strong></div>{admin ? <><AdminReviewPanel order={order} onUpdated={onUpdated} /><AdminFulfillmentPanel order={order} onUpdated={onUpdated} /></> : <OrderPaymentPanel order={order} onUpdated={onUpdated} />}</section>}</main>;
 }

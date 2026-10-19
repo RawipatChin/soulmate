@@ -1,6 +1,6 @@
 import { signInAnonymously, type User } from 'firebase/auth';
 import {
-  collection, doc, getDoc, getDocs, query, runTransaction, serverTimestamp,
+  collection, doc, getDoc, getDocFromServer, getDocs, query, runTransaction, serverTimestamp,
   updateDoc, setDoc, where, type DocumentData, type Timestamp,
 } from 'firebase/firestore';
 import { getBlob, ref, uploadBytes } from 'firebase/storage';
@@ -11,6 +11,7 @@ import { calculateMembershipTier, getTierRank } from '../utils/membership';
 import type { MembershipTier } from '../types/membership';
 import { getPublicStoreSettings } from './storeSettingsService';
 import { compareOrderNumbers, formatOrderNumber, getBangkokOrderYear } from './orderNumber';
+import { retryOrderSequenceConflict } from './orderSequenceRetry';
 
 export type FulfillmentStatus = 'awaiting_payment' | 'awaiting_cod_acceptance' | 'ready_to_prepare' | 'ready_to_ship' | 'shipped';
 
@@ -140,18 +141,19 @@ export async function createPendingOrder(
   const key = saved?.fingerprint === fingerprint ? saved.key : crypto.randomUUID().replaceAll('-', '');
   sessionStorage.setItem(requestKeyName, JSON.stringify({ key, fingerprint }));
   const orderRef = doc(firestore, 'orders', key);
+  const publicSettingsRef = doc(firestore, 'settings', 'public');
   const refs = items.map((item) => optionRef(firestore, item.productId, item.variantId));
-  return runTransaction(firestore, async (tx) => {
+  return retryOrderSequenceConflict((recordSequence) => runTransaction(firestore, async (tx) => {
     const prior = await tx.get(orderRef);
     if (prior.exists()) {
       if (prior.data().ownerUid !== user.uid) throw new Error('คำสั่งซื้อนี้เป็นของบัญชีอื่น');
       return { orderId: key, orderNumber: prior.data().orderNumber as string, ownerType: prior.data().ownerType as 'guest' | 'customer', replay: true };
     }
-    const publicSettingsRef = doc(firestore, 'settings', 'public');
     const [settingsSnapshot, ...snapshots] = await Promise.all([
       tx.get(publicSettingsRef), ...refs.map((item) => tx.get(item)),
     ]);
     const publicSettings = settingsSnapshot.data() ?? {};
+    recordSequence({ year: publicSettings.orderSequenceYear ?? 0, number: publicSettings.orderSequence ?? 0 });
     const options = snapshots.map((snapshot) => snapshot.exists() ? snapshot.data() as SellableOption : null);
     const currentItems = options.map((option, index) => ({
       productId: items[index].productId, variantId: items[index].variantId,
@@ -209,6 +211,9 @@ export async function createPendingOrder(
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     });
     return { orderId: key, orderNumber, ownerType: user.isAnonymous ? 'guest' as const : 'customer' as const, replay: false };
+  }), async () => {
+    const current = (await getDocFromServer(publicSettingsRef)).data() ?? {};
+    return { year: current.orderSequenceYear ?? 0, number: current.orderSequence ?? 0 };
   });
 }
 export async function submitOrderSlip(order: StoreOrder, file: File) {

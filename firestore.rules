@@ -186,18 +186,11 @@ service cloud.firestore {
     function validLineData(orderId, items, index) {
       let line = index < items.size() ? items[index] : {};
       let option = index < items.size() ? getAfter(optionPath(line)).data : {};
+      // The inventory update validates this line's price, quantity and option.
+      // Check its reservation marker here so every order line requires that update.
       return index >= items.size() || (
-        line.quantity is int &&
-        line.quantity >= 1 && line.quantity <= 99 &&
-        line.productId is string &&
-        line.optionId is string &&
-        line.optionId == (line.variantId == null ? 'base' : 'v_' + line.variantId) &&
-        option.productId == line.productId &&
-        option.variantId == line.variantId &&
         option.lastOrderId == orderId &&
-        option.lastOrderLine == index &&
-        option.unitPriceSatang == line.unitPriceSatang &&
-        line.lineTotalSatang == line.unitPriceSatang * line.quantity
+        option.lastOrderLine == index
       );
     }
 
@@ -463,7 +456,12 @@ service cloud.firestore {
           resource.data.active == true &&
           index is int && index >= 0 && index < order.items.size() &&
           line.productId == productId && line.optionId == optionId &&
-          line.quantity is int && line.quantity > 0 &&
+          resource.data.productId == productId &&
+          line.variantId == resource.data.variantId &&
+          line.optionId == (line.variantId == null ? 'base' : 'v_' + line.variantId) &&
+          line.unitPriceSatang == resource.data.unitPriceSatang &&
+          line.quantity is int && line.quantity > 0 && line.quantity <= 99 &&
+          line.lineTotalSatang == line.unitPriceSatang * line.quantity &&
           request.resource.data.available == resource.data.available - line.quantity &&
           request.resource.data.available >= 0;
       }

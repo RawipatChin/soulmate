@@ -15,6 +15,7 @@ import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'fi
 import { db, storage } from '../lib/firebase';
 
 export const MAX_BANNER_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_BANNER_WIDTH = 1600;
 
 export type BannerImage = { url: string; path: string };
 
@@ -92,12 +93,32 @@ export async function uploadBannerImage(
     throw new Error('ขนาดไฟล์แบนเนอร์ต้องไม่เกิน 5 MB');
   }
 
-  const extension = file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : 'webp';
+  let uploadFile = file;
+  try {
+    const image = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_BANNER_WIDTH / image.width);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const webp = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.82));
+      if (webp && webp.size > 0 && webp.size < file.size) {
+        uploadFile = new File([webp], `${file.name.replace(/\.[^.]+$/, '')}.webp`, { type: 'image/webp' });
+      }
+    }
+    image.close();
+  } catch (error) {
+    console.warn('[SOULMATE Banner] Could not optimize selected image:', error);
+  }
+
+  const extension = uploadFile.type === 'image/jpeg' ? 'jpg' : uploadFile.type === 'image/png' ? 'png' : 'webp';
   const path = `banners/${bannerId}/${slot}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const imageRef = storageRef(storage, path);
-  const snapshot = await uploadBytes(imageRef, file, {
-    contentType: file.type,
-    cacheControl: 'public,max-age=3600',
+  const snapshot = await uploadBytes(imageRef, uploadFile, {
+    contentType: uploadFile.type,
+    cacheControl: 'public,max-age=31536000,immutable',
   });
   return { url: await getDownloadURL(snapshot.ref), path };
 }

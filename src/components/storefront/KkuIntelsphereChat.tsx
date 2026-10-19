@@ -8,8 +8,16 @@ const welcomeMessage = 'สวัสดีค่ะ อยากสอบถา�
 
 export function KkuIntelsphereChat() {
   const [loadError, setLoadError] = useState('');
+  const [readyToLoad, setReadyToLoad] = useState(false);
 
   useEffect(() => {
+    // Let the storefront render before loading the third-party chat bundle.
+    const timer = window.setTimeout(() => setReadyToLoad(true), 2000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!readyToLoad) return;
     const apiKey = import.meta.env.VITE_KKU_INTELSPHERE_API_KEY?.trim();
     if (!apiKey) {
       setLoadError('แชตช่วยเลือกสินค้ายังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง');
@@ -113,7 +121,7 @@ export function KkuIntelsphereChat() {
       script?.removeEventListener('error', onScriptError);
       widget.remove();
     };
-  }, []);
+  }, [readyToLoad]);
 
   if (!loadError) return null;
   return <p className="kku-chat-fallback" role="status" aria-live="polite">{loadError}</p>;
@@ -190,7 +198,7 @@ function applyWidgetBranding(shadow: ShadowRoot, container: HTMLElement) {
   if (bubble && !bubble.querySelector('.soulmate-heart-mascot')) {
     const mascot = document.createElement('img');
     mascot.className = 'soulmate-heart-mascot';
-    mascot.src = '/heart-mascot.png';
+    mascot.src = '/heart-mascot.webp';
     mascot.alt = '';
     bubble.append(mascot);
     bubble.setAttribute('role', 'button');
@@ -212,7 +220,7 @@ function applyWidgetBranding(shadow: ShadowRoot, container: HTMLElement) {
   if (title && !title.querySelector('.soulmate-chat-avatar')) {
     const avatar = document.createElement('img');
     avatar.className = 'soulmate-chat-avatar';
-    avatar.src = '/heart-mascot.png';
+    avatar.src = '/heart-mascot.webp';
     avatar.alt = '';
     title.prepend(avatar);
     const name = title.querySelector('span');

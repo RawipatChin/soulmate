@@ -242,10 +242,10 @@ export function AdminBannerFormPage() {
   const useCurrentHomepageBanner = async () => {
     setError('');
     try {
-      const response = await fetch('/home-banner-sm25.png');
+      const response = await fetch('/home-banner-sm25.webp');
       if (!response.ok) throw new Error('โหลดภาพหน้าเว็บไม่สำเร็จ');
       const image = await response.blob();
-      const file = new File([image], 'home-banner-sm25.png', { type: image.type || 'image/png' });
+      const file = new File([image], 'home-banner-sm25.webp', { type: image.type || 'image/webp' });
       setName('โปรโมชัน SM25%');
       setImageFile(file);
       setRemoveImage(false);

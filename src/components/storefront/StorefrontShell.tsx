@@ -61,7 +61,7 @@ export function StorefrontShell({
             <span className="material-symbols-outlined">{menuOpen ? 'close' : 'menu'}</span>
           </button>
           <Link aria-label="SOULMATE หน้าแรก" className="storefront-brand" to="/">
-            <img src="/logo-soulmate.png" alt="SOULMATE Health & Beauty" />
+            <img src="/logo-soulmate.png" alt="SOULMATE Health & Beauty" width="320" height="88" />
           </Link>
 
           <nav aria-label="เมนูหลัก" className={`storefront-primary-nav ${menuOpen ? 'is-open' : ''}`}>

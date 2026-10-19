@@ -51,7 +51,7 @@ import { StorefrontShell } from './storefront/StorefrontShell';
 import { canAccessAdmin } from '../utils/accountAccess';
 import { renderStorefrontProductCard } from './storefront/StorefrontProductCard';
 import { clearPendingOrderRequestKey, createPendingOrder, findMissingVariantSelection, listAdminOrders, OrderReviewError, OrderUnavailableItemError } from '../services/orderService';
-import { orderFailureMessage } from '../services/orderFailure';
+import { logOrderFailure, orderFailureMessage } from '../services/orderFailure';
 import { getPromptPayConfig, getPromptPaySettings, savePromptPaySettings } from '../services/orderService';
 import { getPublicStoreSettings, getStoreSettings, saveOperationalStoreSettings, saveStoreSettings, uploadStoreLogo, type ShippingMethodSetting } from '../services/storeSettingsService';
 import { getActiveBanners } from '../services/bannerService';
@@ -87,7 +87,8 @@ function installStorefrontDesktopStyles(doc: Document) {
       #soulmate-related-products { grid-column: 1 / -1 !important; grid-row: 2 !important; }
       #real-product-purchase-bar { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 50 !important; }
       #soulmate-related-grid { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 16px !important; }
-      #checkoutForm { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px) !important; align-items: start !important; gap: 20px !important; }
+    #checkoutHeader { display: flex !important; }
+    #checkoutForm { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px) !important; align-items: start !important; gap: 20px !important; }
       #checkoutOrderSummarySection { grid-column: 2 !important; grid-row: 1 / span 5 !important; position: sticky !important; top: 16px !important; }
       #checkoutForm > section:not(#checkoutOrderSummarySection) { grid-column: 1 !important; }
       #state-filled { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px) !important; align-items: start !important; gap: 20px !important; }
@@ -2679,7 +2680,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         if (window.matchMedia('(max-width: 768px)').matches) {
           const frameTop = iframe.getBoundingClientRect().top + window.scrollY;
           const isProductDetail = location.pathname.startsWith('/products/') || location.pathname.startsWith('/product/');
-          if (!isProductDetail) {
+          const hasFixedMobilePurchaseBar = isProductDetail || location.pathname === '/cart' || location.pathname === '/checkout';
+          if (!hasFixedMobilePurchaseBar) {
             iframe.style.height = `${Math.max(
               doc.documentElement.scrollHeight,
               doc.body?.scrollHeight || 0,
@@ -3785,6 +3787,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           }
           navigate(`/order-success?orderId=${encodeURIComponent(result.orderId)}`);
         } catch (error) {
+          logOrderFailure('checkout-create', error);
           if (error instanceof OrderReviewError && error.currentItems) {
             const updatedItems = effectiveCart.items.map((item) => {
               const current = error.currentItems?.find((candidate) => candidate.productId === item.productId && candidate.variantId === item.variantId);
@@ -6353,10 +6356,19 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     // --- Storefront Home Wiring (/) ---
     if (location.pathname === '/') {
       const hero = doc.querySelector<HTMLElement>('[data-cms-slot="hero_banner_1"]');
-      if (hero) hero.replaceChildren();
       // Clear imported sample products before the first asynchronous request.
       const initialProductGrid = doc.getElementById('product-grid-view');
-      if (initialProductGrid) initialProductGrid.textContent = 'กำลังโหลดสินค้า…';
+      if (initialProductGrid) {
+        initialProductGrid.className = 'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4';
+        initialProductGrid.setAttribute('aria-label', 'กำลังโหลดสินค้า');
+        initialProductGrid.innerHTML = Array.from({ length: 4 }, () =>
+          '<div class="overflow-hidden rounded-2xl bg-white" aria-hidden="true"><div class="aspect-square bg-surface-container-low"></div><div class="h-20 p-3"><div class="h-3 w-4/5 rounded bg-surface-container-low"></div><div class="mt-3 h-3 w-2/5 rounded bg-surface-container-low"></div></div></div>'
+        ).join('');
+      }
+      const productsPromise = getProducts({ status: 'active' }).then(
+        (products) => ({ products, error: null as unknown }),
+        (error: unknown) => ({ products: null, error }),
+      );
       doc.getElementById('toggle-state-btn')?.remove();
       doc.getElementById('product-empty-view')?.remove();
       const homeSearch = doc.getElementById('home-search-input') as HTMLInputElement | null;
@@ -6374,37 +6386,24 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         homeSearch.parentElement?.querySelector('button')?.addEventListener('click', submitSearch);
       }
       try {
-        // Load only active admin-managed banners. The first ordered banner is
-        // the initial hero slide; no imported Stitch image is used as fallback.
+        // Keep the local hero visible until an active banner is ready.
         let banners: StoreBanner[] = [];
         try {
           banners = await getActiveBanners();
         } catch (bannerError) {
           console.warn('[Home Page] Admin banners unavailable:', bannerError);
         }
-        if (banners.length === 0) {
-          // Keep the existing campaign artwork visible until an active banner
-          // is added in the admin screen. This file lives in /public and is
-          // served directly by Vite/the deployed site, so it does not depend
-          // on a Firestore document or Storage download URL.
-          banners = [{
-            id: 'default-home-banner',
-            name: 'แบนเนอร์โปรโมชั่นหลัก',
-            displayOrder: 1,
-            active: true,
-            mobileImageUrl: '/home-banner-sm25.png',
-            mobileImagePath: '',
-            desktopImageUrl: '/home-banner-sm25.png',
-            desktopImagePath: '',
-          }];
-        }
+        // The static, responsive WebP banner stays visible when the store has
+        // no active banners or the banner query fails.
         if (hero && banners.length) {
           const style = doc.createElement('style');
           style.textContent = `
-            .soulmate-banner-slider{position:relative;overflow:hidden;border-radius:1rem;background:#f6f3f2}
-            .soulmate-banner-track{display:flex;align-items:flex-start;transition:transform 260ms cubic-bezier(0.77,0,0.175,1);will-change:transform}
-            .soulmate-banner-track picture{display:block;flex:0 0 auto}
-            .soulmate-banner-track img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}
+            .soulmate-banner-slider{position:relative;overflow:hidden;aspect-ratio:1672/941;border-radius:1rem;background:#f6f3f2}
+            .soulmate-banner-track{display:flex;align-items:flex-start;height:100%;transition:transform 260ms cubic-bezier(0.77,0,0.175,1);will-change:transform}
+            .soulmate-banner-track picture{display:block;flex:0 0 auto;height:100%}
+            .soulmate-banner-track img{display:block;width:100%;height:100%;object-fit:contain}
+            .soulmate-banner-slider > picture{display:block;width:100%;height:100%}
+            .soulmate-banner-slider > picture img{display:block;width:100%;height:100%;object-fit:contain}
             .soulmate-banner-controls{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 12px;pointer-events:none}
             .soulmate-banner-controls button,.soulmate-banner-dots button{pointer-events:auto;border:0;cursor:pointer}
             .soulmate-banner-controls button{width:40px;height:40px;border-radius:50%;background:transparent;color:#2d6857;font-size:22px;text-shadow:0 1px 5px rgba(255,255,255,.9);transition:background-color 160ms ease}
@@ -6420,6 +6419,8 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           `;
           doc.head.append(style);
           const slider = doc.createElement('div'); slider.className = 'soulmate-banner-slider'; slider.setAttribute('aria-roledescription', 'carousel'); slider.setAttribute('aria-label', 'แบนเนอร์โปรโมชั่น');
+          let firstBannerImage: HTMLImageElement | null = null;
+          let startCarousel: (() => void) | null = null;
           if (banners.length > 1) {
             const track = doc.createElement('div'); track.className = 'soulmate-banner-track';
             const slideBanners = [banners[banners.length - 1], ...banners, banners[0]];
@@ -6427,9 +6428,17 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               const picture = doc.createElement('picture');
               picture.style.width = `${100 / slideBanners.length}%`;
               picture.setAttribute('aria-hidden', slideIndex === 1 ? 'false' : 'true');
-              const desktopSource = doc.createElement('source'); desktopSource.media = '(min-width: 769px)'; desktopSource.srcset = banner.desktopImageUrl || banner.mobileImageUrl;
-              const image = doc.createElement('img'); image.alt = 'แบนเนอร์โปรโมชั่น SOULMATE'; image.src = banner.mobileImageUrl;
-              if (slideIndex === 1) image.fetchPriority = 'high';
+              const desktopSource = doc.createElement('source'); desktopSource.media = '(min-width: 769px)';
+              const image = doc.createElement('img'); image.alt = 'แบนเนอร์โปรโมชั่น SOULMATE';
+              image.width = 1672; image.height = 941; image.decoding = 'async';
+              if (slideIndex === 1) {
+                desktopSource.srcset = banner.desktopImageUrl || banner.mobileImageUrl;
+                image.src = win.matchMedia('(min-width: 769px)').matches
+                  ? (banner.desktopImageUrl || banner.mobileImageUrl)
+                  : banner.mobileImageUrl;
+                image.fetchPriority = 'high';
+                firstBannerImage = image;
+              }
               picture.append(desktopSource, image);
               track.append(picture);
               return picture;
@@ -6437,18 +6446,36 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             track.style.width = `${slideBanners.length * 100}%`;
             const reducedMotion = win.matchMedia('(prefers-reduced-motion: reduce)').matches;
             if (reducedMotion) track.style.transitionDuration = '100ms';
-            let index = 0; let trackIndex = 1; let timer: number | undefined;
+            let index = 0; let trackIndex = 1; let timer: number | undefined; let moveVersion = 0;
             const dots = doc.createElement('div'); dots.className = 'soulmate-banner-dots';
             const setPosition = () => { track.style.transform = `translateX(-${trackIndex * 100 / slideBanners.length}%)`; };
             const updateDots = () => dots.querySelectorAll('button').forEach((dot, i) => { if (i === index) dot.setAttribute('aria-current', 'true'); else dot.removeAttribute('aria-current'); });
+            const loadPicture = (slideIndex: number) => {
+              const picture = slidePictures[slideIndex];
+              const image = picture.querySelector('img')!;
+              if (!image.getAttribute('src')) {
+                picture.querySelector('source')!.srcset = slideBanners[slideIndex].desktopImageUrl || slideBanners[slideIndex].mobileImageUrl;
+                image.src = win.matchMedia('(min-width: 769px)').matches
+                  ? (slideBanners[slideIndex].desktopImageUrl || slideBanners[slideIndex].mobileImageUrl)
+                  : slideBanners[slideIndex].mobileImageUrl;
+              }
+              return image.decode().catch(() => undefined);
+            };
             const moveTo = (nextIndex: number, direction?: 'next' | 'prev') => {
               const wrapsForward = direction === 'next' && index === banners.length - 1 && nextIndex === 0;
               const wrapsBackward = direction === 'prev' && index === 0 && nextIndex === banners.length - 1;
-              index = nextIndex;
-              trackIndex = wrapsForward ? banners.length + 1 : wrapsBackward ? 0 : nextIndex + 1;
-              slidePictures.forEach((picture, slideIndex) => picture.setAttribute('aria-hidden', String(slideIndex !== trackIndex)));
-              updateDots();
-              setPosition();
+              const targetTrackIndex = wrapsForward ? banners.length + 1 : wrapsBackward ? 0 : nextIndex + 1;
+              const currentMove = ++moveVersion;
+              const destination = loadPicture(targetTrackIndex);
+              const wrapDestination = wrapsForward ? loadPicture(1) : wrapsBackward ? loadPicture(banners.length) : Promise.resolve();
+              void Promise.all([destination, wrapDestination]).then(() => {
+                if (currentMove !== moveVersion) return;
+                index = nextIndex;
+                trackIndex = targetTrackIndex;
+                slidePictures.forEach((slide, slideIndex) => slide.setAttribute('aria-hidden', String(slideIndex !== trackIndex)));
+                updateDots();
+                setPosition();
+              });
             };
             track.addEventListener('transitionend', (event) => {
               if (event.target !== track) return;
@@ -6486,18 +6513,26 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               }
               restart();
             }, { passive: true });
-            controls.append(prev, next); slider.append(track, controls, dots); setPosition(); restart();
+            controls.append(prev, next); slider.append(track, controls, dots); setPosition(); startCarousel = restart;
           } else {
             const picture = doc.createElement('picture');
             const desktopSource = doc.createElement('source'); desktopSource.media = '(min-width: 769px)'; desktopSource.srcset = banners[0].desktopImageUrl || banners[0].mobileImageUrl;
-            const image = doc.createElement('img'); image.alt = 'แบนเนอร์โปรโมชั่น SOULMATE'; image.src = banners[0].mobileImageUrl; image.fetchPriority = 'high';
+            const image = doc.createElement('img'); image.alt = 'แบนเนอร์โปรโมชั่น SOULMATE'; image.src = win.matchMedia('(min-width: 769px)').matches ? (banners[0].desktopImageUrl || banners[0].mobileImageUrl) : banners[0].mobileImageUrl; image.fetchPriority = 'high'; image.width = 1672; image.height = 941; image.decoding = 'async';
+            firstBannerImage = image;
             picture.append(desktopSource, image); slider.append(picture);
           }
-          hero.append(slider);
+          void firstBannerImage?.decode().then(() => {
+            hero.replaceChildren(slider);
+            startCarousel?.();
+          }).catch((imageError) => {
+            console.warn('[Home Page] Banner image could not be displayed:', imageError);
+          });
         }
         // Storefront must show ONLY real published/active products from Firestore.
         // Never keep Stitch sample/mock cards on the production homepage.
-        const activeProducts = await getProducts({ status: 'active' });
+        const productResult = await productsPromise;
+        if (productResult.error) throw productResult.error;
+        const activeProducts = productResult.products!;
         const productSection = initialProductGrid?.closest('section');
         if (productSection && activeProducts.length > 0) {
           const categories = Array.from(new Map(
@@ -6685,6 +6720,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             index,
           }))
           .join('');
+        productGrid.removeAttribute('aria-label');
 
         const openHomeProduct = (index: number) => {
           const item = homeProducts[index];
