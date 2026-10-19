@@ -1,11 +1,26 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { cpSync } from 'node:fs';
 import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'copy-screen-templates',
+        closeBundle() {
+          const root = import.meta.dirname || '.';
+          cpSync(
+            path.resolve(root, 'stitch_soulmate_e_commerce'),
+            path.resolve(root, 'dist/stitch_soulmate_e_commerce'),
+            { recursive: true },
+          );
+        },
+      },
+    ],
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname || '.', '.'),

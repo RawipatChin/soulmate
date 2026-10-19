@@ -45,6 +45,8 @@ npm run build
 
 ต้องได้โฟลเดอร์ `dist/` ที่มี `index.html` ถ้าคำสั่งไม่ผ่าน ให้แก้ข้อผิดพลาดก่อนอัปโหลด ทุกครั้งที่แก้ค่า `.env` หรือโค้ด ต้อง build ใหม่ก่อน deploy
 
+ขั้นตอน build จะคัดลอก `stitch_soulmate_e_commerce/` เข้า `dist/` ด้วย เพราะหน้าร้านและหน้าแอดมินโหลด HTML template จากโฟลเดอร์นี้ตอน runtime ให้ตรวจว่ามี `dist/stitch_soulmate_e_commerce/` ก่อนอัปโหลดด้วย
+
 ### 3. อัปโหลดขึ้น Cloudflare
 
 1. เข้า [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages** → **Create application** → **Get started** → **Drag and drop your files**

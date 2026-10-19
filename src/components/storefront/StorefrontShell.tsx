@@ -28,7 +28,6 @@ export function StorefrontShell({
   const { customerProfile, profileLoading } = useAuth();
   const showAdminLink = !profileLoading && canAccessAdmin(customerProfile);
   const isSuperAdmin = customerProfile?.role === 'super_admin';
-  const isAccountHome = location.pathname === '/account';
   const [cartCount, setCartCount] = useState(() => getCartSnapshot().itemCount);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -79,7 +78,7 @@ export function StorefrontShell({
           </nav>
 
           <div className="storefront-header-actions">
-            {showAdminLink && <Link aria-label={isSuperAdmin ? 'ไปหน้า Super Admin' : 'ไปหน้าหลังบ้าน'} className="storefront-admin-link" to={isSuperAdmin ? '/admin/settings' : '/admin/dashboard'}><span className="material-symbols-outlined" aria-hidden="true">{isSuperAdmin ? 'admin_panel_settings' : 'space_dashboard'}</span><span>{isSuperAdmin ? 'Super Admin' : 'หลังบ้าน'}</span></Link>}
+            {showAdminLink && <Link aria-label={isSuperAdmin ? 'ไปหน้า Super Admin' : 'ไปหน้าหลังบ้าน'} className="storefront-admin-link" to="/admin/dashboard"><span className="material-symbols-outlined" aria-hidden="true">{isSuperAdmin ? 'admin_panel_settings' : 'space_dashboard'}</span><span>{isSuperAdmin ? 'Super Admin' : 'หลังบ้าน'}</span></Link>}
             <Link aria-label={`ตะกร้าสินค้า ${cartCount} ชิ้น`} className="storefront-icon-link storefront-cart-link" to="/cart">
               <span className="material-symbols-outlined">shopping_bag</span>
               <span className="storefront-action-label">ตะกร้า</span>
@@ -93,40 +92,11 @@ export function StorefrontShell({
         </div>
       </header>
 
-      {isAccountHome && (
-        <nav aria-label="ทางลัดบัญชี" className="storefront-account-quick-nav">
-          <Link to="/account/profile">
-            <span className="material-symbols-outlined" aria-hidden="true">edit</span>
-            <span>แก้ไขข้อมูล</span>
-          </Link>
-          <Link to="/account/orders">
-            <span className="material-symbols-outlined" aria-hidden="true">receipt_long</span>
-            <span>คำสั่งซื้อ</span>
-          </Link>
-          <Link to="/cart">
-            <span className="material-symbols-outlined" aria-hidden="true">shopping_bag</span>
-            <span>ตะกร้าสินค้า</span>
-          </Link>
-          <button
-            onClick={() => {
-              const logoutButton = document
-                .querySelector<HTMLIFrameElement>('.storefront-frame iframe')
-                ?.contentDocument?.getElementById('btn-logout') as HTMLButtonElement | null;
-              logoutButton?.click();
-            }}
-            type="button"
-          >
-            <span className="material-symbols-outlined" aria-hidden="true">logout</span>
-            <span>ออกจากระบบ</span>
-          </button>
-        </nav>
-      )}
-
       {!mobileChrome && showAdminLink && !isProductDetail && (
         <Link
           aria-label={isSuperAdmin ? 'ไปหน้า Super Admin' : 'ไปหน้าหลังบ้าน'}
           className="storefront-mobile-admin-link"
-          to={isSuperAdmin ? '/admin/settings' : '/admin/dashboard'}
+          to="/admin/dashboard"
         >
           <span className="material-symbols-outlined" aria-hidden="true">
             {isSuperAdmin ? 'admin_panel_settings' : 'space_dashboard'}

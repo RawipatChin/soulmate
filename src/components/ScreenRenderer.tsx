@@ -810,24 +810,59 @@ function configureAdminTopbar(doc: Document) {
 }
 
 async function applyPublicStoreSettings(doc: Document, pathname: string) {
+  const productAnnouncement = pathname === '/products'
+    ? doc.getElementById('announcement-bar')
+    : null;
+  if (productAnnouncement) productAnnouncement.style.display = 'none';
   try {
     const settings = await getPublicStoreSettings();
     if (settings.logoUrl) {
       doc.querySelectorAll<HTMLImageElement>('img[alt="SOULMATE"]').forEach((image) => { image.src = settings.logoUrl!; });
     }
     const messages = settings.announcements?.map((message) => message.trim()).filter(Boolean) ?? [];
+    if (productAnnouncement) {
+      if (messages.length) {
+        const message = productAnnouncement.querySelector('.font-medium');
+        if (message) message.textContent = messages.join(' · ');
+        productAnnouncement.setAttribute('role', 'status');
+        productAnnouncement.style.removeProperty('display');
+      } else {
+        productAnnouncement.remove();
+      }
+    }
     if (pathname === '/' && messages.length) {
       const main = doc.querySelector('main');
       if (main && !doc.getElementById('store-announcement-bar')) {
         const bar = doc.createElement('div');
         bar.id = 'store-announcement-bar';
         bar.setAttribute('role', 'status');
-        bar.className = 'w-full bg-primary px-4 py-2 text-center text-sm font-semibold text-on-primary';
-        bar.textContent = messages.join(' · ');
-        main.prepend(bar);
+        bar.className = 'w-full bg-[#EBF7F2] text-primary px-margin py-1.5 flex items-center justify-between z-50 text-[12px] font-label-md border-b border-primary-container/40';
+        const content = doc.createElement('div');
+        content.className = 'flex items-center gap-1.5 mx-auto';
+        const icon = doc.createElement('span');
+        icon.className = 'material-symbols-outlined text-[15px]';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = 'campaign';
+        const message = doc.createElement('span');
+        message.className = 'font-medium';
+        message.textContent = messages.join(' · ');
+        content.append(icon, message);
+        const close = doc.createElement('button');
+        close.type = 'button';
+        close.className = 'text-secondary hover:text-primary transition-colors focus:outline-none';
+        close.setAttribute('aria-label', 'ปิดประกาศ');
+        const closeIcon = doc.createElement('span');
+        closeIcon.className = 'material-symbols-outlined text-[16px]';
+        closeIcon.setAttribute('aria-hidden', 'true');
+        closeIcon.textContent = 'close';
+        close.append(closeIcon);
+        close.addEventListener('click', () => bar.remove());
+        bar.append(content, close);
+        main.before(bar);
       }
     }
   } catch (error) {
+    productAnnouncement?.remove();
     console.warn('[SOULMATE Storefront] Public settings unavailable:', error);
   }
 }
@@ -840,6 +875,8 @@ async function configureAdminSettingsPage(doc: Document, win: any, isSuperAdmin:
   const orderSection = doc.getElementById('storeSettingsSection3');
   const paymentSection = doc.getElementById('storeSettingsSection4');
   const storefrontSection = doc.getElementById('storeSettingsSection5');
+  const storefrontHeading = storefrontSection?.querySelector('h2');
+  if (storefrontHeading) storefrontHeading.textContent = 'ประกาศหน้าร้าน';
   const systemSection = doc.getElementById('storeSettingsSection6');
   if (!isSuperAdmin) {
     storeSection?.remove();
