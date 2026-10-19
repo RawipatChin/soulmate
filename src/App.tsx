@@ -12,10 +12,12 @@ import { CustomerProtectedRoute } from './components/CustomerProtectedRoute';
 import { AdminProtectedRoute } from './components/AdminProtectedRoute';
 import { AccountAuthPage } from './components/AccountAuthPage';
 import { StorefrontArticlePage, StorefrontContentPage, userFacingPages } from './components/storefront/StorefrontContentPage';
+import { StorefrontLegalPage } from './components/storefront/StorefrontLegalPage';
 import { AdminOrdersPage, AdminPaymentSettingsPage, CustomerOrdersPage, OrderConfirmationPage } from './components/OrderPages';
 import { AdminFulfillmentPage } from './components/AdminFulfillmentPage';
 import { AdminBannersPage, AdminBannerFormPage } from './components/AdminBannersPage';
 import { AdminRoleManagementPage } from './components/AdminRoleManagementPage';
+import { ResetPasswordActionPage } from './components/ResetPasswordActionPage';
 
 function getScreen(id: string): ScreenDefinition {
   const found = SCREENS.find((s) => s.id === id);
@@ -120,6 +122,7 @@ export default function App() {
               path="/login"
               element={<AccountAuthPage mode="login" />}
             />
+            <Route path="/reset-password" element={<ResetPasswordActionPage />} />
             <Route
               path="/register"
               element={<AccountAuthPage mode="register" />}
@@ -206,8 +209,8 @@ export default function App() {
                 </CustomerProtectedRoute>
               }
             />
-            <Route path="/privacy" element={<StorefrontContentPage {...userFacingPages.privacy} />} />
-            <Route path="/terms" element={<StorefrontContentPage {...userFacingPages.terms} />} />
+            <Route path="/privacy" element={<StorefrontLegalPage kind="privacy" />} />
+            <Route path="/terms" element={<StorefrontLegalPage kind="terms" />} />
             <Route path="/coming-soon" element={<StorefrontContentPage {...userFacingPages.comingSoon} />} />
             <Route path="/maintenance" element={<StorefrontContentPage {...userFacingPages.maintenance} />} />
             <Route path="/404" element={<StorefrontContentPage {...userFacingPages.notFound} />} />
@@ -320,11 +323,7 @@ export default function App() {
               path="/admin/coupons"
               element={
                 <AdminProtectedRoute>
-                  <ScreenRenderer
-                    screen={adminCouponsScreen}
-                    routeType="admin"
-                    backFallback="/admin/dashboard"
-                  />
+                  <ScreenRenderer screen={adminCouponsScreen} routeType="admin" backFallback="/admin/dashboard" />
                 </AdminProtectedRoute>
               }
             />
@@ -332,11 +331,7 @@ export default function App() {
               path="/admin/coupons/new"
               element={
                 <AdminProtectedRoute>
-                  <ScreenRenderer
-                    screen={adminAddCouponScreen}
-                    routeType="admin"
-                    backFallback="/admin/coupons"
-                  />
+                  <ScreenRenderer screen={adminAddCouponScreen} routeType="admin" backFallback="/admin/coupons" />
                 </AdminProtectedRoute>
               }
             />
@@ -344,11 +339,7 @@ export default function App() {
               path="/admin/coupons/:couponId/edit"
               element={
                 <AdminProtectedRoute>
-                  <ScreenRenderer
-                    screen={adminEditCouponScreen}
-                    routeType="admin"
-                    backFallback="/admin/coupons"
-                  />
+                  <ScreenRenderer screen={adminEditCouponScreen} routeType="admin" backFallback="/admin/coupons" />
                 </AdminProtectedRoute>
               }
             />

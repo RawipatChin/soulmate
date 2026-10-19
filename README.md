@@ -10,3 +10,7 @@ Storefront and admin dashboard for the SOULMATE ecommerce site.
 4. Start the app with `npm run dev`.
 
 Run `npm run lint` and `npm run build` to check the frontend.
+
+## Deploy
+
+See [Cloudflare Pages deployment guide](docs/deploy-cloudflare-pages.md) for the current Firebase-backed site.

@@ -163,8 +163,63 @@ function installStorefrontDesktopStyles(doc: Document) {
   doc.head.appendChild(style);
 }
 
+function installStorefrontInteractionStyles(doc: Document) {
+  if (doc.getElementById('soulmate-storefront-interactions')) return;
+  const style = doc.createElement('style');
+  style.id = 'soulmate-storefront-interactions';
+  style.textContent = `
+    :root { --soulmate-interaction-ease: cubic-bezier(.23, 1, .32, 1); }
+    .soulmate-home-discover { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0 4px; }
+    .soulmate-home-discover-label { width: 100%; color: #53615d; font-size: 13px; font-weight: 600; }
+    .soulmate-home-discover a { display: inline-flex; min-height: 36px; align-items: center; padding: 7px 14px; border: 1px solid #c8ddd3; border-radius: 999px; background: #fff; color: #1b4d3e; font-size: 13px; font-weight: 600; text-decoration: none; transition: background-color 160ms ease, border-color 160ms ease, transform 140ms var(--soulmate-interaction-ease); }
+    .soulmate-home-discover a:first-of-type { background: #e8f8f2; }
+    .soulmate-home-all { display: inline-flex; align-items: center; gap: 4px; color: #1b4d3e; font-size: 13px; font-weight: 700; text-decoration: none; }
+    .soulmate-home-all .material-symbols-outlined { font-size: 18px; transition: transform 160ms var(--soulmate-interaction-ease); }
+    .soulmate-sort-row { display:flex; justify-content:flex-end; align-items:center; gap:8px; margin:12px 0; color:#53615d; font-size:12px; }
+    .soulmate-sort-row select { min-height:38px; max-width:min(70vw, 250px); padding:0 32px 0 12px; border:1px solid #c8ddd3; border-radius:999px; background:#fff; color:#1b4d3e; font:inherit; cursor:pointer; }
+    .soulmate-sort-row select:focus-visible { outline:2px solid #2d6857; outline-offset:2px; }
+    #btn-checkout { transition: transform 120ms var(--soulmate-interaction-ease), background-color 160ms ease, box-shadow 160ms ease; }
+    #btn-checkout:focus-visible { outline: 3px solid #ca5a9a; outline-offset: 3px; }
+    #btn-checkout:disabled { cursor: not-allowed; }
+    .storefront-product-card--catalog-grid, .storefront-product-card--catalog-list { transition: border-color 160ms ease, box-shadow 180ms ease, transform 140ms var(--soulmate-interaction-ease); }
+    #real-product-main-image { transition: opacity 140ms ease; }
+    .real-product-thumb { transition: border-color 160ms ease, box-shadow 160ms ease, transform 140ms var(--soulmate-interaction-ease); }
+    .real-product-thumb[aria-pressed="true"] { box-shadow:0 0 0 2px #2d6857; }
+    #real-product-config button:disabled { opacity:.45; cursor:not-allowed; }
+    #real-product-config button, #real-product-purchase-bar button { transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 120ms var(--soulmate-interaction-ease); }
+    #real-product-config button:active, #real-product-purchase-bar button:active { transform:scale(.97); }
+    #home-search-input { transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
+    #home-search-input:focus-visible { outline: 2px solid #2d6857; outline-offset: 2px; box-shadow: 0 0 0 4px #a8e5cf55; }
+    #home-search-input:focus-visible + button { background: #a8e5cf; color: #1b4d3e; }
+    .soulmate-category-filters a, .soulmate-account-nav a, [data-action="view-product"], button, a { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible, [role="button"]:focus-visible, [data-action="view-product"]:focus-visible { outline: 2px solid #ca5a9a; outline-offset: 3px; }
+    @media (hover: hover) and (pointer: fine) {
+      .soulmate-home-discover a:hover, .soulmate-category-filters a:hover, .soulmate-account-nav a:hover { background: #a8e5cf; border-color: #75c7a8; }
+      .soulmate-home-all:hover .material-symbols-outlined { transform: translateX(3px); }
+      .storefront-product-card--catalog-grid:hover, .storefront-product-card--catalog-list:hover { border-color:#75c7a8; box-shadow:0 8px 20px rgba(31,66,53,.12); }
+      .storefront-product-card--catalog-grid:hover .storefront-product-card__image img { transform:scale(1.025); }
+      .storefront-product-card--catalog-grid .storefront-product-card__image img { transition:transform 220ms cubic-bezier(.23, 1, .32, 1); }
+      .real-product-thumb:hover { transform:translateY(-2px); }
+      #home-search-input + button:hover { background: #a8e5cf; color: #1b4d3e; }
+      #btn-checkout:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(45, 104, 87, .2); }
+    }
+    .soulmate-home-discover a:active, .soulmate-category-filters a:active, .soulmate-account-nav a:active, #home-search-input + button:active { transform: scale(.97); }
+    #btn-checkout:active:not(:disabled) { transform: scale(.98); }
+    @media (prefers-reduced-motion: reduce) {
+      .soulmate-home-discover a, .soulmate-home-all .material-symbols-outlined { transition-property: background-color, border-color, color; }
+      .soulmate-home-discover a:active, .soulmate-category-filters a:active, .soulmate-account-nav a:active, #home-search-input + button:active { transform: none; }
+      .soulmate-home-all:hover .material-symbols-outlined { transform: none; }
+      .real-product-thumb:hover { transform:none; }
+      #real-product-main-image, .real-product-thumb, #real-product-config button, #real-product-purchase-bar button { transition-property: opacity, color, background-color, border-color; }
+      #btn-checkout { transition-property: background-color, box-shadow; }
+      #btn-checkout:active:not(:disabled) { transform: none; }
+    }
+  `;
+  doc.head.appendChild(style);
+}
+
 function mountAccountNavigation(doc: Document, pathname: string) {
-  if (!pathname.startsWith('/account') || doc.querySelector('.soulmate-account-nav')) return;
+  if (pathname === '/account' || !pathname.startsWith('/account') || doc.querySelector('.soulmate-account-nav')) return;
   const main = doc.querySelector('main');
   if (!main) return;
   const nav = doc.createElement('nav');
@@ -1510,6 +1565,94 @@ function removeLegacyProductDetailPurchaseControls(doc: Document) {
   });
 }
 
+function wireCustomerPhotoControls(
+  doc: Document,
+  win: any,
+  auth: ReturnType<typeof useAuth>,
+  prefix: 'account' | 'profile',
+) {
+  const fileInput = doc.getElementById(`${prefix}-photo-input`) as HTMLInputElement | null;
+  const cameraButton = doc.getElementById(`${prefix}-camera-btn`) as HTMLButtonElement | null;
+  const deleteButton = doc.getElementById(`${prefix}-btn-delete-photo`) as HTMLButtonElement | null;
+  const image = doc.getElementById(`${prefix}-avatar-img`) as HTMLImageElement | null;
+  const fallback = doc.getElementById(`${prefix}-avatar-default`);
+  const loading = doc.getElementById(`${prefix}-avatar-loading`);
+  const message = doc.getElementById(`${prefix}-photo-message`);
+  if (!fileInput || !cameraButton || !image) return;
+
+  const setPhoto = (url: string | null) => {
+    if (url) {
+      image.src = url;
+      image.classList.remove('hidden');
+      fallback?.classList.add('hidden');
+    } else {
+      image.removeAttribute('src');
+      image.classList.add('hidden');
+      fallback?.classList.remove('hidden');
+    }
+    deleteButton?.classList.toggle('hidden', !url);
+  };
+  const showMessage = (text: string, isError = false) => {
+    if (!message) return;
+    message.textContent = text;
+    message.classList.remove('hidden', 'text-error', 'text-primary');
+    message.classList.add(isError ? 'text-error' : 'text-primary');
+    win.setTimeout(() => message.classList.add('hidden'), 3500);
+  };
+
+  setPhoto(auth.customerProfile?.photoURL || auth.user?.photoURL || null);
+  cameraButton.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      showMessage('เลือกรูป JPG, PNG หรือ WEBP', true);
+      fileInput.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showMessage('รูปภาพต้องมีขนาดไม่เกิน 5 MB', true);
+      fileInput.value = '';
+      return;
+    }
+
+    cameraButton.disabled = true;
+    if (deleteButton) deleteButton.disabled = true;
+    loading?.classList.remove('hidden');
+    if (message) message.classList.add('hidden');
+    try {
+      const url = await auth.uploadProfilePhoto(file);
+      setPhoto(url);
+      showMessage('อัปเดตรูปโปรไฟล์แล้ว');
+    } catch (error) {
+      showMessage((error as Error)?.message || 'อัปโหลดรูปไม่สำเร็จ กรุณาลองอีกครั้ง', true);
+    } finally {
+      cameraButton.disabled = false;
+      if (deleteButton) deleteButton.disabled = false;
+      loading?.classList.add('hidden');
+      fileInput.value = '';
+    }
+  });
+
+  deleteButton?.addEventListener('click', async () => {
+    if (!win.confirm('ต้องการลบรูปโปรไฟล์หรือไม่?')) return;
+    cameraButton.disabled = true;
+    deleteButton.disabled = true;
+    loading?.classList.remove('hidden');
+    try {
+      await auth.deleteProfilePhoto();
+      setPhoto(null);
+      showMessage('ลบรูปโปรไฟล์แล้ว');
+    } catch (error) {
+      showMessage((error as Error)?.message || 'ลบรูปไม่สำเร็จ กรุณาลองอีกครั้ง', true);
+    } finally {
+      cameraButton.disabled = false;
+      deleteButton.disabled = false;
+      loading?.classList.add('hidden');
+    }
+  });
+}
+
 function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
   cart = createEffectiveCart(cart);
 
@@ -2484,6 +2627,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
     if (routeType === 'storefront') {
       doc.body.classList.add('soulmate-shared-storefront-header');
       installStorefrontDesktopStyles(doc);
+      installStorefrontInteractionStyles(doc);
       const homeLogo = location.pathname === '/'
         ? doc.querySelector<HTMLImageElement>('body > header img[alt*="SOULMATE"]')
         : null;
@@ -3216,6 +3360,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         const tierName = doc.getElementById('tier-name-display');
         if (tierName) tierName.textContent = tierInfo.currentTier;
       }
+      wireCustomerPhotoControls(doc, win, auth, 'account');
 
       const passwordResetBtn = doc.getElementById('account-password-reset') as HTMLButtonElement | null;
       const passwordMessage = doc.getElementById('account-password-message');
@@ -3272,6 +3417,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         if (phoneEl) phoneEl.value = profile.phone || '';
         if (emailEl) emailEl.value = profile.email || auth.user?.email || '';
       }
+      wireCustomerPhotoControls(doc, win, auth, 'profile');
 
       const profileForm = doc.getElementById('profileForm');
       profileForm?.addEventListener('submit', async (e) => {
@@ -3383,7 +3529,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         if (!existing) return;
 
         let nextItems = effective.items;
-
         if (action === 'increase') {
           nextItems = updatePersistedCartQuantity(
             cartId,
@@ -4842,7 +4987,9 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           .get('search')
           ?.trim()
           .toLocaleLowerCase('th-TH') || '';
-        const selectedCategoryId = new URLSearchParams(location.search).get('category') || '';
+        const routeParams = new URLSearchParams(location.search);
+        const selectedCategoryId = routeParams.get('category') || '';
+        const sortMode = routeParams.get('sort') || 'featured';
         const visibleProducts = activeProducts.filter((product) => {
           if (selectedCategoryId && product.categoryId !== selectedCategoryId) return false;
           if (!searchQuery) return true;
@@ -4864,6 +5011,14 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                 .toLocaleLowerCase('th-TH');
               return searchText.includes(searchQuery);
         });
+        const compareNames = (a: Product, b: Product) => a.name.localeCompare(b.name, 'th');
+        visibleProducts.sort((a, b) => {
+          if (sortMode === 'price-asc') return resolveStorefrontPricing(a).sellingPrice - resolveStorefrontPricing(b).sellingPrice;
+          if (sortMode === 'price-desc') return resolveStorefrontPricing(b).sellingPrice - resolveStorefrontPricing(a).sellingPrice;
+          if (sortMode === 'name-asc') return compareNames(a, b);
+          if (sortMode === 'name-desc') return compareNames(b, a);
+          return activeProducts.indexOf(a) - activeProducts.indexOf(b);
+        });
 
         const categoryBar = doc.createElement('nav');
         categoryBar.className = 'soulmate-category-filters';
@@ -4876,7 +5031,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           ).entries()
         );
         const allCategoryLink = doc.createElement('a');
-        allCategoryLink.href = `/products${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`;
+        const allParams = new URLSearchParams();
+        if (searchQuery) allParams.set('search', searchQuery);
+        if (sortMode !== 'featured') allParams.set('sort', sortMode);
+        allCategoryLink.href = `/products${allParams.size ? `?${allParams.toString()}` : ''}`;
         allCategoryLink.textContent = 'ทั้งหมด';
         if (!selectedCategoryId) allCategoryLink.setAttribute('aria-current', 'page');
         categoryBar.appendChild(allCategoryLink);
@@ -4885,6 +5043,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           const params = new URLSearchParams();
           params.set('category', categoryId);
           if (searchQuery) params.set('search', searchQuery);
+          if (sortMode !== 'featured') params.set('sort', sortMode);
           link.href = `/products?${params.toString()}`;
           link.textContent = categoryName;
           if (selectedCategoryId === categoryId) link.setAttribute('aria-current', 'page');
@@ -4898,6 +5057,21 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         const toolbar = doc.getElementById('shop-toolbar');
         if (toolbar?.parentElement && !doc.querySelector('.soulmate-category-filters')) {
           toolbar.parentElement.insertBefore(categoryBar, toolbar);
+        }
+        if (toolbar?.parentElement && !doc.querySelector('.soulmate-sort-row')) {
+          const sortRow = doc.createElement('label');
+          sortRow.className = 'soulmate-sort-row';
+          sortRow.innerHTML = '<span>เรียงตาม</span><select aria-label="เรียงสินค้า"><option value="featured">แนะนำ</option><option value="price-asc">ราคา: ต่ำไปสูง</option><option value="price-desc">ราคา: สูงไปต่ำ</option><option value="name-asc">ชื่อสินค้า: ก ถึง ฮ</option><option value="name-desc">ชื่อสินค้า: ฮ ถึง ก</option></select>';
+          const sortSelect = sortRow.querySelector('select')!;
+          sortSelect.value = sortMode;
+          sortSelect.addEventListener('change', () => {
+            const params = new URLSearchParams(location.search);
+            if (sortSelect.value === 'featured') params.delete('sort');
+            else params.set('sort', sortSelect.value);
+            const query = params.toString();
+            navigate(query ? `/products?${query}` : '/products');
+          });
+          toolbar.insertAdjacentElement('afterend', sortRow);
         }
 
         const productSearch = doc.getElementById('product-search-input') as HTMLInputElement | null;
@@ -5288,11 +5462,12 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
 
             return `
               <div class="w-full">
-                <div class="w-full aspect-square rounded-2xl overflow-hidden bg-white border border-outline-variant/30 flex items-center justify-center">
+                <div id="real-product-gallery-viewport" role="group" tabindex="0" aria-label="แกลเลอรีรูปสินค้า ใช้ปุ่มลูกศรเพื่อเปลี่ยนรูป" aria-keyshortcuts="ArrowLeft ArrowRight" class="w-full aspect-square rounded-2xl overflow-hidden bg-white border border-outline-variant/30 flex items-center justify-center">
                   <img
                     id="real-product-main-image"
                     src="${escapeHtml(selectedImageUrl)}"
                     alt="${escapeHtml(product.name)}"
+                    draggable="false"
                     class="w-full h-full object-contain"
                   />
                 </div>
@@ -5312,6 +5487,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                                     : 'border-outline-variant/50'
                                 }"
                                 data-image-index="${index}"
+                                aria-pressed="${image.url === selectedImageUrl}"
                                 aria-label="เลือกรูปสินค้า ${index + 1}"
                               >
                                 <img
@@ -5385,6 +5561,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                                   <button
                                     type="button"
                                     class="${variantOptionClass(isSelected)}"
+                                    aria-pressed="${isSelected}"
                                     data-group-id="${escapeHtml(String(group?.id || ''))}"
                                     data-value-id="${escapeHtml(String(value?.id || ''))}"
                                   >
@@ -5709,6 +5886,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
               ).toLocaleString('th-TH')}`;
             }
 
+            const minusButton = doc.getElementById('real-qty-minus') as HTMLButtonElement | null;
+            const plusButton = doc.getElementById('real-qty-plus') as HTMLButtonElement | null;
+            if (minusButton) minusButton.disabled = quantity <= 1;
+            if (plusButton) plusButton.disabled = currentStock <= 0 || quantity >= currentStock;
+
             const addButton = doc.getElementById(
               'real-add-to-cart'
             ) as HTMLButtonElement | null;
@@ -5739,37 +5921,56 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           // ---------------------------------------------------------
           // GALLERY EVENTS
           // ---------------------------------------------------------
-          doc.querySelectorAll<HTMLElement>('.real-product-thumb').forEach(
-            (button) => {
-              button.addEventListener('click', () => {
-                const index = Number(button.dataset.imageIndex || 0);
-                const chosen = resolvedImages[index];
-
-                if (!chosen?.url) return;
-
-                selectedImageUrl = chosen.url;
-
-                doc.querySelectorAll<HTMLElement>('.real-product-thumb').forEach(
-                  (thumb) => {
-                    const thumbIndex = Number(thumb.dataset.imageIndex || 0);
-                    const active = thumbIndex === index;
-                    thumb.classList.toggle('border-primary', active);
-                    thumb.classList.toggle('ring-1', active);
-                    thumb.classList.toggle('ring-primary', active);
-                    thumb.classList.toggle('border-outline-variant/50', !active);
-                  }
-                );
-
-                const mainImageEl = doc.getElementById(
-                  'real-product-main-image'
-                ) as HTMLImageElement | null;
-
-                if (mainImageEl) {
-                  mainImageEl.src = chosen.url;
-                }
-              });
+          const selectGalleryImage = (index: number) => {
+            const chosen = resolvedImages[index];
+            if (!chosen?.url) return;
+            selectedImageUrl = chosen.url;
+            doc.querySelectorAll<HTMLElement>('.real-product-thumb').forEach((thumb) => {
+              const active = Number(thumb.dataset.imageIndex || 0) === index;
+              thumb.setAttribute('aria-pressed', String(active));
+              thumb.classList.toggle('border-primary', active);
+              thumb.classList.toggle('ring-1', active);
+              thumb.classList.toggle('ring-primary', active);
+              thumb.classList.toggle('border-outline-variant/50', !active);
+            });
+            const mainImageEl = doc.getElementById('real-product-main-image') as HTMLImageElement | null;
+            if (mainImageEl) {
+              mainImageEl.style.opacity = '0.55';
+              mainImageEl.alt = `${product.name} รูปที่ ${index + 1}`;
+              mainImageEl.src = chosen.url;
+              mainImageEl.onload = mainImageEl.onerror = () => { mainImageEl.style.opacity = '1'; };
             }
-          );
+          };
+
+          doc.querySelectorAll<HTMLElement>('.real-product-thumb').forEach((button) => {
+            button.addEventListener('click', () => {
+              selectGalleryImage(Number(button.dataset.imageIndex || 0));
+            });
+          });
+
+          const galleryViewport = doc.getElementById('real-product-gallery-viewport');
+          if (galleryViewport && resolvedImages.length > 1) {
+            galleryViewport.addEventListener('keydown', (event: KeyboardEvent) => {
+              if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+              event.preventDefault();
+              const current = Math.max(0, resolvedImages.findIndex((image) => image.url === selectedImageUrl));
+              const next = (current + (event.key === 'ArrowRight' ? 1 : resolvedImages.length - 1)) % resolvedImages.length;
+              selectGalleryImage(next);
+            });
+            let touchStartX: number | null = null;
+            galleryViewport.addEventListener('touchstart', (event: TouchEvent) => {
+              touchStartX = event.changedTouches[0]?.clientX ?? null;
+            }, { passive: true });
+            galleryViewport.addEventListener('touchend', (event: TouchEvent) => {
+              if (touchStartX === null) return;
+              const delta = (event.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
+              touchStartX = null;
+              if (Math.abs(delta) < 40) return;
+              const current = Math.max(0, resolvedImages.findIndex((image) => image.url === selectedImageUrl));
+              const next = (current + (delta < 0 ? 1 : resolvedImages.length - 1)) % resolvedImages.length;
+              selectGalleryImage(next);
+            }, { passive: true });
+          }
 
           // ---------------------------------------------------------
           // QUANTITY EVENTS
@@ -5902,6 +6103,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
                   if (quantityDisplay) {
                     quantityDisplay.textContent = '1';
                   }
+
+                  doc.querySelectorAll<HTMLElement>('.real-variant-option').forEach((optionButton) => {
+                    optionButton.setAttribute('aria-pressed', String(optionButton.classList.contains('bg-tertiary')));
+                  });
 
                   refreshDetailUi();
                 });
@@ -6169,8 +6374,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             .soulmate-banner-controls button:hover{background:rgba(255,255,255,.2)}
             .soulmate-banner-controls button:focus-visible{outline:2px solid #2d6857;outline-offset:2px}
             .soulmate-banner-dots{position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:8px}
-            .soulmate-banner-dots button{width:9px;height:9px;border-radius:50%;padding:0;background:rgba(255,255,255,.65)}
-            .soulmate-banner-dots button[aria-current=true]{background:#2d6857;outline:2px solid white}
+            .soulmate-banner-dots button{width:32px;height:32px;display:grid;place-items:center;border-radius:50%;padding:0;background:transparent}
+            .soulmate-banner-dots button::after{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.75);content:'';box-shadow:0 1px 4px rgba(0,0,0,.25)}
+            .soulmate-banner-dots button[aria-current=true]::after{background:#2d6857;outline:2px solid white}
+            .soulmate-banner-dots button:focus-visible{outline:2px solid #2d6857;outline-offset:0}
             @media(max-width:768px){.soulmate-banner-controls button{width:34px;height:34px}}
             @media(prefers-reduced-motion:reduce){.soulmate-banner-track{transition-duration:100ms}}
           `;
@@ -6215,7 +6422,11 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             const prev = doc.createElement('button'); prev.type = 'button'; prev.setAttribute('aria-label', 'แบนเนอร์ก่อนหน้า'); prev.textContent = '‹';
             const next = doc.createElement('button'); next.type = 'button'; next.setAttribute('aria-label', 'แบนเนอร์ถัดไป'); next.textContent = '›';
             const stopTimer = () => { if (timer) win.clearInterval(timer); timer = undefined; };
-            const restart = () => { stopTimer(); timer = win.setInterval(() => moveTo((index + 1) % banners.length, 'next'), 10000); };
+            const restart = () => {
+              stopTimer();
+              if (reducedMotion || doc.hidden) return;
+              timer = win.setInterval(() => moveTo((index + 1) % banners.length, 'next'), 10000);
+            };
             banners.forEach((banner, i) => { const dot = doc.createElement('button'); dot.type = 'button'; dot.setAttribute('aria-label', `แสดงแบนเนอร์ ${i + 1}: ${banner.name}`); if (!i) dot.setAttribute('aria-current', 'true'); dot.onclick = () => { moveTo(i); restart(); }; dots.append(dot); });
             prev.onclick = () => { moveTo((index + banners.length - 1) % banners.length, 'prev'); restart(); };
             next.onclick = () => { moveTo((index + 1) % banners.length, 'next'); restart(); };
@@ -6223,6 +6434,21 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             slider.addEventListener('mouseleave', restart);
             slider.addEventListener('focusin', () => { if (timer) win.clearInterval(timer); });
             slider.addEventListener('focusout', restart);
+            doc.addEventListener('visibilitychange', () => { if (doc.hidden) stopTimer(); else restart(); });
+            let touchStartX: number | null = null;
+            slider.addEventListener('touchstart', (event: TouchEvent) => {
+              touchStartX = event.changedTouches[0]?.clientX ?? null;
+              stopTimer();
+            }, { passive: true });
+            slider.addEventListener('touchend', (event: TouchEvent) => {
+              if (touchStartX === null) return;
+              const distance = (event.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
+              touchStartX = null;
+              if (Math.abs(distance) > 45) {
+                moveTo((index + (distance < 0 ? 1 : banners.length - 1)) % banners.length, distance < 0 ? 'next' : 'prev');
+              }
+              restart();
+            }, { passive: true });
             controls.append(prev, next); slider.append(track, controls, dots); setPosition(); restart();
           } else {
             const picture = doc.createElement('picture');
@@ -6235,6 +6461,42 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
         // Storefront must show ONLY real published/active products from Firestore.
         // Never keep Stitch sample/mock cards on the production homepage.
         const activeProducts = await getProducts({ status: 'active' });
+        const productSection = initialProductGrid?.closest('section');
+        if (productSection && activeProducts.length > 0) {
+          const categories = Array.from(new Map(
+            activeProducts
+              .filter((product) => product.categoryId && product.categoryName?.trim())
+              .map((product) => [product.categoryId as string, product.categoryName!.trim()])
+          ).entries());
+          if (categories.length > 0) {
+            const discover = doc.createElement('nav');
+            discover.className = 'soulmate-home-discover';
+            discover.setAttribute('aria-label', 'เลือกดูสินค้าตามหมวดหมู่');
+            const label = doc.createElement('span');
+            label.className = 'soulmate-home-discover-label';
+            label.textContent = 'เลือกดูตามหมวดหมู่';
+            discover.append(label);
+            const all = doc.createElement('a');
+            all.href = '/products';
+            all.textContent = 'สินค้าทั้งหมด';
+            discover.append(all);
+            categories.slice(0, 5).forEach(([id, name]) => {
+              const link = doc.createElement('a');
+              link.href = `/products?category=${encodeURIComponent(id)}`;
+              link.textContent = name;
+              discover.append(link);
+            });
+            productSection.insertBefore(discover, initialProductGrid);
+          }
+          const heading = productSection.querySelector('h2');
+          if (heading?.parentElement?.parentElement && !productSection.querySelector('.soulmate-home-all')) {
+            const viewAll = doc.createElement('a');
+            viewAll.className = 'soulmate-home-all';
+            viewAll.href = '/products';
+            viewAll.innerHTML = 'ดูสินค้าทั้งหมด <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>';
+            heading.parentElement.parentElement.append(viewAll);
+          }
+        }
 
         const findSampleProductCard = (): HTMLElement | null => {
           const candidates: HTMLElement[] = Array.from(
