@@ -9,3 +9,4 @@ coverage/
 !.env.example
 firebase-applet-config.json
 .firebase-demo-*.json
+tmp/pptxqa/
