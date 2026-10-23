@@ -50,6 +50,12 @@ The quantity temporarily withheld from other orders while a Pending order can st
 **Guest checkout**:
 Placing an order without first signing in to or creating a permanent customer account. The buyer still provides the contact and delivery details needed to fulfil the order.
 
+**Coupon**:
+A store-issued code that reduces an eligible Order's product subtotal. One Order may use one Coupon; shipping is charged separately. Guests and account holders may use it while active, within its validity period and remaining store-wide usage limit.
+
+**Coupon redemption**:
+The use of a Coupon by a recorded Order. A cancelled Order releases its redemption back to the store-wide limit. After the first redemption, the Coupon's discount and eligibility terms stay fixed.
+
 **Customer account**:
 A persistent identity through which a customer manages personal details and views orders linked to that identity.
 

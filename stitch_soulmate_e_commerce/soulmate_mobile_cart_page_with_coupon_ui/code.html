@@ -139,58 +139,12 @@
 </div>
 </article>
 </div>
-<!-- STEP 4.1: Coupon Section Row (Above Order Summary) -->
-<section aria-label="ส่วนลดและคูปอง" class="bg-surface-container-lowest rounded-xl p-space-md shadow-xs border border-surface-container-highest/60 transition-all duration-200" id="coupon-section">
-<!-- Default: No coupon applied -->
-<div class="flex items-center justify-between cursor-pointer group" id="coupon-row-unapplied" onclick="openCouponSheet()">
-<div class="flex items-center gap-space-sm min-w-0">
-<div class="w-9 h-9 rounded-lg bg-tertiary-container/40 text-tertiary flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-[20px]">confirmation_number</span>
-</div>
-<div class="flex flex-col min-w-0">
-<span class="font-label-lg text-label-lg text-on-surface font-semibold">คูปองส่วนลด</span>
-<span class="font-label-sm text-label-sm text-on-surface-variant truncate">เลือกหรือกรอกโค้ดส่วนลด</span>
-</div>
-</div>
-<div class="flex items-center gap-1 text-on-surface-variant group-hover:text-primary transition-colors shrink-0">
-<span class="font-label-sm text-label-sm hidden sm:inline">เลือกโค้ด</span>
-<span class="material-symbols-outlined text-[20px]">chevron_right</span>
-</div>
-</div>
-<!-- Applied State: Active coupon applied -->
-<div class="hidden items-center justify-between" id="coupon-row-applied">
-<div class="flex items-center gap-space-sm min-w-0">
-<div class="w-9 h-9 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-[20px]">check_circle</span>
-</div>
-<div class="flex flex-col min-w-0">
-<div class="flex items-center gap-1.5 flex-wrap">
-<span class="font-label-sm text-label-sm px-2 py-0.5 rounded-md bg-primary-container text-on-primary-container font-bold tracking-wide" id="applied-coupon-code">CODE</span>
-<span class="font-label-sm text-label-sm text-primary font-semibold flex items-center gap-0.5">
-<span class="material-symbols-outlined text-[14px]">done</span> ใช้แล้ว
-          </span>
-</div>
-<span class="font-label-sm text-label-sm text-on-surface-variant mt-0.5" id="applied-coupon-desc">ส่วนลดพิเศษคำสั่งซื้อนี้</span>
-</div>
-</div>
-<button class="text-tertiary hover:text-error text-label-sm font-label-sm px-2 py-1 rounded hover:bg-tertiary-container/30 transition-colors shrink-0" onclick="removeCoupon(event)" type="button">
-      ยกเลิกคูปอง
-    </button>
-</div>
-</section>
 <!-- Order Summary Container (Strict V1 Constraints with Coupon Row support) -->
 <section class="bg-surface-container-lowest rounded-xl p-space-md shadow-xs flex flex-col gap-space-sm">
 <h3 class="font-headline-sm text-headline-sm text-on-surface font-bold pb-1">สรุปคำสั่งซื้อ</h3>
 <div class="flex items-center justify-between">
 <span class="font-body-md text-body-md text-on-surface-variant">ยอดรวมสินค้า</span>
 <span class="font-body-md text-body-md text-on-surface font-medium">฿0</span>
-</div>
-<div class="flex items-center justify-between" id="summary-discount-row">
-<span class="font-body-md text-body-md text-on-surface-variant flex items-center gap-1">
-<span>ส่วนลดคูปอง</span>
-<span class="font-label-sm text-[11px] text-primary hidden" id="summary-discount-badge">(ใช้โค้ดแล้ว)</span>
-</span>
-<span class="font-body-md text-body-md text-primary font-medium" id="summary-discount-val">-฿0</span>
 </div>
 <div class="flex items-center justify-between">
 <span class="font-body-md text-body-md text-on-surface-variant">ค่าจัดส่ง</span>

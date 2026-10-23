@@ -23,7 +23,7 @@ export function generateVariantId(): string {
 
 /**
  * Computes Cartesian product combinations of all valid option groups.
- * Preserves price, stock, SKU, imageURL, active from existing variants.
+ * Preserves price, promotional price, stock, SKU, imageURL, active from existing variants.
  */
 export function computeCartesianCombinations(
   optionGroups: OptionGroup[],
@@ -103,6 +103,7 @@ export function computeCartesianCombinations(
         options: opts,
         displayName,
         price: typeof matched.price === 'number' && !isNaN(matched.price) ? matched.price : defaultPrice,
+        compareAtPrice: Number(matched.compareAtPrice) > 0 ? Number(matched.compareAtPrice) : null,
         stock: typeof matched.stock === 'number' && !isNaN(matched.stock) ? matched.stock : defaultStock,
         sku: matched.sku ? matched.sku : generateSku(baseSku, index + 1),
         imageURL: matched.imageURL || null,
@@ -115,6 +116,7 @@ export function computeCartesianCombinations(
       options: opts,
       displayName,
       price: defaultPrice,
+      compareAtPrice: null,
       stock: defaultStock,
       sku: generateSku(baseSku, index + 1),
       imageURL: null,
@@ -195,6 +197,12 @@ export function validateVariantsConfig(
   variants.forEach((v) => {
     if (typeof v.price !== 'number' || isNaN(v.price) || v.price < 0) {
       errors.push(`ตัวเลือก "${v.displayName}": กรุณาระบุราคาที่ถูกต้อง (ต้องมากกว่าหรือเท่ากับ 0)`);
+    }
+
+    if (v.compareAtPrice !== null && v.compareAtPrice !== undefined && v.compareAtPrice !== 0) {
+      if (!Number.isFinite(v.compareAtPrice) || v.compareAtPrice < 0 || v.compareAtPrice >= v.price) {
+        errors.push(`ตัวเลือก "${v.displayName}": ราคาพิเศษต้องมากกว่า 0 และต่ำกว่าราคาปกติ`);
+      }
     }
 
     if (typeof v.stock !== 'number' || isNaN(v.stock) || v.stock < 0) {
@@ -310,6 +318,46 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
     if (onTotalStockChange) {
       onTotalStockChange(total, hasVariants);
     }
+  };
+
+  const renderVariantPromoPricing = () => {
+    const container = doc.getElementById('variantPromoPricing');
+    if (!container) return;
+    if (!hasVariants) {
+      container.innerHTML = '';
+      return;
+    }
+    if (variants.length === 0) {
+      container.innerHTML = '<p class="text-sm text-secondary">ระบุตัวเลือกสินค้าเพื่อกำหนดราคาพิเศษแยกรายการ</p>';
+      return;
+    }
+    container.innerHTML = `
+      <div>
+        <h3 class="font-label-md text-on-surface font-semibold">ราคาพิเศษแยกตามตัวเลือก</h3>
+        <p class="mt-1 text-xs text-secondary">อ้างอิงรายการและราคาปกติจากตัวเลือกสินค้าด้านล่าง เว้นว่างเพื่อใช้ราคาโปรโมชันหลักเมื่อเข้าเงื่อนไข</p>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-outline-variant/40">
+        <table class="w-full min-w-[520px] text-left text-sm">
+          <thead class="bg-surface-container-low text-secondary">
+            <tr><th class="px-3 py-2 font-medium">ตัวเลือก</th><th class="px-3 py-2 font-medium">ราคาปกติ</th><th class="px-3 py-2 font-medium">ราคาพิเศษ</th></tr>
+          </thead>
+          <tbody class="divide-y divide-outline-variant/30">
+            ${variants.map((v) => `
+              <tr>
+                <td class="px-3 py-2.5 font-medium text-on-surface">${escapeHtml(v.displayName)}</td>
+                <td class="px-3 py-2.5 text-secondary">฿${Number(v.price || 0).toLocaleString('th-TH')}</td>
+                <td class="px-3 py-2.5">
+                  <div class="relative max-w-44">
+                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary text-xs font-semibold">฿</span>
+                    <input type="number" min="0" step="0.01" data-var-promo-price="${escapeHtml(v.id)}" value="${v.compareAtPrice && v.compareAtPrice > 0 ? v.compareAtPrice : ''}" placeholder="ไม่ลดราคา" aria-label="ราคาพิเศษ ${escapeHtml(v.displayName)}" class="h-10 w-full rounded-lg border border-outline/30 bg-surface-container-low pl-7 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-tertiary/40" />
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
   };
 
   const syncMainStockField = (active: boolean) => {
@@ -463,6 +511,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
     if (countBadge) {
       countBadge.textContent = `${variants.length} ตัวเลือก`;
     }
+    renderVariantPromoPricing();
 
     if (!tableContainer) return;
 
@@ -486,7 +535,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
             <tr class="bg-surface-container-low/80 text-secondary font-label-sm text-label-sm uppercase tracking-wider border-b border-surface-container-high">
               <th class="py-3 px-space-md w-16 text-center">รูป</th>
               <th class="py-3 px-space-md">ตัวเลือก</th>
-              <th class="py-3 px-space-md w-36">ราคา (฿) <span class="text-error">*</span></th>
+              <th class="py-3 px-space-md w-36">ราคาปกติ (฿) <span class="text-error">*</span></th>
               <th class="py-3 px-space-md w-32">คลัง (ชิ้น) <span class="text-error">*</span></th>
               <th class="py-3 px-space-md w-44">เลขสินค้า (SKU) <span class="text-error">*</span></th>
             </tr>
@@ -721,6 +770,9 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
     if (!toggle) return;
     hasVariants = toggle.checked;
 
+    const basePricingFields = doc.getElementById('productBasePricingFields');
+    basePricingFields?.classList.toggle('hidden', hasVariants);
+
     if (panel) {
       panel.classList.toggle('hidden', !hasVariants);
     }
@@ -926,6 +978,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
       const v = variants.find((item) => item.id === varPriceId);
       if (v) {
         v.price = parseFloat(target.value) || 0;
+        renderVariantPromoPricing();
         tableContainer?.querySelectorAll(`[data-var-price="${varPriceId}"]`).forEach((inp) => {
           if (inp !== target) (inp as HTMLInputElement).value = target.value;
         });
@@ -962,6 +1015,18 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
     }
   };
 
+  const handleVariantPromoPricingInput = (e: Event) => {
+    const target = e.target as HTMLInputElement | null;
+    const variantId = target?.getAttribute('data-var-promo-price');
+    if (!target || !variantId) return;
+    const variant = variants.find((item) => item.id === variantId);
+    if (variant) {
+      const value = target.value.trim();
+      const price = value === '' ? null : Number(value);
+      variant.compareAtPrice = price !== null && price > 0 ? price : null;
+    }
+  };
+
   // Wire up listeners directly
   if (toggle) {
     toggle.checked = hasVariants;
@@ -990,6 +1055,8 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
     tableContainer.addEventListener('click', handleTableContainerClick as any);
     tableContainer.addEventListener('input', handleTableContainerInput);
   }
+  const variantPromoPricing = doc.getElementById('variantPromoPricing');
+  variantPromoPricing?.addEventListener('input', handleVariantPromoPricingInput);
 
   // Destroy / cleanup function
   const destroy = () => {
@@ -1013,6 +1080,7 @@ export function mountVariantManager(options: MountVariantManagerOptions): Varian
       tableContainer.removeEventListener('click', handleTableContainerClick as any);
       tableContainer.removeEventListener('input', handleTableContainerInput);
     }
+    variantPromoPricing?.removeEventListener('input', handleVariantPromoPricingInput);
   };
 
   docAny.__destroyVariantManager = destroy;

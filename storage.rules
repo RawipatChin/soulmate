@@ -3,9 +3,14 @@ service firebase.storage {
   match /b/{bucket}/o {
     function isActiveAdmin() {
       return request.auth != null &&
-        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'] &&
-        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active';
+        isActiveAdminProfile(
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data
+        );
+    }
+
+    function isActiveAdminProfile(profile) {
+      return profile.role in ['admin', 'super_admin'] &&
+        profile.status == 'active';
     }
 
     match /orders/{orderId}/slip {
@@ -53,6 +58,15 @@ service firebase.storage {
         request.resource.size <= 5 * 1024 * 1024 &&
         request.resource.contentType.matches('image/(jpeg|png|webp)');
       allow delete: if isAdmin();
+    }
+
+    // Flash Sale artwork has its own namespace and admin-only write access.
+    match /flash-sales/{campaignId}/{fileName} {
+      allow read: if true;
+      allow write: if isActiveAdmin() &&
+        request.resource.size <= 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if isActiveAdmin();
     }
 
     match /store/logo/{fileName} {

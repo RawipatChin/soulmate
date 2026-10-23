@@ -12,6 +12,7 @@ import type { MembershipTier } from '../types/membership';
 import { getPublicStoreSettings } from './storeSettingsService';
 import { compareOrderNumbers, formatOrderNumber, getBangkokOrderYear } from './orderNumber';
 import { retryOrderSequenceConflict } from './orderSequenceRetry';
+import { couponDiscount, normalizeCouponCode, type Coupon } from './couponService';
 
 export type FulfillmentStatus = 'awaiting_payment' | 'awaiting_cod_acceptance' | 'ready_to_prepare' | 'ready_to_ship' | 'shipped';
 
@@ -28,6 +29,7 @@ export interface StoreOrder extends DocumentData {
   id: string; orderNumber: string; schemaVersion?: number; ownerUid: string;
   ownerType: 'guest' | 'customer'; contact: OrderContact; items: OrderLine[];
   subtotalSatang: number; shippingFeeSatang: number; totalSatang: number;
+  couponCode?: string | null; discountSatang?: number;
   status: 'pending_payment' | 'awaiting_review' | 'paid' | 'cancelled' | 'payment_failed' | 'expired';
   fulfillmentStatus?: FulfillmentStatus;
   codAcceptance?: { by: string; at: Timestamp } | null;
@@ -113,6 +115,7 @@ export async function createPendingOrder(
   contact: OrderContact,
   shippingMethodId = 'standard',
   selectedPaymentMethod: 'manual_promptpay' | 'cod' = 'manual_promptpay',
+  selectedCouponCode: string | null = null,
 ) {
   const { db: firestore } = services();
   const user = await ensureCheckoutIdentity();
@@ -134,7 +137,8 @@ export async function createPendingOrder(
   if (new Set(ids).size !== ids.length) throw new Error('มีสินค้าซ้ำในตะกร้า');
   const missingVariant = await findMissingVariantSelection(items);
   if (missingVariant) throw missingVariant;
-  const fingerprint = JSON.stringify({ contact, shippingMethodId, selectedPaymentMethod, items: items.map((item) => [item.productId, item.variantId, item.quantity]) });
+  const couponCode = selectedCouponCode ? normalizeCouponCode(selectedCouponCode) : null;
+  const fingerprint = JSON.stringify({ contact, shippingMethodId, selectedPaymentMethod, couponCode, items: items.map((item) => [item.productId, item.variantId, item.quantity]) });
   const orderYear = getBangkokOrderYear();
   let saved: { key: string; fingerprint: string } | null = null;
   try { saved = JSON.parse(sessionStorage.getItem(requestKeyName) || 'null'); } catch { /* replace stale key */ }
@@ -142,6 +146,7 @@ export async function createPendingOrder(
   sessionStorage.setItem(requestKeyName, JSON.stringify({ key, fingerprint }));
   const orderRef = doc(firestore, 'orders', key);
   const publicSettingsRef = doc(firestore, 'settings', 'public');
+  const couponRef = couponCode ? doc(firestore, 'coupons', couponCode) : null;
   const refs = items.map((item) => optionRef(firestore, item.productId, item.variantId));
   return retryOrderSequenceConflict((recordSequence) => runTransaction(firestore, async (tx) => {
     const prior = await tx.get(orderRef);
@@ -149,8 +154,8 @@ export async function createPendingOrder(
       if (prior.data().ownerUid !== user.uid) throw new Error('คำสั่งซื้อนี้เป็นของบัญชีอื่น');
       return { orderId: key, orderNumber: prior.data().orderNumber as string, ownerType: prior.data().ownerType as 'guest' | 'customer', replay: true };
     }
-    const [settingsSnapshot, ...snapshots] = await Promise.all([
-      tx.get(publicSettingsRef), ...refs.map((item) => tx.get(item)),
+    const [settingsSnapshot, couponSnapshot, ...snapshots] = await Promise.all([
+      tx.get(publicSettingsRef), couponRef ? tx.get(couponRef) : Promise.resolve(null), ...refs.map((item) => tx.get(item)),
     ]);
     const publicSettings = settingsSnapshot.data() ?? {};
     recordSequence({ year: publicSettings.orderSequenceYear ?? 0, number: publicSettings.orderSequence ?? 0 });
@@ -180,6 +185,9 @@ export async function createPendingOrder(
       };
     });
     const subtotalSatang = lines.reduce((sum, line) => sum + line.lineTotalSatang, 0);
+    if (couponRef && !couponSnapshot?.exists()) throw new Error('ไม่พบคูปองนี้');
+    const coupon = couponSnapshot?.data() as Coupon | undefined;
+    const discountSatang = coupon ? couponDiscount(coupon, subtotalSatang) : 0;
     const shippingFee = shippingMethod.freeShippingThreshold != null && subtotalSatang >= Math.round(shippingMethod.freeShippingThreshold * 100)
       ? 0
       : Math.round(shippingMethod.fee * 100);
@@ -196,10 +204,11 @@ export async function createPendingOrder(
     lines.forEach((line, index) => tx.update(refs[index], {
       available: options[index]!.available - line.quantity, lastOrderId: key, lastOrderLine: index,
     }));
+    if (couponRef && coupon) tx.update(couponRef, { usedCount: coupon.usedCount + 1, everUsed: true, lastOrderId: key, updatedAt: serverTimestamp() });
     tx.set(orderRef, {
       schemaVersion: 2, orderNumber, ownerUid: user.uid, ownerType: user.isAnonymous ? 'guest' : 'customer',
       contact, items: lines, subtotalSatang, shippingMethodId, shippingFeeSatang: shippingFee,
-      totalSatang: subtotalSatang + shippingFee, currency: 'THB',
+      couponCode, discountSatang, totalSatang: subtotalSatang - discountSatang + shippingFee, currency: 'THB',
       status: 'pending_payment', payment: {
         method: selectedPaymentMethod,
         status: 'pending',
@@ -262,9 +271,11 @@ export async function reviewOrder(orderId: string, action: 'approved' | 'cancell
       return;
     }
     const refs = order.items.map((line) => optionRef(firestore, line.productId, line.variantId));
-    const stock = await Promise.all(refs.map((item) => tx.get(item)));
+    const couponRef = order.couponCode ? doc(firestore, 'coupons', order.couponCode) : null;
+    const [stock, couponSnapshot] = await Promise.all([Promise.all(refs.map((item) => tx.get(item))), couponRef ? tx.get(couponRef) : Promise.resolve(null)]);
     if (stock.some((item) => !item.exists())) throw new Error('ไม่พบสต็อกสำหรับคืนสินค้า');
     refs.forEach((item, index) => tx.update(item, { available: Number(stock[index].data()?.available ?? 0) + order.items[index].quantity, lastOrderId: orderId }));
+    if (couponRef && couponSnapshot?.exists()) tx.update(couponRef, { usedCount: Math.max(0, Number(couponSnapshot.data().usedCount ?? 0) - 1), lastCancelledOrderId: orderId, updatedAt: serverTimestamp() });
     tx.update(orderRef, { status: 'cancelled', 'payment.status': 'cancelled', inventoryRestored: true,
       review: { by: adminUid, at: serverTimestamp(), result: action, reason: reason.trim() }, updatedAt: serverTimestamp() });
   });

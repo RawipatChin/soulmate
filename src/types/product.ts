@@ -23,6 +23,8 @@ export interface ProductVariant {
   options: VariantOptionRef[];
   displayName: string;
   price: number;
+  /** Optional promotional price for this variant. Must be below `price`. */
+  compareAtPrice?: number | null;
   stock: number;
   sku: string;
   imageURL: string | null;

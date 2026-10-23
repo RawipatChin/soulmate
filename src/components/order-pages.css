@@ -204,6 +204,9 @@
 .order-paid-note { color: #267752 !important; font-weight: 700; }
 .order-totals { display: flex; flex-direction: column; gap: 9px; margin: 18px 0 22px; padding-top: 16px; border-top: 1px solid #e9efeb; color: #6c7a73; font-size: 14px; text-align: right; }
 .order-totals strong { color: #203f33; font-size: 16px; }
+  .order-total-discount { display: flex; justify-content: space-between; gap: 12px; color: #a33778; text-align: left; }
+  .order-total-discount strong { color: inherit; font-size: 14px; }
+  .order-inspector-total .is-discount { color: #a33778; }
 .order-primary, .order-secondary { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; padding: 0 22px; border: 0; border-radius: 999px; background: #2c7559; color: white; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; text-decoration: none; }
 .order-primary:disabled { cursor: wait; opacity: .6; }
 .order-secondary { margin-left: 10px; border: 1px solid #dce9e1; background: #fff; color: #356b55; }

@@ -22,6 +22,24 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
     }
 
+    function validFlashSale(data) {
+      return data.keys().hasOnly([
+          'title', 'message', 'imageUrl', 'imagePath', 'linkUrl', 'startsAt', 'endsAt',
+          'active', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasAll([
+          'title', 'message', 'imageUrl', 'imagePath', 'linkUrl', 'startsAt', 'endsAt',
+          'active', 'createdAt', 'updatedAt'
+        ]) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+        data.message is string && data.message.size() <= 240 &&
+        data.imageUrl is string && data.imageUrl.size() > 0 && data.imageUrl.size() <= 2048 &&
+        data.imagePath is string && data.imagePath.size() > 0 && data.imagePath.size() <= 300 &&
+        data.linkUrl is string && data.linkUrl.matches('^/(|[A-Za-z0-9_-][A-Za-z0-9/_?=&.%#-]*)$') &&
+        data.startsAt is timestamp && data.endsAt is timestamp && data.startsAt < data.endsAt &&
+        data.active is bool && data.createdAt is timestamp && data.updatedAt == request.time;
+    }
+
     function superAdminChangesRole() {
       return isSuperAdmin() &&
         resource.data.status == 'active' &&
@@ -173,6 +191,17 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Flash Sale campaigns are separate from homepage banners. Visitors only
+    // read enabled campaigns; schedule filtering and first-visit display happen in the storefront.
+    match /flashSales/{flashSaleId} {
+      allow get, list: if resource.data.active == true || isAdmin();
+      allow create: if isAdmin() && validFlashSale(request.resource.data) &&
+        request.resource.data.createdAt == request.time;
+      allow update: if isAdmin() && validFlashSale(request.resource.data) &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAdmin();
+    }
+
     // Admins collection: managed administrative accounts
     match /admins/{adminId} {
       allow read: if isAdmin();
@@ -237,6 +266,57 @@ service cloud.firestore {
         : data.shippingMethodId == 'standard' && data.shippingFeeSatang == 3000;
     }
 
+    function couponPath(code) { return /databases/$(database)/documents/coupons/$(code); }
+    function couponDiscount(coupon, subtotal) {
+      let raw = coupon.type == 'percent' ? int(subtotal * coupon.value / 100) : coupon.value;
+      let capped = coupon.maxDiscountSatang == null || raw < coupon.maxDiscountSatang ? raw : coupon.maxDiscountSatang;
+      return capped < subtotal ? capped : subtotal;
+    }
+    function validCouponForOrder(data, orderId) {
+      let code = data.couponCode;
+      let coupon = get(couponPath(code)).data;
+      let after = getAfter(couponPath(code)).data;
+      return code is string && code.matches('^[A-Z0-9_-]{3,32}$') && exists(couponPath(code)) &&
+        coupon.active == true && coupon.startsAt <= request.time && coupon.endsAt >= request.time &&
+        data.subtotalSatang >= coupon.minSubtotalSatang &&
+        (coupon.usageLimit == null || coupon.usedCount < coupon.usageLimit) &&
+        data.discountSatang == couponDiscount(coupon, data.subtotalSatang) &&
+        after.usedCount == coupon.usedCount + 1 && after.lastOrderId == orderId;
+    }
+    function validOrderCoupon(data, orderId) {
+      return (data.get('couponCode', null) == null && data.get('discountSatang', 0) == 0) || validCouponForOrder(data, orderId);
+    }
+
+    function validCouponDefinition(code, data) {
+      return data.keys().hasOnly(['code', 'type', 'value', 'maxDiscountSatang', 'minSubtotalSatang', 'startsAt', 'endsAt', 'active', 'usageLimit', 'usedCount', 'everUsed', 'updatedAt', 'lastOrderId', 'lastCancelledOrderId']) &&
+        data.code == code && code.matches('^[A-Z0-9_-]{3,32}$') &&
+        data.type in ['percent', 'fixed'] && data.value is int && data.value > 0 &&
+        (data.type != 'percent' || data.value <= 100) &&
+        (data.maxDiscountSatang == null || (data.maxDiscountSatang is int && data.maxDiscountSatang > 0)) &&
+        data.minSubtotalSatang is int && data.minSubtotalSatang >= 0 &&
+        data.startsAt is timestamp && data.endsAt is timestamp && data.startsAt < data.endsAt &&
+        data.active is bool && (data.usageLimit == null || (data.usageLimit is int && data.usageLimit > 0)) &&
+        data.usedCount is int && data.usedCount >= 0 && data.everUsed is bool;
+    }
+    function reservesCoupon(code) {
+      let data = request.resource.data;
+      let order = getAfter(/databases/$(database)/documents/orders/$(data.lastOrderId)).data;
+      return isSignedIn() && data.diff(resource.data).affectedKeys().hasOnly(['usedCount', 'everUsed', 'lastOrderId', 'updatedAt']) &&
+        data.usedCount == resource.data.usedCount + 1 && data.everUsed == true &&
+        (resource.data.usageLimit == null || resource.data.usedCount < resource.data.usageLimit) &&
+        data.updatedAt == request.time && !exists(/databases/$(database)/documents/orders/$(data.lastOrderId)) &&
+        order.ownerUid == request.auth.uid && order.couponCode == code;
+    }
+    function restoresCoupon(code) {
+      let data = request.resource.data;
+      let order = getAfter(/databases/$(database)/documents/orders/$(data.lastCancelledOrderId)).data;
+      return isAdmin() && data.diff(resource.data).affectedKeys().hasOnly(['usedCount', 'lastCancelledOrderId', 'updatedAt']) &&
+        data.usedCount == resource.data.usedCount - 1 && data.usedCount >= 0 &&
+        data.updatedAt == request.time && order.status == 'cancelled' &&
+        get(/databases/$(database)/documents/orders/$(data.lastCancelledOrderId)).data.status != 'cancelled' &&
+        order.couponCode == code;
+    }
+
     function canCreateOrder(orderId) {
       let data = request.resource.data;
       let items = data.items;
@@ -248,7 +328,7 @@ service cloud.firestore {
           'schemaVersion', 'orderNumber', 'ownerUid', 'ownerType', 'contact', 'items',
           'subtotalSatang', 'shippingMethodId', 'shippingFeeSatang', 'totalSatang', 'currency',
           'status', 'payment', 'fulfillmentStatus', 'codAcceptance', 'shippingRevision', 'slipPath', 'submittedAt', 'review',
-          'inventoryRestored', 'createdAt', 'updatedAt'
+          'inventoryRestored', 'createdAt', 'updatedAt', 'couponCode', 'discountSatang'
         ]) &&
         data.schemaVersion == 2 && data.ownerUid == request.auth.uid &&
         data.ownerType == (isGuest() ? 'guest' : 'customer') &&
@@ -271,7 +351,8 @@ service cloud.firestore {
           lineTotal(items, 0) + lineTotal(items, 1) + lineTotal(items, 2) +
           lineTotal(items, 3) + lineTotal(items, 4) &&
         data.shippingMethodId is string && validShipping(data, settings.get('shippingMethods', [])) &&
-        data.totalSatang == data.subtotalSatang + data.shippingFeeSatang &&
+        validOrderCoupon(data, orderId) &&
+        data.totalSatang == data.subtotalSatang - data.get('discountSatang', 0) + data.shippingFeeSatang &&
         data.currency == 'THB' && data.status == 'pending_payment' &&
         data.payment.status == 'pending' &&
         data.fulfillmentStatus == (data.payment.method == 'cod' ? 'awaiting_cod_acceptance' : 'awaiting_payment') &&
@@ -297,7 +378,7 @@ service cloud.firestore {
         request.resource.data.updatedAt == request.time;
     }
 
-    function canReviewOrder() {
+    function canReviewOrder(orderId) {
       return isAdmin() && resource.data.schemaVersion == 2 &&
         resource.data.status in ['pending_payment', 'awaiting_review'] &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -325,6 +406,10 @@ service cloud.firestore {
           (request.resource.data.status == 'cancelled' &&
             request.resource.data.payment.status == 'cancelled' &&
             request.resource.data.inventoryRestored == true &&
+            (resource.data.get('couponCode', null) == null || (
+              getAfter(couponPath(resource.data.couponCode)).data.usedCount == get(couponPath(resource.data.couponCode)).data.usedCount - 1 &&
+              getAfter(couponPath(resource.data.couponCode)).data.lastCancelledOrderId == orderId
+            )) &&
             request.resource.data.review.result == 'cancelled')
         );
     }
@@ -471,6 +556,21 @@ service cloud.firestore {
     }
 
     // Buyers create an Order and reserve every option in one transaction.
+    match /coupons/{code} {
+      allow get: if isSignedIn() || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin() && validCouponDefinition(code, request.resource.data) &&
+        request.resource.data.usedCount == 0 && request.resource.data.everUsed == false && request.resource.data.updatedAt == request.time;
+      allow update: if reservesCoupon(code) || restoresCoupon(code) || (
+        isAdmin() && validCouponDefinition(code, request.resource.data) &&
+        request.resource.data.usedCount == resource.data.usedCount && request.resource.data.everUsed == resource.data.everUsed &&
+        request.resource.data.updatedAt == request.time &&
+        (resource.data.everUsed == false || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'updatedAt']))
+      );
+      allow delete: if isAdmin() && resource.data.everUsed == false;
+    }
+
+    // Buyers create an Order and reserve every option in one transaction.
     match /orders/{orderId} {
       allow get: if isAdmin() || (isSignedIn() && !exists(/databases/$(database)/documents/orders/$(orderId))) || (
         isSignedIn() && resource.data.ownerUid == request.auth.uid &&
@@ -481,7 +581,7 @@ service cloud.firestore {
         (isGuest() || isActiveCustomer())
       );
       allow create: if canCreateOrder(orderId);
-      allow update: if canSubmitSlip(orderId) || canReviewOrder() || canAcceptCodOrder() ||
+      allow update: if canSubmitSlip(orderId) || canReviewOrder(orderId) || canAcceptCodOrder() ||
         canAdvanceFulfillment() || canCorrectOrderContact() || canUpdateOrderTrackingNumber();
       allow delete: if false;
 

@@ -47,6 +47,7 @@ import {
   deleteProductImageFiles,
 } from '../services/productImageService';
 import { mountVariantManager } from '../utils/productVariantManager';
+import { resolveVariantSellingPrice } from '../utils/productPricing';
 import { StorefrontShell } from './storefront/StorefrontShell';
 import { canAccessAdmin } from '../utils/accountAccess';
 import { renderStorefrontProductCard } from './storefront/StorefrontProductCard';
@@ -55,6 +56,8 @@ import { logOrderFailure, orderFailureMessage } from '../services/orderFailure';
 import { getPromptPayConfig, getPromptPaySettings, savePromptPaySettings } from '../services/orderService';
 import { getPublicStoreSettings, getStoreSettings, saveOperationalStoreSettings, saveStoreSettings, uploadStoreLogo, type ShippingMethodSetting } from '../services/storeSettingsService';
 import { getActiveBanners } from '../services/bannerService';
+import { couponDiscount, getCoupon, normalizeCouponCode } from '../services/couponService';
+import { ensureCheckoutIdentity } from '../services/orderService';
 import type { StoreBanner } from '../services/bannerService';
 
 function installStorefrontDesktopStyles(doc: Document) {
@@ -94,8 +97,7 @@ function installStorefrontDesktopStyles(doc: Document) {
       #state-filled { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px) !important; align-items: start !important; gap: 20px !important; }
       #cart-item-list { min-width: 0 !important; }
       #state-filled > #cart-item-list { grid-column: 1 !important; grid-row: 1 / span 3 !important; }
-      #state-filled > #coupon-section { grid-column: 2 !important; grid-row: 1 !important; }
-      #state-filled > section:not(#cart-item-list):not(#coupon-section) { grid-column: 2 !important; grid-row: 2 !important; }
+      #state-filled > section:not(#cart-item-list) { grid-column: 2 !important; grid-row: 1 !important; }
       #sticky-purchase-bar { position: static !important; grid-column: 2 !important; grid-row: 3 !important; }
       .soulmate-account-nav { width: min(100% - 48px, 1600px); margin: 18px auto 0; display: flex; flex-wrap: wrap; gap: 8px; }
       .soulmate-account-nav a { padding: 9px 14px; border: 1px solid #dce7e1; border-radius: 999px; color: #2d6857; text-decoration: none; font-size: 13px; }
@@ -691,6 +693,7 @@ async function installDashboardAdminShell(doc: Document, pathname: string) {
     ['admin-orders', '/admin/orders', 'shopping_bag', 'คำสั่งซื้อ'],
     ['admin-customers', '/admin/customers', 'group', 'ลูกค้า'],
     ['admin-banners', '/admin/banners', 'view_carousel', 'แบนเนอร์'],
+    ['admin-flash-sales', '/admin/flash-sales', 'local_fire_department', 'Flash Sale'],
     ['admin-coupons', '/admin/coupons', 'confirmation_number', 'คูปอง'],
     ['admin-settings', '/admin/settings', 'settings', 'ตั้งค่า'],
   ] as const;
@@ -1241,6 +1244,11 @@ function resolveAdminNavigationTarget(rawTarget: string): string {
     'admin-banners': '/admin/banners',
     '/admin/banners': '/admin/banners',
 
+    'flash-sales': '/admin/flash-sales',
+    '/flash-sales': '/admin/flash-sales',
+    'admin-flash-sales': '/admin/flash-sales',
+    '/admin/flash-sales': '/admin/flash-sales',
+
     'coupons': '/admin/coupons',
     '/coupons': '/admin/coupons',
     'admin-coupons': '/admin/coupons',
@@ -1386,16 +1394,24 @@ function resolveStorefrontPricing(
   // SOULMATE product schema currently stores:
   //   price          = regular price
   //   compareAtPrice = special / sale price
+  const selectedCatalogVariant = source?.hasVariants && Array.isArray(source?.variants)
+    ? (source.variants.filter((variant: any) => variant?.active !== false)
+        .find((variant: any) => Number(variant?.stock || 0) > 0) ||
+       source.variants.find((variant: any) => variant?.active !== false) || null)
+    : null;
+
   const regularCandidate =
+    toNumber(selectedCatalogVariant?.price) ??
     toNumber(source?.price) ??
     toNumber(source?.regularPrice) ??
     toNumber(fallbackRegularPrice) ??
     0;
 
-  const specialCandidate =
-    toNumber(source?.compareAtPrice) ??
-    toNumber(source?.salePrice) ??
-    toNumber(fallbackSpecialPrice);
+  const specialCandidate = selectedCatalogVariant
+    ? toNumber(selectedCatalogVariant.compareAtPrice) ?? toNumber(selectedCatalogVariant.salePrice)
+    : toNumber(source?.compareAtPrice) ??
+      toNumber(source?.salePrice) ??
+      toNumber(fallbackSpecialPrice);
 
   const regularPrice = Math.max(0, regularCandidate);
 
@@ -1706,22 +1722,11 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
   const headerBadge = doc.getElementById('header-count-badge');
   const navBadge = doc.getElementById('nav-cart-badge');
   const subtotalVal = doc.getElementById('summary-subtotal-val');
-  const discountVal = doc.getElementById('summary-discount-val');
   const grandtotalVal = doc.getElementById('summary-grandtotal-val');
   const barSubtotalVal = doc.getElementById('bar-subtotal-val');
-  const couponSection = doc.getElementById('coupon-section');
-
-  if (couponSection) {
-    couponSection.innerHTML = `
-      <div class="flex items-start gap-3">
-        <span class="material-symbols-outlined text-primary" aria-hidden="true">confirmation_number</span>
-        <div>
-          <h2 class="font-semibold text-on-surface">คูปองส่วนลด</h2>
-          <p class="mt-1 text-sm text-on-surface-variant">ระบบใช้คูปองยังไม่พร้อมใช้งาน ยอดรวมด้านล่างยังไม่หักส่วนลด</p>
-        </div>
-      </div>
-    `;
-  }
+  doc.getElementById('coupon-section')?.remove();
+  doc.getElementById('coupon-bottom-sheet')?.remove();
+  doc.getElementById('summary-discount-row')?.remove();
 
   Array.from(doc.querySelectorAll<HTMLElement>('body *')).forEach((element) => {
     if ((element.textContent || '').replace(/\s+/g, ' ').trim() === 'ผลิตภัณฑ์สารสกัดธรรมชาติ ปลอดภัย 100%') {
@@ -1786,12 +1791,10 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
     if (cartItemList) cartItemList.innerHTML = '';
 
     if (subtotalVal) subtotalVal.textContent = '฿0';
-    if (discountVal) discountVal.textContent = '-฿0';
     if (grandtotalVal) grandtotalVal.textContent = '฿0';
     if (barSubtotalVal) barSubtotalVal.textContent = '฿0';
 
     setSummaryValueByLabel('ยอดรวมสินค้า', '฿0');
-    setSummaryValueByLabel('ส่วนลดคูปอง', '-฿0');
     setSummaryValueByLabel('ค่าจัดส่ง', '฿0');
     setSummaryValueByLabel('ยอดรวมสุทธิ', '฿0');
   } else {
@@ -1862,12 +1865,10 @@ function renderCartScreen(doc: Document, win: any, cart: CartContextType) {
 
     const formattedSubtotal = `฿${cart.subtotal.toLocaleString('th-TH')}`;
     if (subtotalVal) subtotalVal.textContent = formattedSubtotal;
-    if (discountVal) discountVal.textContent = '-฿0';
     if (grandtotalVal) grandtotalVal.textContent = formattedSubtotal;
     if (barSubtotalVal) barSubtotalVal.textContent = formattedSubtotal;
 
     setSummaryValueByLabel('ยอดรวมสินค้า', formattedSubtotal);
-    setSummaryValueByLabel('ส่วนลดคูปอง', '-฿0');
     setSummaryValueByLabel('ค่าจัดส่ง', '฿0');
     setSummaryValueByLabel('ยอดรวมสุทธิ', formattedSubtotal);
   }
@@ -2044,8 +2045,46 @@ function renderCheckoutSummary(doc: Document, win: any, cart: CartContextType) {
 
   win.isCartEmpty = () => cart.items.length === 0;
 
-  if (couponBox) {
-    couponBox.classList.add('hidden');
+  if (couponBox) couponBox.classList.add('hidden');
+  if (!doc.getElementById('checkoutCouponStyles')) {
+    const style = doc.createElement('style');
+    style.id = 'checkoutCouponStyles';
+    style.textContent = '#checkoutApplyCoupon:hover:not(:disabled){background-color:#245344!important}#checkoutApplyCoupon:focus-visible{outline:2px solid #2d6857;outline-offset:2px}#checkoutRemoveCoupon:focus-visible{outline:2px solid #2d6857;outline-offset:2px;border-radius:4px}';
+    doc.head.append(style);
+  }
+  let couponControls = doc.getElementById('checkoutCouponControls');
+  if (!couponControls && subtotalEl?.parentElement?.parentElement) {
+    couponControls = doc.createElement('div'); couponControls.id = 'checkoutCouponControls';
+    couponControls.className = 'py-3';
+    subtotalEl.parentElement.parentElement.append(couponControls);
+  }
+  if (couponControls) {
+    const appliedCode = sessionStorage.getItem('soulmate_coupon_code') || '';
+    couponControls.innerHTML = `
+      <label for="checkoutCouponCode" class="block text-sm font-medium mb-1">คูปอง</label>
+      <div class="flex gap-2">
+        <input id="checkoutCouponCode" maxlength="32" autocomplete="off" placeholder="รหัสคูปอง" class="h-11 min-w-0 flex-1 rounded-xl border border-gray-200 px-3 text-base" value="${escapeHtml(appliedCode)}" />
+        <button id="checkoutApplyCoupon" type="button" class="h-11 rounded-xl px-4 text-white font-semibold transition-colors active:scale-95" style="background-color:#2d6857">ใช้</button>
+      </div>
+      <div id="checkoutAppliedCouponCard" class="${appliedCode ? 'mt-2 flex' : 'hidden'} items-center justify-between gap-3 rounded-lg border border-[#c8e9dc] bg-[#f0f8f4] px-3 py-2 text-sm">
+        <span class="min-w-0"><strong id="checkoutAppliedCouponCode" class="text-[#2d6857]">${escapeHtml(appliedCode)}</strong><span id="checkoutAppliedCouponDiscount" class="ml-2 text-gray-600"></span></span>
+        <button id="checkoutRemoveCoupon" type="button" class="shrink-0 font-medium text-[#2d6857] underline underline-offset-2">นำคูปองออก</button>
+      </div>
+      <p id="checkoutCouponMessage" role="status" aria-live="polite" class="mt-1 text-sm"></p>`;
+    couponControls.querySelector('#checkoutRemoveCoupon')?.addEventListener('click', () => {
+      sessionStorage.removeItem('soulmate_coupon_code');
+      renderCheckoutSummary(doc, win, cart);
+    });
+    couponControls.querySelector('#checkoutApplyCoupon')?.addEventListener('click', async () => {
+      const code = normalizeCouponCode((doc.getElementById('checkoutCouponCode') as HTMLInputElement).value);
+      if (!code) { sessionStorage.removeItem('soulmate_coupon_code'); renderCheckoutSummary(doc, win, cart); return; }
+      try {
+        await ensureCheckoutIdentity(); const coupon = await getCoupon(code);
+        if (!coupon) throw new Error('ไม่พบคูปอง');
+        couponDiscount(coupon, Math.round(cart.subtotal * 100));
+        sessionStorage.setItem('soulmate_coupon_code', code); renderCheckoutSummary(doc, win, cart);
+      } catch (error) { doc.getElementById('checkoutCouponMessage')!.textContent = error instanceof Error ? error.message : 'เงื่อนไขไม่ตรงกับการใช้งาน'; }
+    });
   }
 
   if (cart.items.length === 0) {
@@ -2131,6 +2170,25 @@ function renderCheckoutSummary(doc: Document, win: any, cart: CartContextType) {
     if (shippingEl) shippingEl.textContent = `฿${shippingFee.toLocaleString('th-TH')}`;
     if (grandTotalEl) grandTotalEl.textContent = formattedTotal;
     if (stickyTotalEl) stickyTotalEl.textContent = formattedTotal;
+    const code = sessionStorage.getItem('soulmate_coupon_code');
+    if (code) {
+      const currentCode = code;
+      void (async () => {
+        try {
+          await ensureCheckoutIdentity(); const coupon = await getCoupon(currentCode);
+          if (!coupon) throw new Error('ไม่พบคูปอง');
+          const discount = couponDiscount(coupon, Math.round(cart.subtotal * 100));
+          if (sessionStorage.getItem('soulmate_coupon_code') !== currentCode) return;
+          if (discountEl) discountEl.textContent = `-฿${(discount / 100).toLocaleString('th-TH')}`;
+          const total = `฿${(cart.subtotal + shippingFee - discount / 100).toLocaleString('th-TH')}`;
+          if (grandTotalEl) grandTotalEl.textContent = total;
+          if (stickyTotalEl) stickyTotalEl.textContent = total;
+          const message = doc.getElementById('checkoutCouponMessage'); if (message) message.textContent = `ใช้ ${currentCode} แล้ว`;
+          const appliedDiscount = doc.getElementById('checkoutAppliedCouponDiscount');
+          if (appliedDiscount) appliedDiscount.textContent = `ลด ฿${(discount / 100).toLocaleString('th-TH')}`;
+        } catch (error) { const message = doc.getElementById('checkoutCouponMessage'); if (message) message.textContent = error instanceof Error ? error.message : 'เงื่อนไขไม่ตรงกับการใช้งาน'; }
+      })();
+    }
   }
 }
 
@@ -3066,6 +3124,20 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           return;
         }
 
+        // Admin Flash Sale navigation
+        if (
+          p === 'admin-flash-sales' ||
+          p === 'flash-sales' ||
+          rawHref === '/admin/flash-sales' ||
+          rawHref === '#/admin/flash-sales' ||
+          (isAside && textContent.toLowerCase().includes('flash sale'))
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          navigate('/admin/flash-sales');
+          return;
+        }
+
         // Admin Settings navigation
         if (
           p === 'admin-settings' ||
@@ -3114,6 +3186,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           'admin-orders': '/admin/orders',
           'admin-customers': '/admin/customers',
           'admin-banners': '/admin/banners',
+          'admin-flash-sales': '/admin/flash-sales',
           'admin-coupons': '/admin/coupons',
           'admin-settings': '/admin/settings',
           'admin-login': '/admin/login',
@@ -3756,6 +3829,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             contact,
             selectedShipping?.value || 'standard',
             selectedPayment?.value === 'cod' ? 'cod' : 'manual_promptpay',
+            sessionStorage.getItem('soulmate_coupon_code'),
           );
           const saveAddress = doc.getElementById('saveAddressCheck') as HTMLInputElement | null;
           if (saveAddress?.checked) {
@@ -3782,6 +3856,7 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           }
           replaceCartItems([]);
           clearPendingOrderRequestKey();
+          sessionStorage.removeItem('soulmate_coupon_code');
           if (result.ownerType === 'guest' && !result.replay) {
             sessionStorage.setItem('soulmate_email_demo_order', result.orderId);
           }
@@ -5296,7 +5371,6 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
           const basePricing = resolveStorefrontPricing(product);
 
           const basePrice = basePricing.regularPrice;
-          const baseSpecialPrice = basePricing.specialPrice;
 
           const baseStock = asFiniteNumber(
             product.stock,
@@ -5387,19 +5461,10 @@ export const ScreenRenderer: React.FC<ScreenRendererProps> = ({
             // If a variant has its own explicit special price, use it.
             // Otherwise, reuse the product-level special price only when the
             // variant regular price is the same as the base regular price.
-            const variantExplicitSpecial =
-              selectedVariant.compareAtPrice ??
-              selectedVariant.salePrice ??
-              null;
-
-            const inheritedSpecial =
-              variantExplicitSpecial !== null &&
-              variantExplicitSpecial !== undefined &&
-              variantExplicitSpecial !== ''
-                ? Number(variantExplicitSpecial)
-                : variantRegular === basePrice
-                  ? baseSpecialPrice
-                  : null;
+            const sellingPrice = resolveVariantSellingPrice(
+              { price: variantRegular, compareAtPrice: selectedVariant.compareAtPrice ?? selectedVariant.salePrice ?? null }
+            );
+            const inheritedSpecial = sellingPrice < variantRegular ? sellingPrice : null;
 
             return resolveStorefrontPricing(
               {

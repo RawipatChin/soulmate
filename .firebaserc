@@ -1,0 +1,9 @@
+{
+  "targets": {
+    "soulmate-web-bd695": {
+      "storage": {
+        "soulmateStore": ["soulmate-web-bd695.firebasestorage.app"]
+      }
+    }
+  }
+}

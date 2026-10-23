@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getProducts } from '../../services/productService';
 import './kku-intelsphere-chat.css';
 
 const widgetScriptUrl = 'https://gen.ai.kku.ac.th/widget/chat-widget.es.js';
@@ -27,7 +28,9 @@ export function KkuIntelsphereChat() {
     let disposed = false;
     let positionFrame = 0;
     let positionAttempts = 0;
+    let widgetScanTimer = 0;
     let widgetObserver: MutationObserver | null = null;
+    let productLookup: ReturnType<typeof getProducts> | null = null;
     const widget = document.createElement('chat-widget-embed');
     widget.id = widgetElementId;
     // The storefront is rendered in an iframe. Keep the vendor widget above
@@ -62,20 +65,45 @@ export function KkuIntelsphereChat() {
       applyWidgetBranding(shadow!, container);
       return true;
     };
+    const scanWidget = () => {
+      const shadow = widget.shadowRoot;
+      if (!shadow) return;
+      const container = shadow.querySelector<HTMLElement>('#chat-widget-container');
+      if (container) applyWidgetBranding(shadow, container);
+      void addMentionedProductLinks(shadow, async () => {
+        if (!productLookup) productLookup = getProducts({ status: 'active' });
+        try {
+          const products = await productLookup;
+          if (!products.length) productLookup = null;
+          return products;
+        } catch {
+          productLookup = null;
+          return [];
+        }
+      });
+      if (!widgetObserver) {
+        widgetObserver = new MutationObserver(scanWidget);
+        widgetObserver.observe(shadow, { childList: true, subtree: true, characterData: true });
+      }
+    };
     const positionWidgetWhenReady = () => {
-      if (disposed || applyWidgetPosition() || positionAttempts++ >= 120) return;
+      if (disposed) return;
+      scanWidget();
+      if (applyWidgetPosition() || positionAttempts++ >= 120) return;
       positionFrame = window.requestAnimationFrame(positionWidgetWhenReady);
     };
     const scheduleWidgetPosition = () => {
       positionAttempts = 0;
       window.cancelAnimationFrame(positionFrame);
       positionFrame = window.requestAnimationFrame(positionWidgetWhenReady);
-      if (!widgetObserver && widget.shadowRoot) {
-        widgetObserver = new MutationObserver(() => {
-          const container = widget.shadowRoot?.querySelector<HTMLElement>('#chat-widget-container');
-          if (container) applyWidgetBranding(widget.shadowRoot!, container);
-        });
-        widgetObserver.observe(widget.shadowRoot, { childList: true, subtree: true });
+      if (!widgetObserver && !widgetScanTimer) {
+        widgetScanTimer = window.setInterval(() => {
+          scanWidget();
+          if (widgetObserver) {
+            window.clearInterval(widgetScanTimer);
+            widgetScanTimer = 0;
+          }
+        }, 250);
       }
     };
     window.addEventListener('resize', applyWidgetPosition);
@@ -115,6 +143,7 @@ export function KkuIntelsphereChat() {
     return () => {
       disposed = true;
       window.cancelAnimationFrame(positionFrame);
+      window.clearInterval(widgetScanTimer);
       window.removeEventListener('resize', applyWidgetPosition);
       widgetObserver?.disconnect();
       script?.removeEventListener('load', onScriptLoad);
@@ -125,6 +154,87 @@ export function KkuIntelsphereChat() {
 
   if (!loadError) return null;
   return <p className="kku-chat-fallback" role="status" aria-live="polite">{loadError}</p>;
+}
+
+async function addMentionedProductLinks(
+  shadow: ShadowRoot | null,
+  findProducts: () => ReturnType<typeof getProducts>
+) {
+  const messages = shadow?.querySelector<HTMLElement>('#chat-messages');
+  const popup = shadow?.querySelector<HTMLElement>('#chat-popup');
+  const transcriptContainer = messages || popup;
+  if (!transcriptContainer || transcriptContainer.dataset.soulmateProductLinkPending === 'true') return;
+
+  if (!normalizeProductText(transcriptContainer.innerText || transcriptContainer.textContent || '')) return;
+
+  transcriptContainer.dataset.soulmateProductLinkPending = 'true';
+  try {
+    const products = await findProducts();
+    if (!products.length || !transcriptContainer.isConnected) return;
+    const assistantText = Array.from(
+      transcriptContainer.querySelectorAll<HTMLElement>('#chat-messages > div.flex:not(.justify-end)')
+    ).map((message) => message.innerText).join(' ');
+    const transcript = normalizeProductText(assistantText || transcriptContainer.innerText || '');
+    const productTerms = products.map((product) => productMatchTerms(`${product.name} ${product.slug}`));
+    const matchedProducts = products.filter((product, index) => {
+      if (transcript.includes(normalizeProductText(product.name))) return true;
+      return productTerms[index].some((term) =>
+        productTerms.every((otherTerms, otherIndex) => otherIndex === index || !otherTerms.includes(term)) &&
+        transcript.includes(term)
+      );
+    });
+
+    let ctaRow = transcriptContainer.querySelector<HTMLElement>('[data-soulmate-product-ctas]');
+    if (!matchedProducts.length) {
+      ctaRow?.remove();
+      return;
+    }
+
+    if (!ctaRow) {
+      ctaRow = document.createElement('div');
+      ctaRow.dataset.soulmateProductCtas = 'true';
+      ctaRow.setAttribute('aria-label', 'รายละเอียดสินค้าที่กล่าวถึง');
+      transcriptContainer.append(ctaRow);
+    }
+
+    const matchedProductIds = new Set(matchedProducts.map((product) => product.id));
+    ctaRow.querySelectorAll<HTMLElement>('[data-product-id]').forEach((link) => {
+      if (!matchedProductIds.has(link.dataset.productId || '')) link.remove();
+    });
+    const currentProductIds = new Set(
+      Array.from(ctaRow.querySelectorAll<HTMLElement>('[data-product-id]'))
+        .map((link) => link.dataset.productId)
+    );
+
+    matchedProducts.forEach((product) => {
+      if (currentProductIds.has(product.id)) return;
+      const path = `/products/${encodeURIComponent(product.slug || product.id)}`;
+      const shortName = product.name.split(/\s+/).slice(0, 3).join(' ');
+      const link = document.createElement('a');
+      link.dataset.productId = product.id;
+      link.href = path;
+      link.textContent = `ดูสินค้า ${shortName}`;
+      link.setAttribute('aria-label', `ดูรายละเอียดสินค้า ${product.name}`);
+      link.addEventListener('click', (event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        window.history.pushState({}, '', path);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      });
+      ctaRow!.append(link);
+    });
+  } finally {
+    delete transcriptContainer.dataset.soulmateProductLinkPending;
+  }
+}
+
+function normalizeProductText(value: string) {
+  return value.normalize('NFKC').toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
+}
+
+function productMatchTerms(value: string) {
+  return (value.normalize('NFKC').toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [])
+    .filter((term) => term.length >= 5 && !['soulmate', 'plus', 'product'].includes(term));
 }
 
 function applyWidgetBranding(shadow: ShadowRoot, container: HTMLElement) {
@@ -175,6 +285,26 @@ function applyWidgetBranding(shadow: ShadowRoot, container: HTMLElement) {
       }
       #chat-header button { color: #583c20 !important; }
       #chat-messages { background: #fffdf9 !important; }
+      [data-soulmate-product-ctas] {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-start;
+        padding: 8px 16px 12px;
+      }
+      [data-soulmate-product-ctas] a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 9px 14px;
+        border: 1px solid #c99438;
+        border-radius: 999px;
+        background: #c99438;
+        color: #fff !important;
+        font: 600 13px/1.3 system-ui, sans-serif;
+        text-decoration: none !important;
+      }
+      [data-soulmate-product-ctas] a:hover { background: #a97827; }
       #chat-input-container { background: #fffaf1 !important; }
       #chat-submit { background: #c99438 !important; }
       .soulmate-heart-mascot {

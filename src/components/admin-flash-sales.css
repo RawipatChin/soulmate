@@ -1,0 +1,87 @@
+.flash-admin-page { max-width: 1180px; margin: 0 auto; padding: 32px clamp(18px, 3vw, 40px) 72px; color: #18332a; font: 14px/1.55 Inter, "Noto Sans Thai", system-ui, sans-serif; }
+.flash-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.flash-page-heading h2 { margin: 0; color: #173d30; font-size: 24px; line-height: 1.35; }
+.flash-page-heading p { margin: 5px 0 0; color: #596c63; }
+.flash-page-actions, .flash-image-actions, .flash-form-footer { display: flex; align-items: center; gap: 10px; }
+.flash-primary-button, .flash-secondary-button, .flash-icon-button, .flash-back-button { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 15px; border: 1px solid #d8e7df; border-radius: 12px; background: white; color: #285f4b; cursor: pointer; font: inherit; font-weight: 650; text-decoration: none; transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease; }
+.flash-primary-button { border-color: #2d6857; background: #2d6857; color: white; }
+.flash-primary-button:hover:not(:disabled) { background: #245846; }
+.flash-secondary-button:hover:not(:disabled), .flash-icon-button:hover:not(:disabled), .flash-back-button:hover { background: #eef8f3; }
+.flash-primary-button:disabled, .flash-secondary-button:disabled, .flash-icon-button:disabled { cursor: wait; opacity: .55; }
+.flash-icon-button { width: 42px; padding: 0; }
+.flash-icon-button.is-danger { color: #a73342; }
+.flash-icon-button.is-danger:hover:not(:disabled) { border-color: #edc5ca; background: #fff3f4; }
+.flash-back-button { min-height: 34px; margin-bottom: 12px; padding: 0; border: 0; color: #547267; }
+.flash-error { margin: 0 0 16px; padding: 11px 14px; border: 1px solid #efc6ca; border-radius: 12px; background: #fff5f5; color: #9d2835; }
+.flash-loading, .flash-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 220px; color: #536d61; text-align: center; }
+.flash-empty { border: 1px dashed #c9ded3; border-radius: 16px; background: #f8fcf9; }
+.flash-empty h3, .flash-empty p { margin: 0; }
+.flash-empty h3 { color: #183c2f; font-size: 18px; }
+.flash-empty p { margin-bottom: 8px; }
+.flash-spin { animation: flash-rotate 900ms linear infinite; }
+@keyframes flash-rotate { to { transform: rotate(360deg); } }
+.flash-list { border-top: 1px solid #dce8e1; }
+.flash-row { display: grid; grid-template-columns: 124px minmax(0, 1fr) auto auto auto; align-items: center; gap: 16px; padding: 16px 4px; border-bottom: 1px solid #e5eee9; }
+.flash-row-image, .flash-row-placeholder { width: 124px; aspect-ratio: 16/10; object-fit: cover; border-radius: 12px; background: #eef6f1; }
+.flash-row-placeholder { display: grid; place-items: center; color: #617c70; }
+.flash-row-copy { min-width: 0; }
+.flash-row-title { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.flash-row-title h3 { margin: 0; color: #183c2f; font-size: 16px; }
+.flash-row-copy p { margin: 4px 0; overflow: hidden; color: #4e665a; text-overflow: ellipsis; white-space: nowrap; }
+.flash-row-copy small { color: #596c63; font-size: 12px; }
+.flash-status { padding: 3px 8px; border-radius: 999px; background: #f1f3f2; color: #56625d; font-size: 11px; font-weight: 650; }
+.flash-status.is-live { background: #dff4e9; color: #155b3f; }
+.flash-switch { position: relative; width: 42px; height: 24px; padding: 0; border: 0; border-radius: 20px; background: #c7d1cc; cursor: pointer; }
+.flash-switch span { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0002; transition: transform 160ms ease; }
+.flash-switch.is-active { background: #2d6857; }
+.flash-switch.is-active span { transform: translateX(18px); }
+.flash-switch:disabled { cursor: wait; opacity: .55; }
+.flash-form-page { max-width: 1000px; }
+.flash-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); gap: 22px; padding: 22px; border: 1px solid #dce8e1; border-radius: 16px; background: #fff; }
+.flash-form-main { display: flex; flex-direction: column; gap: 18px; }
+.flash-field { display: flex; flex-direction: column; gap: 7px; color: #234536; font-weight: 600; }
+.flash-field input, .flash-field textarea { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #cfded6; border-radius: 10px; outline: none; background: #fbfdfc; color: #1c3329; font: inherit; font-weight: 400; }
+.flash-field textarea { resize: vertical; }
+.flash-field input:focus, .flash-field textarea:focus { border-color: #2d6857; box-shadow: 0 0 0 3px #a8e5cf66; }
+.flash-field small, .flash-image-field > small { color: #596c63; font-size: 12px; font-weight: 400; }
+.flash-date-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.flash-active { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid #e5eee9; }
+.flash-active span { display: flex; flex-direction: column; gap: 2px; color: #214233; }
+.flash-active small { color: #596c63; }
+.flash-image-field h3 { margin: 0 0 8px; color: #234536; font-size: 14px; }
+.flash-image-preview { display: grid; min-height: 180px; place-items: center; overflow: hidden; border: 1px dashed #bfd7ca; border-radius: 14px; background: #f3f9f5; color: #648273; }
+.flash-image-preview img { display: block; width: 100%; max-height: 300px; object-fit: contain; }
+.flash-image-actions { margin: 10px 0 6px; }
+.flash-form-footer { grid-column: 1 / -1; justify-content: flex-end; padding-top: 16px; border-top: 1px solid #e5eee9; }
+:where(.flash-admin-page) :focus-visible { outline: 3px solid #9edcc1; outline-offset: 2px; }
+
+.store-flash-dialog { position: fixed; inset: 50% auto auto 50%; width: min(520px, calc(100vw - 32px)); max-width: none; max-height: min(90dvh, 760px); padding: 0; transform: translate(-50%, -50%); overflow: auto; border: 1px solid #d9e7df; border-radius: 18px; background: #fff; color: #1c3329; box-shadow: 0 22px 70px #10271d45; }
+.store-flash-dialog::backdrop { background: #1a1a1a80; backdrop-filter: blur(3px); }
+.store-flash-dialog[open] { animation: flash-popup-in 340ms cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes flash-popup-in { from { opacity: 0; translate: 0 12px; scale: .97; } to { opacity: 1; translate: 0 0; scale: 1; } }
+.store-flash-close { position: absolute; z-index: 1; top: 12px; right: 12px; display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid #ffffffa8; border-radius: 50%; background: #fff; color: #243b30; cursor: pointer; box-shadow: 0 3px 10px #0002; }
+.store-flash-image { display: block; width: 100%; max-height: min(53dvh, 430px); object-fit: cover; background: #eef7f1; }
+.store-flash-content { padding: 22px 24px 24px; text-align: center; }
+.store-flash-label { display: inline-flex; margin-bottom: 8px; padding: 4px 9px; border-radius: 999px; background: #ffcae2; color: #812454; font-size: 11px; font-weight: 750; letter-spacing: .08em; }
+.store-flash-content h2 { margin: 0; color: #173d30; font-size: clamp(22px, 5vw, 30px); line-height: 1.3; }
+.store-flash-content p { margin: 8px auto 18px; color: #465e52; line-height: 1.6; white-space: pre-line; }
+.store-flash-cta { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; padding: 0 24px; border-radius: 12px; background: #9e3675; color: #fff; font-weight: 700; text-decoration: none; }
+.store-flash-cta:hover { background: #812454; }
+.store-flash-dialog :focus-visible { outline: 3px solid #2d6857; outline-offset: 3px; }
+@media (max-width: 680px) {
+  .flash-admin-page { padding: 24px 16px 56px; }
+  .flash-page-heading { align-items: flex-start; }
+  .flash-row { grid-template-columns: 84px minmax(0, 1fr) auto; gap: 10px; }
+  .flash-row-image, .flash-row-placeholder { width: 84px; }
+  .flash-row-copy p { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .flash-row > .flash-switch { grid-column: 3; grid-row: 1; }
+  .flash-row > .flash-icon-button { grid-row: 2; }
+  .flash-row > .flash-icon-button:nth-last-child(2) { grid-column: 2; justify-self: end; }
+  .flash-row > .flash-icon-button:last-child { grid-column: 3; }
+  .flash-form { grid-template-columns: 1fr; padding: 16px; }
+  .flash-image-field { grid-row: 1; }
+  .flash-date-grid { grid-template-columns: 1fr; }
+  .flash-form-footer { grid-column: 1; }
+  .store-flash-content { padding: 18px 18px 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .flash-spin, .store-flash-dialog[open] { animation-duration: .01ms; } }

@@ -7,6 +7,7 @@ export const adminSidebarLinks = [
   { path: '/admin/fulfillment', key: 'admin-fulfillment', label: 'Fulfillment', icon: 'local_shipping' },
   { path: '/admin/customers', key: 'admin-customers', label: 'Customers', icon: 'group' },
   { path: '/admin/banners', key: 'admin-banners', label: 'Banners', icon: 'view_carousel' },
+  { path: '/admin/flash-sales', key: 'admin-flash-sales', label: 'Flash Sale', icon: 'local_fire_department' },
   { path: '/admin/coupons', key: 'admin-coupons', label: 'Coupons', icon: 'confirmation_number' },
   { path: '/admin/settings', key: 'admin-settings', label: 'Settings', icon: 'settings' },
   { path: '/admin/admins', key: 'admin-roles', label: 'ผู้ดูแลและสิทธิ์', icon: 'manage_accounts', requiredRole: 'super_admin' },

@@ -1,6 +1,7 @@
 import { collection, doc, getDocs, runTransaction, type Firestore } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { Product, ProductVariant } from '../types';
+import { resolveProductSellingPrice, resolveVariantSellingPrice } from '../utils/productPricing';
 
 export const MAX_ORDER_LINES = 5;
 export const ORDER_SHIPPING_SATANG = 3000;
@@ -34,7 +35,9 @@ function optionData(product: Product, variant: ProductVariant | null): SellableO
     variantId: variant?.id ?? null,
     productName: product.name,
     variantName: variant?.displayName ?? null,
-    unitPriceSatang: Math.round(Number(variant?.price ?? product.price) * 100),
+    unitPriceSatang: Math.round((variant
+      ? resolveVariantSellingPrice(variant)
+      : resolveProductSellingPrice(product)) * 100),
     stock,
     available: stock,
     active: product.status === 'active' && (variant ? variant.active : !product.hasVariants),

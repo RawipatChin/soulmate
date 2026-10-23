@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SCREENS } from './screensData';
 import { ScreenRenderer } from './components/ScreenRenderer';
+import { AdminCouponsPage, AdminCouponFormPage } from './components/AdminCouponsPage';
 import type { ScreenDefinition } from './types';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -22,6 +23,9 @@ const OrderConfirmationPage = lazy(() => import('./components/OrderPages').then(
 const AdminFulfillmentPage = lazy(() => import('./components/AdminFulfillmentPage').then((module) => ({ default: module.AdminFulfillmentPage })));
 const AdminBannersPage = lazy(() => import('./components/AdminBannersPage').then((module) => ({ default: module.AdminBannersPage })));
 const AdminBannerFormPage = lazy(() => import('./components/AdminBannersPage').then((module) => ({ default: module.AdminBannerFormPage })));
+const AdminFlashSalesPage = lazy(() => import('./components/AdminFlashSalesPage').then((module) => ({ default: module.AdminFlashSalesPage })));
+const AdminFlashSaleFormPage = lazy(() => import('./components/AdminFlashSalesPage').then((module) => ({ default: module.AdminFlashSaleFormPage })));
+const StorefrontFlashSalePopup = lazy(() => import('./components/StorefrontFlashSalePopup').then((module) => ({ default: module.StorefrontFlashSalePopup })));
 const AdminRoleManagementPage = lazy(() => import('./components/AdminRoleManagementPage').then((module) => ({ default: module.AdminRoleManagementPage })));
 const ResetPasswordActionPage = lazy(() => import('./components/ResetPasswordActionPage').then((module) => ({ default: module.ResetPasswordActionPage })));
 
@@ -40,6 +44,11 @@ function RouteNotFound() {
     : <StorefrontContentPage {...userFacingPages.notFound} />;
 }
 
+function StorefrontFlashSaleLayer() {
+  const location = useLocation();
+  return location.pathname === '/' ? <StorefrontFlashSalePopup pathname={location.pathname} /> : null;
+}
+
 export default function App() {
   // Storefront screens
   const homeScreen = getScreen('storefront-home');
@@ -56,9 +65,6 @@ export default function App() {
   const adminProductsScreen = getScreen('admin-products');
   const adminAddProductScreen = getScreen('admin-add-product');
   const adminEditProductScreen = getScreen('admin-edit-product');
-  const adminCouponsScreen = getScreen('admin-coupons');
-  const adminAddCouponScreen = getScreen('admin-add-coupon');
-  const adminEditCouponScreen = getScreen('admin-edit-coupon');
   const adminSettingsScreen = getScreen('admin-settings');
 
   // Brand screen
@@ -327,10 +333,22 @@ export default function App() {
               element={<AdminProtectedRoute><AdminBannerFormPage /></AdminProtectedRoute>}
             />
             <Route
+              path="/admin/flash-sales"
+              element={<AdminProtectedRoute><AdminFlashSalesPage /></AdminProtectedRoute>}
+            />
+            <Route
+              path="/admin/flash-sales/new"
+              element={<AdminProtectedRoute><AdminFlashSaleFormPage /></AdminProtectedRoute>}
+            />
+            <Route
+              path="/admin/flash-sales/:flashSaleId/edit"
+              element={<AdminProtectedRoute><AdminFlashSaleFormPage /></AdminProtectedRoute>}
+            />
+            <Route
               path="/admin/coupons"
               element={
                 <AdminProtectedRoute>
-                  <ScreenRenderer screen={adminCouponsScreen} routeType="admin" backFallback="/admin/dashboard" />
+                  <AdminCouponsPage />
                 </AdminProtectedRoute>
               }
             />
@@ -338,7 +356,7 @@ export default function App() {
               path="/admin/coupons/new"
               element={
                 <AdminProtectedRoute>
-                  <ScreenRenderer screen={adminAddCouponScreen} routeType="admin" backFallback="/admin/coupons" />
+                  <AdminCouponFormPage />
                 </AdminProtectedRoute>
               }
             />
@@ -346,7 +364,7 @@ export default function App() {
               path="/admin/coupons/:couponId/edit"
               element={
                 <AdminProtectedRoute>
-                  <ScreenRenderer screen={adminEditCouponScreen} routeType="admin" backFallback="/admin/coupons" />
+                  <AdminCouponFormPage />
                 </AdminProtectedRoute>
               }
             />
@@ -394,6 +412,7 @@ export default function App() {
             {/* 404 Fallback */}
             <Route path="*" element={<RouteNotFound />} />
           </Routes>
+          <StorefrontFlashSaleLayer />
           </Suspense>
         </BrowserRouter>
       </CartProvider>
